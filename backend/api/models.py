@@ -4,12 +4,12 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.core.validators import ValidationError
 
-from api.utils 
+from api.utils import create_model
 
 # Create your models here.
 
 class Profile(models.Model):
-    user = models.OneToOneField(User,on_delete=models.PROTECT)
+    user = models.OneToOneField(User,related_name = 'profile',on_delete=models.CASCADE)
     
 @receiver(post_save,sender = User)
 def create_user_profile(sender,instance,created,**kwargs):
@@ -23,7 +23,7 @@ def save_user_profile(sender,instance,**kwargs):
 
 class Dataset(models.Model):
      
-    user = models.ForeignKey(Profile,related_name='datasets')
+    profile = models.ForeignKey(Profile,related_name='datasets',on_delete = models.CASCADE)
     name = models.CharField(max_length = 50)
 
     def __str__(self):
@@ -36,9 +36,9 @@ class Dataset(models.Model):
         return create_model(self.name, dict(fields), self.user.user)
 
     class Meta:
-        unique_together = (('user','name'),)
+        unique_together = (('profile','name'),)
     
-def is_valid_field(self, field_data, all_data):
+def is_valid_field(field_data):
 
     if hasattr(models,field_data) and issubclass(getattr(models, field_data), models.Field):
         return
@@ -46,7 +46,7 @@ def is_valid_field(self, field_data, all_data):
 
 class Field(models.Model):
     
-    dataset = models.ForeignKey(Dataset, related_name = 'fields')
+    dataset = models.ForeignKey(Dataset, related_name = 'fields',on_delete = models.CASCADE)
     name = models.CharField(max_length =  50)
     type = models.CharField(max_length = 50, validators = [is_valid_field])
 
@@ -61,9 +61,9 @@ class Field(models.Model):
     
 class Setting(models.Model):
 
-    field = models.ForeignKey(Field, related_name = 'settings')
+    field = models.ForeignKey(Field, related_name = 'settings',on_delete = models.CASCADE)
     name = models.CharField(max_length = 50)
-    value = models.CharField(max_lenght = 50)
+    value = models.CharField(max_length = 50)
 
     class Meta:
         unique_together = (('field','name'))
