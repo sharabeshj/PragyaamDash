@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from api.models import Profile,Dataset,Field,Setting
+from api.models import Profile,Dataset,Field,Setting,Table,Join
 
 class ProfileSerializer(serializers.ModelSerializer):
     
@@ -35,3 +35,44 @@ class SettingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Setting
         fields = ('field','name','value')
+
+class TableSerializer(serializers.ModelSerializer):
+
+    dataset = serializers.ReadOnlyField(source = 'dataset.name')
+
+    class Meta:
+        model = Table
+        fields = ('dataset','name')
+
+class JoinSerializer(serializers.ModelSerializer):
+
+    dataset = serializers.ReadOnlyField(source = 'dataset.name')
+
+    class Meta:
+        model = Join
+        fields = ('dataset','name')
+
+class GeneralSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = None
+        fields = ('id','field_1','field_4')
+
+class DynamicFieldsModelSerializer(serializers.ModelSerializer):
+
+    def __init__(self,*args,**kwargs):
+
+        fields = kwargs.pop('fields', None)
+
+        super(DynamicFieldsModelSerializer,self).__init__(*args,**kwargs)
+
+        if fields is not None:
+
+            allowed = set(fields)
+            existing = set(self.fields.keys())
+            for field_name in existing - allowed:
+                self.fields.pop(field_name)
+    
+    class Meta:
+        model = None
+        fields = '__all__'

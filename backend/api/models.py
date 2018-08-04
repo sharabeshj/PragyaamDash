@@ -33,7 +33,7 @@ class Dataset(models.Model):
 
         fields = [(f.name, f.get_django_field()) for f in self.fields.all()]
 
-        return create_model(self.name, dict(fields), self.user.user)
+        return create_model(self.name, dict(fields), self._meta.app_label)
 
     class Meta:
         unique_together = (('profile','name'),)
@@ -63,7 +63,23 @@ class Setting(models.Model):
 
     field = models.ForeignKey(Field, related_name = 'settings',on_delete = models.CASCADE)
     name = models.CharField(max_length = 50)
-    value = models.CharField(max_length = 50)
+    value = models.IntegerField()
 
     class Meta:
         unique_together = (('field','name'))
+
+
+class Table(models.Model):
+
+    dataset = models.ForeignKey(Dataset,related_name = 'tables',on_delete = models.CASCADE)
+    name = models.CharField(max_length = 50)
+
+    def __str__(self):
+        return self.name
+
+class Join(models.Model):
+
+    dataset = models.ForeignKey(Dataset,related_name = 'joins',on_delete = models.CASCADE)
+    type = models.CharField(max_length = 50)
+    field_1 = models.CharField(max_length = 50)
+    field_2 = models.CharField(max_length = 50)
