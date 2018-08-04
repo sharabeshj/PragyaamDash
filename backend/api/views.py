@@ -14,6 +14,7 @@ from rest_framework import permissions
 from django.contrib import admin
 from django.core.management import call_command
 from django.db import connection
+from django.core.cache import caches
 
 import collections
 # Create your views here.
@@ -117,6 +118,10 @@ class DatasetDetail(APIView):
                 print(table_data)
                 dynamic_serializer = DynamicFieldsModelSerializer(table_data,many = True,fields = set(model_fields))
                 model_data.extend(dynamic_serializer.data)
+                # try:
+                #     del caches[model._meta.app_label][t.name]
+                # except KeyError:
+                #     pass
             all_model_data=[]
             for x in model_data:
                 all_model_data += list(x.items())
