@@ -6,16 +6,19 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0001_initial'),
+        ('api', '0002_dataset_1'),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='dataset_1',
+            name='test_table_1',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('field_2', models.CharField(max_length=20)),
                 ('field_1', models.CharField(max_length=50)),
-                ('field_4', models.TextField()),
             ],
+            options={
+                'db_table': 'test_table_1',
+            },
         ),
     ]

@@ -56,7 +56,7 @@ class GeneralSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = None
-        fields = ('id','field_1','field_4')
+        fields = '__all__'
 
 class DynamicFieldsModelSerializer(serializers.ModelSerializer):
 

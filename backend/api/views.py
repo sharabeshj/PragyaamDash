@@ -118,7 +118,9 @@ class DatasetDetail(APIView):
                 print(table_data)
                 dynamic_serializer = DynamicFieldsModelSerializer(table_data,many = True,fields = set(model_fields))
                 model_data.extend(dynamic_serializer.data)
-                del table_model
+                call_command('makemigrations')
+                call_command('migratefake')
+                # del table_model
                 # try:
                 #     del caches[model._meta.app_label][t.name]
                 # except KeyError:
