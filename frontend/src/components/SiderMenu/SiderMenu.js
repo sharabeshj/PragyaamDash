@@ -1,6 +1,8 @@
 import React,{ Component } from 'react';
 import { Layout,Menu,Icon } from 'antd';
 
+import styles from '../../assets/less/components/siderMenu.less';
+
 const { Sider } = Layout;
 
 export default class SiderMenu extends Component {
@@ -18,10 +20,10 @@ export default class SiderMenu extends Component {
                     collapsible
                     collapsed = {true}
                     breakpoint = "lg"
-                    className = "sider"
+                    className = {styles.sider}
             
                 >
-                    <div className = "logo" key = "logo">
+                    <div className = {styles.logo} key = "logo">
                         <img src="" alt="logo"/>
                     </div>
                     <Menu theme = "dark" mode = "inline" defaultSelectedkeys = {['home']} style = {{ padding : '16px 0', width : '100%' }}>

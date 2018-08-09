@@ -1,10 +1,8 @@
 import React,{ Component } from 'react';
 import moment from 'moment';
 import groupBy from 'lodash/groupBy';
-import Debounce from 'lodash-decorators/debounce';
-import { Menu, Icon,Tag, Dropdown, Avatar, Divider, Tooltip } from 'antd';
-import classNames from 'classnames';
 
+import { Menu, Icon,Tag, Dropdown, Avatar, Divider, Tooltip,Spin } from 'antd';
 import HeaderSearch from '../HeaderSearch/HeaderSearch';
 import NoticeIcon from '../NoticeIcon/NoticeIcon';
 
@@ -52,8 +50,8 @@ export default class GlobalHeader extends Component {
         onCollapse(!collapsed);
         this.triggerResizeEvent();
     }
-    /* */
-    @Debounce(600)
+
+    // @Debounce(600)
     triggerResizeEvent(){
         const event = document.createElement('HTMLEvents');
         event.initEvent('resize',true, false);
@@ -91,10 +89,11 @@ export default class GlobalHeader extends Component {
         return(
             <div className = {styles.header}>
                 {isMobile && [
+                    <div>
                 <div className = {styles.logo} key = "logo">
                     <img src = {logo} alt = "logo" width = "32"/>
                 </div>
-                <Divider type = "vertical" key = "line" />
+                <Divider type = "vertical" key = "line" /></div>
                 ]}
                 <Icon 
                     className = {styles.trigger}
@@ -116,7 +115,7 @@ export default class GlobalHeader extends Component {
                     <Tooltip title = "search">
                         <a
                             target = "_blank"
-                            href = "#"
+                            href = "/"
                             rel = "noopener noferrer"
                             className = { styles.action }
                         >

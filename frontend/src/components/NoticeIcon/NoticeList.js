@@ -25,7 +25,7 @@ export default function NoticeList ({
     return (
         <div>
             <List className = {styles.list}>
-                {data.map((Item,i) => {
+                {data.map((item,i) => {
                     const itemCls = classNames(styles.Item, {
                         [styles.read] : item.read,
                     });

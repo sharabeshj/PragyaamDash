@@ -2,8 +2,6 @@ import React , {Component} from 'react';
 import PropTypes from 'prop-types';
 import { Input,Icon,AutoComplete }from 'antd';
 import classNames from 'classnames';
-import Debounce from 'lodash-decorators/debounce';
-import Bind from 'lodash-decorators/bind';
 
 import styles from '../../assets/less/components/headerSearch.less';
 
@@ -67,11 +65,11 @@ export default class HeaderSearch extends Component {
         onPressEnter(value);
     }
 
-    @Bind()
-    @Debounce(500, {
-        leading : true,
-        trailing : false,
-    })
+    // @Bind()
+    // @Debounce(500, {
+    //     leading : true,
+    //     trailing : false,
+    // })
 
     render(){
         const { className,placeholder,...restProps } = this.props;

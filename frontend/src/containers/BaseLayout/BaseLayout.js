@@ -1,5 +1,5 @@
 import React,{Component} from 'react';
-import {Layout,Menu,Icon,SubMenu,message} from 'antd';
+import {Layout,message} from 'antd';
 import { enquireScreen, unenquireScreen } from 'enquire-js';
 
 import SiderMenu from '../../components/SiderMenu/SiderMenu';
@@ -8,11 +8,11 @@ import GlobalHeader from '../../components/GlobalHeader/GlobalHeader';
 
 import '../../assets/css/containers/layout.css';
 
-const {Header,Sider,Content} = Layout;
+const {Content,Header} = Layout;
 
 let isMobile;
 enquireScreen(b => {
-    isMobile : b;
+    isMobile = b;
 });
 
 class BaseLayout extends Component{
@@ -63,6 +63,7 @@ class BaseLayout extends Component{
             routerData,
             match,
             location,
+            logo
         } = this.props;
         
         const { isMobile: mb } = this.state;
@@ -75,7 +76,7 @@ class BaseLayout extends Component{
                             logo = {logo}
                             currentUser = {currentUser}
                             fetchingNotices = {fetchingNotices}
-                            notices = {notices}
+                            notices = {['one','two']}
                             collapsed = {collapsed}
                             isMobile = {mb}
                             onNoticeclear = {this.handleNoticeClear}

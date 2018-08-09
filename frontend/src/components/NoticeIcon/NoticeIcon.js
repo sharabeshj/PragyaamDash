@@ -1,11 +1,10 @@
 import React,{Component} from 'react';
-import { Popover, Icon, Badge, Spin, Tabs, List } from 'antd';
+import { Popover, Icon, Badge, Spin, Tabs} from 'antd';
 import classNames from 'classnames';
 
 import NoticeList from './NoticeList';
 
-import styles from '../.m./assets/less/components/noticeList.less';
-import Item from 'antd/lib/list/Item';
+import styles from '../../assets/less/components/noticeList.less';
 
 const {TabPane} = Tabs;
 
@@ -33,9 +32,9 @@ export default class NoticeIcon extends Component {
         }
     }
 
-    onItemClick = (Item, tabProps) => {
+    onItemClick = (item, tabProps) => {
         const { onItemClick } = this.props;
-        onItemclick(item,tabProps);
+        onItemClick(item,tabProps);
     }
 
     onTabChange = tabType => {
@@ -78,9 +77,9 @@ export default class NoticeIcon extends Component {
     }
 
     render(){
-        const { className, count, popupAlign, onPopupVisibilityChange, popupVisible } = this.props;
+        const { className, count, popupAlign, onPopupVisibilityChange, popupVisible,notification } = this.props;
         const noticeButtonClass = classNames(className, styles.noticeButton);
-        const notifiationBox = this.getNotificationBox();
+        const notificationBox = this.getNotificationBox();
         const trigger = (
             <span className = {noticeButtonClass}>
                 <Badge count = {count} className = {styles.badge}>
