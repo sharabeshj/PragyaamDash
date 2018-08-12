@@ -3,27 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "antd": "^3.8.0",
-    "enquire-js": "^0.2.1",
-    "lodash": "^4.17.10",
-    "lodash-decorators": "^6.0.0",
-    "moment": "^2.22.2",
-    "prop-types": "^15.6.2",
-    "react": "^16.4.1",
-    "react-dom": "^16.4.1",
-    "react-scripts": "1.1.4",
-    "yarn": "^1.9.4"
+    "react": "^16.4.2",
+    "react-dom": "^16.4.2",
+    "react-scripts": "1.1.4"
   },
   "scripts": {
-    "start": "react-app-rewired start",
-    "build": "react-app-rewired build",
-    "test": "react-app-rewired test --env=jsdom",
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject"
-  },
-  "devDependencies": {
-    "babel-plugin-import": "^1.8.0",
-    "babel-plugin-transform-decorators": "^6.24.1",
-    "react-app-rewire-less": "^2.1.2",
-    "react-app-rewired": "^1.5.2"
   }
 }
