@@ -1,6 +1,7 @@
 import {
     drawerWidth,
 } from '../../frontend';
+import green from '@material-ui/core/colors/green';
 
 const datasetStyle = theme => ({
     root : {
@@ -24,6 +25,13 @@ const datasetStyle = theme => ({
         backgroundColor : theme.palette.background.default,
         padding : theme.spacing.unit * 3,
     },
+    radio : {
+        color : green[600],
+        '&$checked' : {
+            color : green[500],
+        },
+    },
+    radio_checked : {},
 });
 
 export default datasetStyle;

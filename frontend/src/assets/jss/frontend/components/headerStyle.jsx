@@ -16,6 +16,7 @@ import {
       borderBottom: "0",
       marginBottom: "0",
       position: "absolute",
+      // height : '64px',
       width: "100%",
       // paddingTop: "10px",
       zIndex: "1029",
