@@ -1,4 +1,4 @@
-.storm-diagrams-canvas {
+.srd-diagram {
 	position: relative;
 	flex-grow: 1;
 	display: flex;
@@ -7,25 +7,25 @@
 	height: 800px;
 	background-color: rgb(60, 60, 60);
 }
-.storm-diagrams-canvas .point {
+.srd-diagram .point {
 	fill: rgba(255, 255, 255, 0.5);
 }
-.storm-diagrams-canvas .point.selected {
+.srd-diagram .point.selected {
 	fill: #00c0ff;
 }
-.storm-diagrams-canvas .selector {
+.srd-diagram .selector {
 	position: absolute;
 	background-color: rgba(0, 192, 255, 0.2);
 	border: solid 2px #00c0ff;
 }
-.storm-diagrams-canvas svg {
+.srd-diagram svg {
 	position: absolute;
 	height: 100%;
 	width: 100%;
 	transform-origin: 0 0;
 	overflow: visible;
 }
-.storm-diagrams-canvas .node-view {
+.srd-diagram .srd-node-layer {
 	top: 0;
 	left: 0;
 	right: 0;
@@ -34,7 +34,7 @@
 	pointer-events: none;
 	transform-origin: 0 0;
 }
-.storm-diagrams-canvas .node {
+.srd-diagram .srd-node {
 	position: absolute;
 	-webkit-touch-callout: none;
 	/* iOS Safari */
@@ -44,7 +44,7 @@
 	cursor: move;
 	pointer-events: all;
 }
-.storm-diagrams-canvas .node.selected > * {
+.srd-diagram .srd-node--selected > * {
 	border-color: #00c0ff !important;
 	-webkit-filter: drop-shadow(0 0 20px rgba(0, 192, 255, 0.5));
 }
@@ -56,25 +56,25 @@
 		stroke-dashoffset: 0;
 	}
 }
-.storm-diagrams-canvas path {
+.srd-diagram path {
 	fill: none;
 	pointer-events: all;
 }
-.storm-diagrams-canvas path.selected {
+.srd-diagram path.selected {
 	stroke: #00c0ff !important;
 	stroke-dasharray: 10, 2;
 	animation: dash 1s linear infinite;
 }
-.storm-diagrams-canvas .port {
+.srd-diagram .port {
 	width: 15px;
 	height: 15px;
 	background: rgba(255, 255, 255, 0.1);
 }
-.storm-diagrams-canvas .port:hover,
-.storm-diagrams-canvas .port.selected {
+.srd-diagram .port:hover,
+.srd-diagram .port.selected {
 	background: #c0ff00;
 }
-.storm-diagrams-canvas .basic-node {
+.srd-diagram .srd-default-node {
 	background-color: #1e1e1e;
 	border-radius: 5px;
 	font-family: Arial;
@@ -84,54 +84,54 @@
 	font-size: 11px;
 	box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 }
-.storm-diagrams-canvas .basic-node .title {
+.srd-diagram .srd-default-node__title {
 	/*			background-image: linear-gradient(rgba(black,0.1),rgba(black,0.2));*/
 	background: rgba(0, 0, 0, 0.3);
 	display: flex;
 	white-space: nowrap;
 }
-.storm-diagrams-canvas .basic-node .title > * {
+.srd-diagram .srd-default-node__title > * {
 	align-self: center;
 }
-.storm-diagrams-canvas .basic-node .title .fa {
+.srd-diagram .srd-default-node__title .fa {
 	padding: 5px;
 	opacity: 0.2;
 	cursor: pointer;
 }
-.storm-diagrams-canvas .basic-node .title .fa:hover {
+.srd-diagram .srd-default-node__title .fa:hover {
 	opacity: 1.0;
 }
-.storm-diagrams-canvas .basic-node .title .name {
+.srd-diagram .srd-default-node__title .name {
 	flex-grow: 1;
 	padding: 5px 5px;
 }
-.storm-diagrams-canvas .basic-node .ports {
+.srd-diagram .srd-default-node__ports {
 	display: flex;
 	background-image: linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.2));
 }
-.storm-diagrams-canvas .basic-node .ports .in,
-.storm-diagrams-canvas .basic-node .ports .out {
+.srd-diagram .srd-default-node__ports .srd-default-node__in,
+.srd-diagram .srd-default-node__ports .srd-default-node__out {
 	flex-grow: 1;
 	display: flex;
 	flex-direction: column;
 }
-.storm-diagrams-canvas .basic-node .ports .in-port,
-.storm-diagrams-canvas .basic-node .ports .out-port {
+.srd-diagram .srd-default-node__ports .srd-default-port--in,
+.srd-diagram .srd-default-node__ports .srd-default-port--out {
 	display: flex;
 	margin-top: 1px;
 }
-.storm-diagrams-canvas .basic-node .ports .in-port > *,
-.storm-diagrams-canvas .basic-node .ports .out-port > * {
+.srd-diagram .srd-default-node__ports .srd-default-port--in > *,
+.srd-diagram .srd-default-node__ports .srd-default-port--out > * {
 	align-self: center;
 }
-.storm-diagrams-canvas .basic-node .ports .in-port .name,
-.storm-diagrams-canvas .basic-node .ports .out-port .name {
+.srd-diagram .srd-default-node__ports .srd-default-port--in .name,
+.srd-diagram .srd-default-node__ports .srd-default-port--out .name {
 	padding: 0 5px;
 }
-.storm-diagrams-canvas .basic-node .ports .out-port {
+.srd-diagram .srd-default-node__ports .srd-default-port--out {
 	justify-content: flex-end;
 }
-.storm-diagrams-canvas .basic-node .ports .out-port .name {
+.srd-diagram .srd-default-node__ports .srd-default-port--out .name {
 	justify-content: flex-end;
 	text-align: right;
 }

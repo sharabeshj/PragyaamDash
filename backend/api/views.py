@@ -60,6 +60,7 @@ class DatasetList(APIView):
                     field_serializer.save(dataset = dataset)
                 for s in f['settings']:
                     field = Field.objects.filter(dataset__name = data['name']).get(name = f['name'])
+                    print(s)
                     settings_serializer = SettingSerializer(data = s)
                     if settings_serializer.is_valid():
                         settings_serializer.save(field = field)
@@ -126,24 +127,37 @@ class DatasetDetail(APIView):
                 # except KeyError:
                 #     pass
             all_model_data=[]
+            print(model_data)
             for x in model_data:
                 all_model_data += list(x.items())
             all_model_data_dict = collections.defaultdict(list)
             for x in all_model_data:
                 all_model_data_dict[x[0]].append(x[1])
             print(dict(all_model_data_dict))
-            i = 0
             all_model_data_list = []
-            d = {}
+            max=0
 
             for key,value in dict(all_model_data_dict).items():
-                d.update({key : value[i]})
-            
-            all_model_data_list.append(d)
+                count=0
+                for i in value:
+                    count+=1
+                if count>=max: max=count
+            print(max)
+            for x in range(max):
+                d = {}
+                for key,value in dict(all_model_data_dict).items():
+                    try:
+                        d.update({key : value[x]})
+                        # print(value[x])
+                    except:
+                        pass
+                    
+                all_model_data_list.append(d)
             print(all_model_data_list)
             serializer = GeneralSerializer(data = all_model_data_list,many = True)
             if serializer.is_valid():
                 print('hi')
+
                 serializer.save()
             else:
                 return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)

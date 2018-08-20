@@ -28,6 +28,7 @@ import { Divider, Typography, Radio } from '../../../node_modules/@material-ui/c
 import datasetStyle from '../../assets/jss/frontend/views/dataset';
 import '../../assets/css/srd.css';
 
+// require("storm-react-diagrams/dist/style.min.css");
 class Dataset extends Component {
     constructor(props){
         super(props);
@@ -41,6 +42,7 @@ class Dataset extends Component {
 
     componentWillMount(){
         this.engine = new DiagramEngine();
+
         this.engine.registerNodeFactory(new DefaultNodeFactory());
         this.engine.registerLinkFactory(new DefaultLinkFactory());
     }
@@ -84,6 +86,7 @@ class Dataset extends Component {
                return ( <div key = {key}
                         draggable = {true}
                         onDragStart = { event => {
+                            console.log('start');
                             event.dataTransfer.setData('worksheet',JSON.stringify({ name : worksheet, key : key }));
                             this.handleToggle(key);
                         }}
@@ -128,22 +131,22 @@ class Dataset extends Component {
             <div className = {classes.root}>
                 <div className = {classes.appFrame}>
                 {drawer}
-                <main className = {classes.content}>
-                    {/* <div className = {classes.toolbar}/> */}
+                <div className = {classes.content}>
                     <div
                         className = "diagram-layer"
                         onDrop = { event => {
-                            event.preventDefault();
+                            console.log('drop');
                             let data = JSON.parse(event.dataTransfer.getData('worksheet'));
                             let worksheet = new DefaultNodeModel(`worksheet ${data.key + 1}`);
                             worksheet.addPort(new DefaultPortModel(true,'in-1','X'));
-                            // worksheet.addPort(new DefaultPortModel(false,'out-1','O'));
+                            worksheet.addPort(new DefaultPortModel(false,'out-1','O'));
                             let points = this.engine.getRelativeMousePoint(event);
                             console.log(points);
                             worksheet.x = points.x;
                             worksheet.y = points.y;
                             this.engine.getDiagramModel().addNode(worksheet);
-                            this.forceUpdate();
+                            console.log(this.engine.getDiagramModel());
+                            this.forceUpdate ();
                         }}
                         onDragOver = { event => {
                             event.preventDefault();
@@ -151,8 +154,7 @@ class Dataset extends Component {
                     >
                         <DiagramWidget diagramEngine= {this.engine}/>
                     </div>
-                </main>
-         
+                </div>
                 </div>
             </div>
         );

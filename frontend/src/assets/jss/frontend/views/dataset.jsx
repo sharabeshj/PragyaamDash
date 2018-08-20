@@ -22,6 +22,7 @@ const datasetStyle = theme => ({
     toolbar : theme.mixins.toolbar,
     content: {
         flexGrow : 1,
+        width : '100%',
         backgroundColor : theme.palette.background.default,
         padding : theme.spacing.unit * 3,
     },

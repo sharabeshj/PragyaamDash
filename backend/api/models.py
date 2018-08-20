@@ -53,6 +53,7 @@ class Field(models.Model):
     def get_django_field(self):
 
         settings = [(s.name,s.value) for s in self.settings.all()]
+        settings.append(tuple(('blank',True)))
 
         return getattr(models, self.type)(**dict(settings))
     

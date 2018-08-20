@@ -17,6 +17,7 @@ def get_model(table_name,app_name):
         elif fieldType == 'integer': attrs[x] =  models.IntegerField()
         elif fieldType == 'text': attrs[x] = models.TextField()
         else: print ("Problem handling datatbase table",x,y['type'])
+
     
     return create_model(table_name,attrs,app_label=app_name,module='',options={'db_table' : table_name})
 
