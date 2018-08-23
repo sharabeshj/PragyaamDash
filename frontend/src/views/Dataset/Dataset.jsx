@@ -9,6 +9,7 @@ import {
     DefaultNodeModel,
     DefaultPortModel
 } from 'storm-react-diagrams';
+import { connect } from 'react-redux';
 
 
 import { withStyles } from '@material-ui/core/styles';
@@ -17,26 +18,27 @@ import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
 import ListItemText from '@material-ui/core/ListItemText';
 import ListItemSecondaryAction from '@material-ui/core/ListItemSecondaryAction';
+import { Divider, Typography, Radio } from '../../../node_modules/@material-ui/core';
 
 import GridItem from '../../components/Grid/GridItem';
 import GridContainer from '../../components/Grid/GridContainer';
 import Card from '../../components/Card/Card';
 import CardHeader from '../../components/Card/CardHeader';
 import CardBody from '../../components/Card/CardBody';
-import { Divider, Typography, Radio } from '../../../node_modules/@material-ui/core';
+import OptionToolbar from '../../components/OptionToolbar/OptionToolbar';
 
 import datasetStyle from '../../assets/jss/frontend/views/dataset';
 import '../../assets/css/srd.css';
 
-// require("storm-react-diagrams/dist/style.min.css");
 class Dataset extends Component {
     constructor(props){
         super(props);
         this.state = {
             workSpace : ['workspace_1'],
             selectedWorkSpace : '',
-            workSheet : ['worsheet_1','worksheet_2'],
-            selectedWorkSheet : []
+            workSheet : ['Worksheet 1','Worksheet 2'],
+            selectedWorkSheet : [],
+            worksheetData : []
         };
     }
 
@@ -47,12 +49,25 @@ class Dataset extends Component {
         this.engine.registerLinkFactory(new DefaultLinkFactory());
     }
 
-    componentDidMount(){
-        // this.getWorkspace();
+    componentDidUpdate(prevProps,prevState){
+        if(this.props.dataset.fields.length !== prevProps.dataset.fields.length){
+            this.props.dataset.fields.map(field => {
+                Object.entries(this.engine.getDiagramModel().getNodes()).forEach(
+                    ([key,value]) => {
+                        console.log(value);
+                        if(value.name === field.worksheet_name){
+                            console.log('hi from inside');
+                            this.engine.getDiagramModel().getNode(key).addPort(new DefaultPortModel(false,`out-${field.name}`,field.name));
+                            this.forceUpdate();
+                        }
+                    }
+                )
+            });
+        }
     }
 
     getWorkspace = () => {
-        this.setState({ workSpace : 'workspace_1'})
+        
     }
 
     handleToggle = value  => {
@@ -72,14 +87,126 @@ class Dataset extends Component {
         })
     }
 
-    // getWorksheets = (workSpace) => {
-    //     this.setState({ ...this.state.workSheet,[{ name : 'worksheet_1'}] })
-    // }
-
+    getWorksheetData = (worksheet) => {
+        let newWorksheetData = {
+            "worksheet_name": "Worksheet 1",
+            "worksheet_id": "pgzNw89",
+            "userid": "Code Company",
+            "rows": "0",
+            "columns": "0",
+            "last_updated": "5 days"
+        };
+        newWorksheetData.columnData = {
+            "data": [
+                {
+                    "column": "name",
+                    "column_aliases": "name",
+                    "type": "text",
+                    "tool_tip": "Please Enter the Price",
+                    "required": 1,
+                    "static": true,
+                    "value": null
+                },
+                {
+                    "column": "Price",
+                    "column_aliases": "price",
+                    "type": "single",
+                    "tool_tip": "Please Enter the Price",
+                    "required": 1,
+                    "static": true,
+                    "value": [
+                        ""
+                    ]
+                },
+                {
+                    "column": "DOB",
+                    "column_aliases": "date_of_birth",
+                    "type": "text",
+                    "tool_tip": "Please Enter the Price",
+                    "required": 1,
+                    "static": true,
+                    "value": null
+                },
+                {
+                    "column": "Sl.No",
+                    "column_aliases": "sl_no",
+                    "type": "number",
+                    "tool_tip": "Please Enter the Number",
+                    "required": 1,
+                    "static": true,
+                    "value": null
+                },
+                {
+                    "column": "Quality No",
+                    "column_aliases": "quality_no",
+                    "type": "number",
+                    "tool_tip": "Please Enter the Number",
+                    "required": 1,
+                    "static": true,
+                    "value": null
+                },
+                {
+                    "column": "Address",
+                    "column_aliases": "address",
+                    "type": "text",
+                    "tool_tip": "Please Enter the Address",
+                    "required": 1,
+                    "static": true,
+                    "value": null
+                },
+                {
+                    "column": "Pincode",
+                    "column_aliases": "pincode",
+                    "type": "text",
+                    "tool_tip": "Please Enter the Pincode",
+                    "required": 1,
+                    "static": true,
+                    "value": null
+                },
+                {
+                    "column": "Zip Code",
+                    "column_aliases": "zip_code",
+                    "type": "text",
+                    "tool_tip": "Please Enter the Zip Code",
+                    "required": 1,
+                    "static": true,
+                    "value": null
+                },
+                {
+                    "column": "Sales Date",
+                    "column_aliases": "sales_date",
+                    "type": "text",
+                    "tool_tip": "Please Enter the Date",
+                    "required": 1,
+                    "static": true,
+                    "value": null
+                }
+            ],
+            "columns": [
+                "name",
+                "price",
+                "date_of_birth",
+                "sl_no",
+                "quality_no",
+                "address",
+                "pincode",
+                "zip_code",
+                "sales_date"
+            ]
+         }
+        this.setState(prevState => {
+            const worksheetData = [...prevState.worksheetData,newWorksheetData];
+            console.log(worksheetData);
+            return {worksheetData : worksheetData};
+        });
+    }
+    
     render(){
         const {classes} = this.props;
 
         let list = null;
+
+        let optionToolbar = null;
 
         if(this.state.workSheet !== []){
             list = this.state.workSheet.map((worksheet,key) => {
@@ -109,12 +236,19 @@ class Dataset extends Component {
             })
         }
 
+        if(this.state.worksheetData.length > 0){
+            console.log('hi');
+            optionToolbar = (
+                <OptionToolbar worksheetData = {this.state.worksheetData}/>
+             );
+        }
+
         const drawer = (
             <Drawer
                 variant = "permanent"
-                classes = {{
-                    paper : classes.drawerPaper
-                }}
+                // classes = {{
+                //     paper : classes.drawerPaper
+                // }}
                 anchor = "left"
             >
                  <div className = {classes.toolbar}>
@@ -124,7 +258,8 @@ class Dataset extends Component {
                  <List>
                  {list}
                  </List>
-                 
+                 <Divider />
+                 {optionToolbar}
             </Drawer>
         )
         return (
@@ -135,18 +270,20 @@ class Dataset extends Component {
                     <div
                         className = "diagram-layer"
                         onDrop = { event => {
-                            console.log('drop');
+                            event.preventDefault();
                             let data = JSON.parse(event.dataTransfer.getData('worksheet'));
-                            let worksheet = new DefaultNodeModel(`worksheet ${data.key + 1}`);
+                            let worksheet = new DefaultNodeModel(data.name);
                             worksheet.addPort(new DefaultPortModel(true,'in-1','X'));
                             worksheet.addPort(new DefaultPortModel(false,'out-1','O'));
                             let points = this.engine.getRelativeMousePoint(event);
-                            console.log(points);
+                            console.log(worksheet);
                             worksheet.x = points.x;
                             worksheet.y = points.y;
+                            worksheet.extras = (<div>hi</div>)
                             this.engine.getDiagramModel().addNode(worksheet);
                             console.log(this.engine.getDiagramModel());
                             this.forceUpdate ();
+                            this.getWorksheetData(data.name);
                         }}
                         onDragOver = { event => {
                             event.preventDefault();
@@ -165,4 +302,8 @@ Dataset.propTypes = {
     classes : PropTypes.object.isRequired,
 }
 
-export default withStyles(datasetStyle)(Dataset);
+const mapStateToProps = state => ({
+    dataset : state.dataset.dataset
+})
+
+export default connect(mapStateToProps,null)(withStyles(datasetStyle)(Dataset));

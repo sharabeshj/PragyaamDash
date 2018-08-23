@@ -18,9 +18,13 @@
     "react-chartist": "0.13.1",
     "react-dom": "^16.4.2",
     "react-google-maps": "9.4.5",
+    "react-redux": "^5.0.7",
     "react-router-dom": "4.3.1",
     "react-scripts": "1.1.4",
     "react-swipeable-views": "0.12.15",
+    "redux": "^4.0.0",
+    "redux-logger": "^3.0.6",
+    "redux-thunk": "^2.3.0",
     "storm-react-diagrams": "^5.2.1"
   },
   "scripts": {
