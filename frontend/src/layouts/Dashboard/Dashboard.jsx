@@ -34,7 +34,10 @@ class App extends React.Component {
       mobileOpen: false
     };
     this.resizeFunction = this.resizeFunction.bind(this);
+    this.dashboardRoutes = dashboardRoutes;
+    this.logo = logo;
   }
+  
   handleDrawerToggle = () => {
     this.setState({ mobileOpen: !this.state.mobileOpen });
   };
@@ -65,16 +68,19 @@ class App extends React.Component {
   }
   render() {
     const { classes, ...rest } = this.props;
+    const dashboardRoutes = this.dashboardRoutes;
+    const logo = this.logo;
+    console.log(dashboardRoutes);
     return (
       <div className={classes.wrapper}>
-        {/* <Sidebar
+        <Sidebar
           routes={dashboardRoutes}
           logo={logo}
           handleDrawerToggle={this.handleDrawerToggle}
           open={this.state.mobileOpen}
           color="blue"
           {...rest}
-        /> */}
+        />
         <div className={classes.mainPanel} ref="mainPanel">
           <Header
             routes={dashboardRoutes}

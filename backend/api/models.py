@@ -49,16 +49,18 @@ class Field(models.Model):
     dataset = models.ForeignKey(Dataset, related_name = 'fields',on_delete = models.CASCADE)
     name = models.CharField(max_length =  50)
     type = models.CharField(max_length = 50, validators = [is_valid_field])
+    worksheet = models.CharField(max_length = 50)
 
     def get_django_field(self):
 
         settings = [(s.name,s.value) for s in self.settings.all()]
         settings.append(tuple(('blank',True)))
+        settings.append(tuple(('null',True)))
 
         return getattr(models, self.type)(**dict(settings))
     
     class Meta:
-        unique_together = (('dataset','name'),)
+        unique_together = (('dataset','name','worksheet'),)
     
 class Setting(models.Model):
 
@@ -82,5 +84,6 @@ class Join(models.Model):
 
     dataset = models.ForeignKey(Dataset,related_name = 'joins',on_delete = models.CASCADE)
     type = models.CharField(max_length = 50)
-    field_1 = models.CharField(max_length = 50)
-    field_2 = models.CharField(max_length = 50)
+    field = models.CharField(max_length = 50)
+    worksheet_1 = models.CharField(max_length = 50)
+    worksheet_2 = models.CharField(max_length = 50)

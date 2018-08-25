@@ -59,7 +59,7 @@ class DatasetList(APIView):
                 if field_serializer.is_valid():
                     field_serializer.save(dataset = dataset)
                 for s in f['settings']:
-                    field = Field.objects.filter(dataset__name = data['name']).get(name = f['name'])
+                    field = Field.objects.filter(dataset__name = data['name']).filter(worksheet = f['worksheet']).get(name = f['name'])
                     print(s)
                     settings_serializer = SettingSerializer(data = s)
                     if settings_serializer.is_valid():
@@ -107,17 +107,92 @@ class DatasetDetail(APIView):
             joins = Join.objects.filter(dataset =  dataset)
             model_fields = [f.name for f in model._meta.get_fields()]
             model_data = []
+            data = []
+
             for t in tables:
-                table_model = get_model(t.name,model._meta.app_label)
-                DynamicFieldsModelSerializer.Meta.model = table_model
                 cursor = connection.cursor()
                 cursor.execute('select * from %s'%(t.name))
                 table_data = dictfetchall(cursor)
+                # print(table_data)
+
+                data.append({'name' : t.name, 'table_data' : table_data})
+            
+            for join in joins:
+
+                if join.type == 'Inner-Join':
+                    check_1 = []
+                    for d in data:
+                        if d['name'] == join.worksheet_1:
+                            
+                            for x in d['table_data']:
+                                # print(d['table_data'])
+                                check_1.append(x)
+                                for a in data:
+                                    if a['name'] == join.worksheet_2:
+                                        check_2 = []
+                                        # print(a['table_data'])
+                                        for c in a['table_data']:
+                                            if c[join.field] == x[join.field]:
+                                                check_2.append(c)
+                                                # print(check_2)
+                                        if check_2 == []:
+                                            check_1.remove(x)
+                                            break
+                                        a['table_data'] = [x for x in check_2]
+                                        
+
+                                        print(a['table_data'])
+                                    
+                            d['table_data'] = [ x for x in check_1]
+                            print([ x for x in check_1])
+                    
+                    continue
+                if join.type == 'Left-Join':
+                    check_2 = []
+                    for d in data:
+                        if d['name'] == join.worksheet_1:
+                            
+                            for x in d['table_data']:
+                                for a in data:
+                                    if a['name'] == join.worksheet_2:
+
+                                        for c in a['table_data']:
+                                            if C[join.field] == x[join.field]:
+                                                check_2.append(a['table_data'])
+                                    
+                                        a['table_data'] = [x for x in check_2]       
+                    continue
+                if join.type == 'Right-Join':
+                    check_1 = []
+                    check_2 = []
+                    for d in data:
+                        if d['name'] == join.worksheet_1:
+                            
+                            for x in d['table_data']:
+                                check_1.append(x)
+                                for a in data:
+                                    if a['name'] == join.worksheet_2:
+                                        for c in a['table_data']:
+                                            if C[join.field] == x[join.field]:
+                                                check_2.append(a['table_data'])
+                                        if check_2 == []:
+                                            check_1.pop()
+
+                            d['table_data'] = [ x for x in check_1]        
+                    continue
+                if join.type == 'Outer-Join':
+                    continue
+                    
+
+            for d in data:
+                table_model = get_model(d['name'],model._meta.app_label)
+                DynamicFieldsModelSerializer.Meta.model = table_model
+                
                 context = {
                     "request" : request,
                 }
-                print(table_data)
-                dynamic_serializer = DynamicFieldsModelSerializer(table_data,many = True,fields = set(model_fields))
+                print(d['table_data'])
+                dynamic_serializer = DynamicFieldsModelSerializer(d['table_data'],many = True,fields = set(model_fields))
                 model_data.extend(dynamic_serializer.data)
                 call_command('makemigrations')
                 call_command('migratefake')
@@ -127,13 +202,13 @@ class DatasetDetail(APIView):
                 # except KeyError:
                 #     pass
             all_model_data=[]
-            print(model_data)
+            # print(model_data)
             for x in model_data:
                 all_model_data += list(x.items())
             all_model_data_dict = collections.defaultdict(list)
             for x in all_model_data:
                 all_model_data_dict[x[0]].append(x[1])
-            print(dict(all_model_data_dict))
+            # print(dict(all_model_data_dict))
             all_model_data_list = []
             max=0
 
@@ -153,7 +228,7 @@ class DatasetDetail(APIView):
                         pass
                     
                 all_model_data_list.append(d)
-            print(all_model_data_list)
+            # print(all_model_data_list)
             serializer = GeneralSerializer(data = all_model_data_list,many = True)
             if serializer.is_valid():
                 print('hi')

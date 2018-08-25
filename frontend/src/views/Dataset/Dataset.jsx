@@ -26,6 +26,7 @@ import Card from '../../components/Card/Card';
 import CardHeader from '../../components/Card/CardHeader';
 import CardBody from '../../components/Card/CardBody';
 import OptionToolbar from '../../components/OptionToolbar/OptionToolbar';
+import JoinToolbar from '../../components/JoinToolbar/JoinToobar';
 
 import datasetStyle from '../../assets/jss/frontend/views/dataset';
 import '../../assets/css/srd.css';
@@ -54,10 +55,18 @@ class Dataset extends Component {
             this.props.dataset.fields.map(field => {
                 Object.entries(this.engine.getDiagramModel().getNodes()).forEach(
                     ([key,value]) => {
+                        console.log(key);
                         console.log(value);
                         if(value.name === field.worksheet_name){
                             console.log('hi from inside');
-                            this.engine.getDiagramModel().getNode(key).addPort(new DefaultPortModel(false,`out-${field.name}`,field.name));
+                            Object.entries(this.engine.getDiagramModel().getNode(key).getPorts()).forEach(
+                                ([name,val]) => {
+                                    if(this.props.dataset.fields.findIndex(x => x.name === val.name )=== -1){
+                                        this.engine.getDiagramModel().getNode(key).removePort(val);
+                                    }
+                                }
+                            );
+                            this.engine.getDiagramModel().getNode(key).addPort(new DefaultPortModel(false,`${field.name}`,field.name));
                             this.forceUpdate();
                         }
                     }
@@ -208,6 +217,12 @@ class Dataset extends Component {
 
         let optionToolbar = null;
 
+        let joinToolbar = null;
+
+        if(Object.keys(this.engine.getDiagramModel().getNodes()).length >= 2){
+            joinToolbar = (<JoinToolbar />);
+        }
+
         if(this.state.workSheet !== []){
             list = this.state.workSheet.map((worksheet,key) => {
                return ( <div key = {key}
@@ -217,7 +232,7 @@ class Dataset extends Component {
                             event.dataTransfer.setData('worksheet',JSON.stringify({ name : worksheet, key : key }));
                             this.handleToggle(key);
                         }}
-                    >
+                    ><List>
                     <ListItem dense button>
                     <ListItemText primary = {worksheet}/>
                     <ListItemSecondaryAction>
@@ -232,7 +247,7 @@ class Dataset extends Component {
                             }}
                         /> 
                     </ListItemSecondaryAction>
-                </ListItem></div>)
+                </ListItem></List></div>)
             })
         }
 
@@ -246,9 +261,9 @@ class Dataset extends Component {
         const drawer = (
             <Drawer
                 variant = "permanent"
-                // classes = {{
-                //     paper : classes.drawerPaper
-                // }}
+                classes = {{
+                    paper : classes.drawerPaper
+                }}
                 anchor = "left"
             >
                  <div className = {classes.toolbar}>
@@ -258,6 +273,8 @@ class Dataset extends Component {
                  <List>
                  {list}
                  </List>
+                 <Divider />
+                 {joinToolbar}
                  <Divider />
                  {optionToolbar}
             </Drawer>
@@ -279,7 +296,6 @@ class Dataset extends Component {
                             console.log(worksheet);
                             worksheet.x = points.x;
                             worksheet.y = points.y;
-                            worksheet.extras = (<div>hi</div>)
                             this.engine.getDiagramModel().addNode(worksheet);
                             console.log(this.engine.getDiagramModel());
                             this.forceUpdate ();

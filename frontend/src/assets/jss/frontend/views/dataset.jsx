@@ -18,6 +18,7 @@ const datasetStyle = theme => ({
     drawerPaper : {
         position : 'relative',
         width : drawerWidth,
+        overflow : 'auto'
     },
     toolbar : theme.mixins.toolbar,
     content: {

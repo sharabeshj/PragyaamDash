@@ -15,6 +15,7 @@ import {
     drawerPaper: {
       border: "none",
       position: "fixed",
+      backgroundColor: "#000211",
       top: "0",
       bottom: "0",
       left: "0",

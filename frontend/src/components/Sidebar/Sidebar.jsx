@@ -20,12 +20,12 @@ const Sidebar = ({ ...props }) => {
     }
     const { classes, color, logo, routes } = props;
 
-    var links = (
+    let links = (
         <List className = {classes.list}>
             {routes.map((prop,key) => {
                 if(prop.redirect) return null;
-                var activePro = " ";
-                var listItemClasses = classNames({
+                let activePro = " ";
+                let listItemClasses = classNames({
                     [" " + classes[color]]: activeRoute(prop.path)
                 });
                 const whiteFontClasses = classNames({
@@ -40,7 +40,7 @@ const Sidebar = ({ ...props }) => {
                     >
                         <ListItem button className = {classes.itemLink + listItemClasses}>
                             <ListItemIcon className = {classes.item + whiteFontClasses}>
-                                {(<prop.item />)}
+                                <prop.icon />
                             </ListItemIcon>
                         </ListItem>
                     </NavLink>
@@ -48,7 +48,7 @@ const Sidebar = ({ ...props }) => {
             })}
         </List>
     );
-    var brand = (
+    let brand = (
         <div className = {classes.logo}>
             <a href = "/" className = {classes.logoLink}>
                 <div className = { classes.logoImage }>

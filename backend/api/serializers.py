@@ -26,7 +26,7 @@ class FieldSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Field
-        fields = ('dataset','name','type','settings')
+        fields = ('dataset','name','worksheet','type','settings')
 
 class SettingSerializer(serializers.ModelSerializer):
 
@@ -50,7 +50,7 @@ class JoinSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Join
-        fields = ('dataset','name')
+        fields = ('dataset','type','field','worksheet_1','worksheet_2')
 
 class GeneralSerializer(serializers.ModelSerializer):
 
