@@ -41,25 +41,70 @@ class Fields extends React.Component{
         }
 
         this.setState(() => {
-            const fields = newSelectedfields.map(field => ({ name : field, worksheet_name : this.props.worksheet_name }));
+            const fields = newSelectedfields.map(field => {
+                for(let item of this.props.fieldData){
+                    if(item.column == field){
+                        let data = {
+                            name : item.column,
+                            worksheet : this.props.worksheet_name
+                        }
+                        switch(item.type){
+                            case 'text':
+                                return {
+                                    ...data,
+                                    type : 'CharField',
+                                    settings : [{
+                                        name : 'max_length',
+                                        value : 20
+                                    }]
+                                };
+                            case 'number':
+                                return {
+                                    ...data,
+                                    type : 'IntegerField',
+                                    settings : []
+                                };
+                            case 'decimal':
+                                return {
+                                    ...data,
+                                    type : 'FloatField',
+                                    settings : []
+                                };
+                            case 'single':
+                                return {
+                                    ...data,
+                                    type : 'IntegerField',
+                                    settings : []
+                                };
+                            case 'date':
+                                return {
+                                    ...data,
+                                    type : 'IntegerField',
+                                    settings : []
+                                };
+                        }
+                    }
+                }
+            });
+            
             this.props.fieldAdd(fields);
             return { selectedFields : newSelectedfields };
         });
     };
 
     render(){
-        const { classes, fields } = this.props;
+        const { classes, fieldData } = this.props;
 
         return (
             <Table className = {classes.table}>
                 <TableBody>
-                    {fields.map((field,key) => (
+                    {fieldData.map((field,key) => (
                         <TableRow key = {key} className = {classes.tableRow}>
                             <TableCell className = {classes.tableCell}>
                                 <Checkbox 
-                                    checked = {this.state.selectedFields.indexOf(field) !== -1}
+                                    checked = {this.state.selectedFields.indexOf(field.column) !== -1}
                                     tabIndex={-1}
-                                    onClick = {() => this.handleToggle(field)}
+                                    onClick = {() => this.handleToggle(field.column)}
                                     checkedIcon={<Check className = {classes.checkedIcon}/>}
                                     icon = {<Check className = {classes.uncheckedIcon}/>}
                                     classes = {{
@@ -68,7 +113,7 @@ class Fields extends React.Component{
                                 />
                             </TableCell>
                             <TableCell className = {classes.tableCell}>
-                                {field}
+                                {field.column}
                             </TableCell>
                             <TableCell className = {classes.tableActions}>
                                 <Tooltip
@@ -119,7 +164,7 @@ Fields.propTypes = {
 
 const mapStateToProps = state => {
     return {
-        selectedFields : state.dataset.dataset.fields
+        selectedFields : state.dataset.fields
     }
 };
 

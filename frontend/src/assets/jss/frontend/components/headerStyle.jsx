@@ -16,9 +16,7 @@ import {
       borderBottom: "0",
       marginBottom: "0",
       position: "absolute",
-      // height : '64px',
       width: "100%",
-      // paddingTop: "10px",
       zIndex: "1029",
       color: "#555555",
       border: "0",
@@ -30,7 +28,7 @@ import {
     },
     container: {
       ...container,
-      minHeight: "50px"
+      height : '32px'
     },
     flex: {
       flex: 1

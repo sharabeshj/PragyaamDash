@@ -10,6 +10,7 @@ import {
     DefaultPortModel
 } from 'storm-react-diagrams';
 import { connect } from 'react-redux';
+import axios from 'axios';
 
 
 import { withStyles } from '@material-ui/core/styles';
@@ -22,14 +23,15 @@ import { Divider, Typography, Radio } from '../../../node_modules/@material-ui/c
 
 import GridItem from '../../components/Grid/GridItem';
 import GridContainer from '../../components/Grid/GridContainer';
-import Card from '../../components/Card/Card';
-import CardHeader from '../../components/Card/CardHeader';
-import CardBody from '../../components/Card/CardBody';
 import OptionToolbar from '../../components/OptionToolbar/OptionToolbar';
 import JoinToolbar from '../../components/JoinToolbar/JoinToobar';
+import CustomButtons from '../../components/CustomButtons/Button';
+import Aux from '../../hoc/aux/aux';
 
 import datasetStyle from '../../assets/jss/frontend/views/dataset';
 import '../../assets/css/srd.css';
+
+import { saveDataset } from '../../store/Actions/ActionCreator';
 
 class Dataset extends Component {
     constructor(props){
@@ -39,7 +41,8 @@ class Dataset extends Component {
             selectedWorkSpace : '',
             workSheet : ['Worksheet 1','Worksheet 2'],
             selectedWorkSheet : [],
-            worksheetData : []
+            worksheetData : [],
+            joinData : []
         };
     }
 
@@ -51,28 +54,34 @@ class Dataset extends Component {
     }
 
     componentDidUpdate(prevProps,prevState){
-        if(this.props.dataset.fields.length !== prevProps.dataset.fields.length){
-            this.props.dataset.fields.map(field => {
-                Object.entries(this.engine.getDiagramModel().getNodes()).forEach(
-                    ([key,value]) => {
-                        console.log(key);
-                        console.log(value);
-                        if(value.name === field.worksheet_name){
-                            console.log('hi from inside');
-                            Object.entries(this.engine.getDiagramModel().getNode(key).getPorts()).forEach(
-                                ([name,val]) => {
-                                    if(this.props.dataset.fields.findIndex(x => x.name === val.name )=== -1){
-                                        this.engine.getDiagramModel().getNode(key).removePort(val);
+        if(this.props.dataset.fields){
+            if(this.props.dataset.fields.length !== prevProps.dataset.fields.length){
+                this.props.dataset.fields.map(field => {
+                    Object.entries(this.engine.getDiagramModel().getNodes()).forEach(
+                        ([key,value]) => {
+                            console.log(key);
+                            console.log(value);
+                            if(value.name === field.worksheet){
+                                console.log('hi from inside');
+                                Object.entries(this.engine.getDiagramModel().getNode(key).getPorts()).forEach(
+                                    ([name,val]) => {
+                                        if(!(val.name === 'in-1' || val === 'out-1')) {
+                                        if (this.props.dataset.fields.findIndex(x => x.name === val.name )=== -1){
+                                            this.engine.getDiagramModel().getNode(key).removePort(val);
+                                        }
                                     }
-                                }
-                            );
-                            this.engine.getDiagramModel().getNode(key).addPort(new DefaultPortModel(false,`${field.name}`,field.name));
-                            this.forceUpdate();
+                                    this.forceUpdate();
+                                    }
+                                );
+                                this.engine.getDiagramModel().getNode(key).addPort(new DefaultPortModel(false,`${field.name}`,field.name));
+                                this.forceUpdate();
+                            }
                         }
-                    }
-                )
-            });
+                    )
+                });
+            }
         }
+        
     }
 
     getWorkspace = () => {
@@ -97,6 +106,8 @@ class Dataset extends Component {
     }
 
     getWorksheetData = (worksheet) => {
+
+
         let newWorksheetData = {
             "worksheet_name": "Worksheet 1",
             "worksheet_id": "pgzNw89",
@@ -209,6 +220,46 @@ class Dataset extends Component {
             return {worksheetData : worksheetData};
         });
     }
+
+    handleSubmit = (event) =>  {
+        let allJoinData = [];
+        Object.entries(this.engine.getDiagramModel().getNodes()).forEach(
+            ([key,value]) => {
+                if(value.name === "Inner-Join" || value.name === "Right-Join" || value.name === "Left-Join" || value.name === "Outer-Join"){
+                    Object.entries(this.engine.getDiagramModel().getNode(key).getPorts()).forEach(
+                        ([name,val]) => {
+                            console.log('hi');
+                            if(val.in){
+                                Object.entries(this.engine.getDiagramModel().getNode(key).getPort(name).getLinks()).forEach(
+                                    ([linkKey,linkVal]) => {
+                                        let JoinData = {
+                                            type : value.name,
+                                            field : linkVal.sourcePort.name,
+                                            worksheet_1 : linkVal.sourcePort.parent.name
+                                        }
+                                        console.log(JoinData);
+                                        Object.entries(this.engine.getDiagramModel().getNode(key).getPorts()).forEach(
+                                            ([n,v]) => {
+                                                if(!v.in){
+                                                    Object.entries(this.engine.getDiagramModel().getNode(key).getPort(n).getLinks()).forEach(
+                                                        ([oLinkName,oLinkVal]) => { 
+                                                            JoinData.worksheet_2 = oLinkVal.targetPort.parent.name;
+                                                            allJoinData = [...new Set([...allJoinData,JoinData])];
+                                                        }
+                                                    );
+                                                }
+                                            }
+                                        );
+                                    }
+                                );
+                            }
+                        }
+                    );
+                }
+            }
+        );
+        this.props.saveDataset(allJoinData);
+    }
     
     render(){
         const {classes} = this.props;
@@ -218,6 +269,8 @@ class Dataset extends Component {
         let optionToolbar = null;
 
         let joinToolbar = null;
+
+        let saveOption = null;
 
         if(Object.keys(this.engine.getDiagramModel().getNodes()).length >= 2){
             joinToolbar = (<JoinToolbar />);
@@ -254,12 +307,21 @@ class Dataset extends Component {
         if(this.state.worksheetData.length > 0){
             console.log('hi');
             optionToolbar = (
-                <OptionToolbar worksheetData = {this.state.worksheetData}/>
-             );
+                    <OptionToolbar worksheetData = {this.state.worksheetData}/>
+                 );
+
+            saveOption = (
+                <div onClick = {this.handleSubmit}>
+                    <CustomButtons color = "success">
+                        Save
+                    </CustomButtons>
+                </div>
+            );
         }
 
         const drawer = (
-            <Drawer
+            <Aux>
+                <Drawer
                 variant = "permanent"
                 classes = {{
                     paper : classes.drawerPaper
@@ -278,12 +340,14 @@ class Dataset extends Component {
                  <Divider />
                  {optionToolbar}
             </Drawer>
-        )
+            </Aux>
+        );
         return (
             <div className = {classes.root}>
                 <div className = {classes.appFrame}>
                 {drawer}
                 <div className = {classes.content}>
+                    {saveOption}
                     <div
                         className = "diagram-layer"
                         onDrop = { event => {
@@ -300,6 +364,7 @@ class Dataset extends Component {
                             console.log(this.engine.getDiagramModel());
                             this.forceUpdate ();
                             this.getWorksheetData(data.name);
+                        
                         }}
                         onDragOver = { event => {
                             event.preventDefault();
@@ -319,7 +384,13 @@ Dataset.propTypes = {
 }
 
 const mapStateToProps = state => ({
-    dataset : state.dataset.dataset
-})
+    dataset : state.dataset
+});
 
-export default connect(mapStateToProps,null)(withStyles(datasetStyle)(Dataset));
+const mapDispatchToProps = dispatch => {
+    return {
+        saveDataset : joinData => dispatch(saveDataset(joinData))
+    }
+}
+
+export default connect(mapStateToProps,mapDispatchToProps)(withStyles(datasetStyle)(Dataset));

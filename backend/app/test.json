@@ -1,0 +1,11 @@
+{
+    "name" : "dataset_1",
+    "fields" : [{"name" : "field_1", "type" : "CharField","worksheet" : "test_table_1", "settings" : [{"name" : "max_length", "value" : 20}]},{"name" : "field_3","worksheet" : "test_table_2", "type" : "IntegerField", "settings" : []},{"name" : "field_4","worksheet" : "test_table_2","type" : "CharField","settings" : [{"name" : "max_length", "value"  : 20}]},{"name" : "field_1", "worksheet" : "test_table_3","type" : "CharField","settings" : [{"name" : "max_length", "value" : 20}]},{"name" : "field_4", "worksheet" : "test_table_3", "type" : "CharField", "settings" : [{"name" : "max_length", "value" : 20}]}],
+    "tables" : [{"name" : "test_table_1"},{"name" : "test_table_2"}, {"name" : "test_table_3"}],
+    "joins" : [{"type" : "Inner-Join","field" : "field_1","worksheet_1" : "test_table_1","worksheet_2" : "test_table_3"},{"type" : "Inner Join" , "field" : "field_4", "worksheet_1" : "test_table_2","worksheet_2" : "test_table_3"}]
+}
+
+{
+    "name" : "dataset_1",
+    "view_mode" : "add"
+}
