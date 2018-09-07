@@ -45,7 +45,7 @@ class Fields extends React.Component{
                 for(let item of this.props.fieldData){
                     if(item.column == field){
                         let data = {
-                            name : item.column,
+                            name : item.column_aliases,
                             worksheet : this.props.worksheet_name
                         }
                         switch(item.type){

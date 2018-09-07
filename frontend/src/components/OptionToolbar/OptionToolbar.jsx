@@ -28,7 +28,6 @@ class OptionToolbar extends React.Component{
                tabIcon : Icon(key%10),
                tabContent : (
                    <Fields 
-                        fields = {worksheet.columnData.columns}
                         fieldData = { worksheet.columnData.data }
                         worksheet_name = {worksheet.worksheet_name}
                    />

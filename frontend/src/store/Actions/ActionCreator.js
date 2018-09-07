@@ -40,10 +40,10 @@ const save = (joinData,state) => {
                 fields : state().dataset.fields,
                 tables : [
                     {
-                        name : "worksheet_1",
+                        name : "Worksheet 1",
                     },
                     {
-                        name : "worksheet_2"
+                        name : "Worksheet 2"
                     }
                 ],
                 joins : joinData
