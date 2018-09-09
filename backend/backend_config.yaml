@@ -1,0 +1,33 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    name: backend
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: backend
+    spec:
+      containers:
+      - name: backend
+        image: backend
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  labels:
+    name: backend
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 8000
+    targetPort: 8000
+  selector:
+    name: backend

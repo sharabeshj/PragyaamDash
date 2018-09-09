@@ -106,13 +106,19 @@ class Layers extends React.Component{
                                          <CustomButton name = {dataset.name} simple color = "success" size = "sm" onClick = {() => this.handleAdd(dataset.name)}>
                                             Add
                                          </CustomButton>
-                                         <TableModal 
+                                         {this.state.tableData !== [] ? (<TableModal 
                                             title = {dataset.name}
-                                            tableData = {this.state.tableData}
+                                            tableData = {this.state.tableData.map(data => {
+                                                let dataArray = []
+                                                Object.entries(data).forEach(
+                                                    ([key,value]) => (key != 'id') ? dataArray = [...dataArray,value] : dataArray = [...dataArray]
+                                                );
+                                                return dataArray
+                                            })}
                                             handleClose = {this.handleClose}
                                             fields = {dataset.fields}
                                             modalOpen = {this.state.modalOpen}
-                                         />
+                                         />) : null }
                                     </div>
                                 </CardBody>
                                 <CardFooter chart>

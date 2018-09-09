@@ -80,11 +80,11 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME' : 'pragyaam_test',
-        'USER' : 'sharabesh',
-        'PASSWORD': 'shara1234',
-        'HOST' : 'localhost',
-        'PORT' : 5432,   
+        'NAME' : 'testdb',
+        'USER' : 'pragyaamtest',
+        'PASSWORD': 'PragyaamTestUser1',
+        'HOST' : 'pragyaam-test.cpfjyhfhhtvd.ap-south-1.redshift.amazonaws.com',
+        'PORT' : 5439,   
     }
 }
 
