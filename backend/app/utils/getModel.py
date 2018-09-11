@@ -1,4 +1,4 @@
-from django.db import connection,models
+from django.db import connections,models
 
 from app.utils import create_model
 
@@ -23,13 +23,14 @@ def get_model(table_name,app_name):
 
 def getColumns(name):
 
-    cursor = connection.cursor()
-    cursor.execute("select column_name,data_type,character_maximum_length from information_schema.columns where table_name = '%s'"%(name))
-    info = cursor.fetchall()
-    fields = {}
-    for item in info:
-        if len(item) == 3:
-            fields[item[0]] = {'type' : item[1],'length' : item[2]}
-        if len(item) == 2:
-            fields[item[0]] = {'type' : item[1]}
-    return fields
+    with connections['redshift'].cursor() as cursor:
+
+        cursor.execute("select column_name,data_type,character_maximum_length from information_schema.columns where table_name = '%s'"%(name))
+        info = cursor.fetchall()
+        fields = {}
+        for item in info:
+            if len(item) == 3:
+                fields[item[0]] = {'type' : item[1],'length' : item[2]}
+            if len(item) == 2:
+                fields[item[0]] = {'type' : item[1]}
+        return fields

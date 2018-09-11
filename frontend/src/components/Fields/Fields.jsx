@@ -23,73 +23,65 @@ class Fields extends React.Component{
     
     constructor(props){
         super(props);
-        this.state = {
-            selectedFields : this.props.selectedFields
-        }
     }
 
-    handleToggle = value => {
-        const { selectedFields } = this.state;
-        const currentIndex = selectedFields.indexOf(value);
-        const newSelectedfields = [...selectedFields];
+    handleToggle = (value,e) => {
+        const currentIndex = this.props.selectedFields.map(field => field.name).indexOf(value.column_aliases);
+        const newSelectedfields = [...this.props.selectedFields];
 
         if(currentIndex === -1) {
-            newSelectedfields.push(value);
+            console.log('came in ');
+            let data = {
+                name : value.column_aliases,
+                worksheet : this.props.worksheet_name
+            }
+            switch(value.type){
+                case 'text':
+                    data = {
+                        ...data,
+                        type : 'CharField',
+                        settings : [{
+                            name : 'max_length',
+                            value : 20
+                        }]
+                    };
+                    break;
+                case 'number':
+                    data =  {
+                        ...data,
+                        type : 'IntegerField',
+                        settings : []
+                    };
+                    break;                                    
+                case 'decimal':
+                    data = {
+                        ...data,
+                        type : 'FloatField',
+                        settings : []
+                    };
+                    break;
+                case 'single':
+                    data = {
+                        ...data,
+                        type : 'IntegerField',
+                        settings : []
+                    };
+                    break;
+                case 'date':
+                    data = {
+                        ...data,
+                        type : 'IntegerField',
+                        settings : []
+                    };
+                    break;                                    this.forceUpdate();
+            }
+            newSelectedfields.push(data);
         }
         else {
             newSelectedfields.splice(currentIndex,1);
         }
-
-        this.setState(() => {
-            const fields = newSelectedfields.map(field => {
-                for(let item of this.props.fieldData){
-                    if(item.column == field){
-                        let data = {
-                            name : item.column_aliases,
-                            worksheet : this.props.worksheet_name
-                        }
-                        switch(item.type){
-                            case 'text':
-                                return {
-                                    ...data,
-                                    type : 'CharField',
-                                    settings : [{
-                                        name : 'max_length',
-                                        value : 20
-                                    }]
-                                };
-                            case 'number':
-                                return {
-                                    ...data,
-                                    type : 'IntegerField',
-                                    settings : []
-                                };
-                            case 'decimal':
-                                return {
-                                    ...data,
-                                    type : 'FloatField',
-                                    settings : []
-                                };
-                            case 'single':
-                                return {
-                                    ...data,
-                                    type : 'IntegerField',
-                                    settings : []
-                                };
-                            case 'date':
-                                return {
-                                    ...data,
-                                    type : 'IntegerField',
-                                    settings : []
-                                };
-                        }
-                    }
-                }
-            });
             
-            this.props.fieldAdd(fields);
-            return { selectedFields : newSelectedfields };
-        });
+        this.props.fieldAdd(newSelectedfields);
     };
 
     render(){
@@ -102,9 +94,9 @@ class Fields extends React.Component{
                         <TableRow key = {key} className = {classes.tableRow}>
                             <TableCell className = {classes.tableCell}>
                                 <Checkbox 
-                                    checked = {this.state.selectedFields.indexOf(field.column) !== -1}
+                                    checked = {this.props.selectedFields.map(val => val.name).indexOf(field.column_aliases) !== -1}
                                     tabIndex={-1}
-                                    onClick = {() => this.handleToggle(field.column)}
+                                    onClick = {(e) => this.handleToggle(field,e)}
                                     checkedIcon={<Check className = {classes.checkedIcon}/>}
                                     icon = {<Check className = {classes.uncheckedIcon}/>}
                                     classes = {{

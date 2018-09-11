@@ -13,7 +13,7 @@ from rest_framework import permissions
 
 from django.contrib import admin
 from django.core.management import call_command
-from django.db import connection
+from django.db import connections
 from django.core.cache import caches
 
 import collections
@@ -111,27 +111,27 @@ class DatasetDetail(APIView):
 
 
             for t in tables:
-                cursor = connection.cursor()
-                cursor.execute('select * from "%s"'%(t.name))
-                table_data = dictfetchall(cursor)
+                with connections['redshift'].cursor() as cursor:
+                    cursor.execute('select * from "%s"'%(t.name))
+                    table_data = dictfetchall(cursor)
 
 
-                table_model = get_model(t.name,model._meta.app_label)
-                DynamicFieldsModelSerializer.Meta.model = table_model
-                
-                context = {
-                    "request" : request,
-                }
-                
-                dynamic_serializer = DynamicFieldsModelSerializer(table_data,many = True,fields = set(model_fields))
-                model_data.append({ 'name' : t.name,'data' : dynamic_serializer.data})
-                call_command('makemigrations')
-                call_command('migratefake')
-                # del table_model
-                # try:
-                #     del caches[model._meta.app_label][t.name]
-                # except KeyError:
-                #     pass
+                    table_model = get_model(t.name,model._meta.app_label)
+                    DynamicFieldsModelSerializer.Meta.model = table_model
+                    
+                    context = {
+                        "request" : request,
+                    }
+                    
+                    dynamic_serializer = DynamicFieldsModelSerializer(table_data,many = True,fields = set(model_fields))
+                    model_data.append({ 'name' : t.name,'data' : dynamic_serializer.data})
+                    call_command('makemigrations')
+                    call_command('migratefake')
+                    # del table_model
+                    # try:
+                    #     del caches[model._meta.app_label][t.name]
+                    # except KeyError:
+                    #     pass
             join_model_data=[]
             print(model_data)
             

@@ -77,8 +77,26 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/2.0/ref/settings/#databases
 
+# DJANGO_PW = os.getenv('DJANGO_PASSWORD')
+# if not DJANGO_PW:
+#     try:
+#         f = open('/etc/secrets/djangouserpw')
+#         DJANGO_PW = f.readline().rstrip()
+#     except IOError:
+#         pass
+# if not DJANGO_PW:
+#     raise Exception("NO DJNAGO_PASSWORD provided.")
+
 DATABASES = {
-    'default': {
+    'default' : {
+        'ENGINE' : 'django.db.backends.postgresql_psycopg2',
+        'NAME' : 'pragyaam_test',
+        'USER' :  'sharabesh',
+        'PASSWORD' : 'shara1234',
+        'HOST' : '127.0.0.1',
+        'PORT' : '5432'
+    },
+    'redshift': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME' : 'testdb',
         'USER' : 'pragyaamtest',

@@ -8,27 +8,16 @@ import Icon from '../../variables/icons';
 import optionToolbarStyle from '../../assets/jss/frontend/components/optionToolbarStyle';
 
 class OptionToolbar extends React.Component{
-    state = {
-        worksheetData : []
-    };
-
-    static getDerivedStateFromProps(nextProps,prevState){
-        if(nextProps.worksheetData && nextProps.worksheetData!==prevState.worksheetData){
-            return { worksheetData : nextProps.worksheetData };
-        }
-        console.log('hi')
-        return null;
-    };
 
     render(){
         const { classes } = this.props;
-        const worksheets = this.state.worksheetData.map((worksheet,key) => {
+        const worksheets = this.props.worksheetData.map((worksheet,key) => {
            return {
                tabName : worksheet.worksheet_name,
                tabIcon : Icon(key%10),
                tabContent : (
                    <Fields 
-                        fieldData = { worksheet.columnData.data }
+                        fieldData = { worksheet.data }
                         worksheet_name = {worksheet.worksheet_name}
                    />
                )

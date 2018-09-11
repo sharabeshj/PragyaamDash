@@ -10,7 +10,6 @@ import {
     DefaultPortModel
 } from 'storm-react-diagrams';
 import { connect } from 'react-redux';
-import axios from 'axios';
 
 
 import { withStyles } from '@material-ui/core/styles';
@@ -21,28 +20,29 @@ import ListItemText from '@material-ui/core/ListItemText';
 import ListItemSecondaryAction from '@material-ui/core/ListItemSecondaryAction';
 import { Divider, Typography, Radio } from '../../../node_modules/@material-ui/core';
 
-import GridItem from '../../components/Grid/GridItem';
-import GridContainer from '../../components/Grid/GridContainer';
 import OptionToolbar from '../../components/OptionToolbar/OptionToolbar';
 import JoinToolbar from '../../components/JoinToolbar/JoinToobar';
-import CustomButtons from '../../components/CustomButtons/Button';
 import Aux from '../../hoc/aux/aux';
+import SaveOption from '../../components/SaveOption/SaveOption';
+import CustomDropdown from '../../components/CustomDropdown/CustomDropdown';
 
 import datasetStyle from '../../assets/jss/frontend/views/dataset';
 import '../../assets/css/srd.css';
 
-import { saveDataset } from '../../store/Actions/ActionCreator';
+import { saveDataset,tableAdd } from '../../store/Actions/ActionCreator';
+import Axios from 'axios';
 
 class Dataset extends Component {
     constructor(props){
         super(props);
         this.state = {
-            workSpace : ['workspace_1'],
+            workSpace : [],
             selectedWorkSpace : '',
-            workSheet : ['Worksheet 1','Worksheet 2'],
+            workSheet : [],
             selectedWorkSheet : [],
             worksheetData : [],
-            joinData : []
+            joinData : [],
+            name : ''
         };
     }
 
@@ -53,16 +53,28 @@ class Dataset extends Component {
         this.engine.registerLinkFactory(new DefaultLinkFactory());
     }
 
+    componentDidMount(){
+        if(this.props.login.token !== '') {
+            const postData = {
+                url : 'http://pragyaamfrontend.mysnippt.com/api/workspace/view',
+                method : 'POST',
+                data : JSON.stringify({ organization_id : this.props.login.orgId }),
+                headers : {
+                    'Authorization' : `Bearer ${this.props.login.token}`,
+                    'Content-Type' : 'application/json'
+                }
+            };
+            Axios(postData).then( res => this.setState({ workSpace : res.data.data })).catch(e => console.error(e));
+        }
+    }
+
     componentDidUpdate(prevProps,prevState){
         if(this.props.dataset.fields){
             if(this.props.dataset.fields.length !== prevProps.dataset.fields.length){
-                this.props.dataset.fields.map(field => {
+                this.props.dataset.fields.forEach(field =>  {
                     Object.entries(this.engine.getDiagramModel().getNodes()).forEach(
                         ([key,value]) => {
-                            console.log(key);
-                            console.log(value);
                             if(value.name === field.worksheet){
-                                console.log('hi from inside');
                                 Object.entries(this.engine.getDiagramModel().getNode(key).getPorts()).forEach(
                                     ([name,val]) => {
                                         if(!(val.name === 'in-1' || val === 'out-1')) {
@@ -70,7 +82,6 @@ class Dataset extends Component {
                                             this.engine.getDiagramModel().getNode(key).removePort(val);
                                         }
                                     }
-                                    this.forceUpdate();
                                     }
                                 );
                                 this.engine.getDiagramModel().getNode(key).addPort(new DefaultPortModel(false,`${field.name}`,field.name));
@@ -84,141 +95,62 @@ class Dataset extends Component {
         
     }
 
-    getWorkspace = () => {
-        
-    }
+    // handleToggle = value  => {
+    //     const { selectedWorkSheet,workSheet } = this.state;
+    //     const currentIndex = selectedWorkSheet.indexOf(workSheet[value]);
+    //     const newSelectedWorkSheet =  [...selectedWorkSheet]
 
-    handleToggle = value  => {
-        const { selectedWorkSheet,workSheet } = this.state;
-        const currentIndex = selectedWorkSheet.indexOf(workSheet[value]);
-        const newSelectedWorkSheet =  [...selectedWorkSheet]
+    //     if(currentIndex === -1){
+    //         newSelectedWorkSheet.push(workSheet[value]);
+    //     } 
+    //     else {
+    //         newSelectedWorkSheet.splice(currentIndex,1)
+    //     }
 
-        if(currentIndex === -1){
-            newSelectedWorkSheet.push(workSheet[value]);
-        } 
-        else {
-            newSelectedWorkSheet.splice(currentIndex,1)
-        }
+    //     this.setState({
+    //         selectedWorkSheet : newSelectedWorkSheet
+    //     })
+    // }
 
-        this.setState({
-            selectedWorkSheet : newSelectedWorkSheet
-        })
+    getWorksheets = (workspace_id,event) => {
+        const postData = {
+            url : 'http://pragyaamfrontend.mysnippt.com/api/worksheet/view',
+            method : 'POST',
+            data : JSON.stringify({
+                organization_id : this.props.login.orgId,
+                workspace_id : workspace_id
+            }),
+            headers : {
+                'Authorization' : `Bearer ${this.props.login.token}`,
+                'Content-Type' : 'application/json'
+            }
+        };
+        Axios(postData) .then(res => this.setState({ workSheet : res.data.data })) .catch(e => console.error(e));
     }
 
     getWorksheetData = (worksheet) => {
-
-
-        let newWorksheetData = {
-            "worksheet_name": "Worksheet 1",
-            "worksheet_id": "pgzNw89",
-            "userid": "Code Company",
-            "rows": "0",
-            "columns": "0",
-            "last_updated": "5 days"
-        };
-        newWorksheetData.columnData = {
-            "data": [
-                {
-                    "column": "name",
-                    "column_aliases": "name",
-                    "type": "text",
-                    "tool_tip": "Please Enter the Price",
-                    "required": 1,
-                    "static": true,
-                    "value": null
-                },
-                {
-                    "column": "Price",
-                    "column_aliases": "price",
-                    "type": "single",
-                    "tool_tip": "Please Enter the Price",
-                    "required": 1,
-                    "static": true,
-                    "value": [
-                        ""
-                    ]
-                },
-                {
-                    "column": "DOB",
-                    "column_aliases": "date_of_birth",
-                    "type": "text",
-                    "tool_tip": "Please Enter the Price",
-                    "required": 1,
-                    "static": true,
-                    "value": null
-                },
-                {
-                    "column": "Sl.No",
-                    "column_aliases": "sl_no",
-                    "type": "number",
-                    "tool_tip": "Please Enter the Number",
-                    "required": 1,
-                    "static": true,
-                    "value": null
-                },
-                {
-                    "column": "Quality No",
-                    "column_aliases": "quality_no",
-                    "type": "number",
-                    "tool_tip": "Please Enter the Number",
-                    "required": 1,
-                    "static": true,
-                    "value": null
-                },
-                {
-                    "column": "Address",
-                    "column_aliases": "address",
-                    "type": "text",
-                    "tool_tip": "Please Enter the Address",
-                    "required": 1,
-                    "static": true,
-                    "value": null
-                },
-                {
-                    "column": "Pincode",
-                    "column_aliases": "pincode",
-                    "type": "text",
-                    "tool_tip": "Please Enter the Pincode",
-                    "required": 1,
-                    "static": true,
-                    "value": null
-                },
-                {
-                    "column": "Zip Code",
-                    "column_aliases": "zip_code",
-                    "type": "text",
-                    "tool_tip": "Please Enter the Zip Code",
-                    "required": 1,
-                    "static": true,
-                    "value": null
-                },
-                {
-                    "column": "Sales Date",
-                    "column_aliases": "sales_date",
-                    "type": "text",
-                    "tool_tip": "Please Enter the Date",
-                    "required": 1,
-                    "static": true,
-                    "value": null
-                }
-            ],
-            "columns": [
-                "name",
-                "price",
-                "date_of_birth",
-                "sl_no",
-                "quality_no",
-                "address",
-                "pincode",
-                "zip_code",
-                "sales_date"
-            ]
-         }
-        this.setState(prevState => {
-            const worksheetData = [...prevState.worksheetData,newWorksheetData];
-            console.log(worksheetData);
-            return {worksheetData : worksheetData};
-        });
+        this.props.tableAdd(worksheet.name);
+        const postData = {
+            url : `http://pragyaamfrontend.mysnippt.com/api/entrypage`,
+            method : 'POST',
+            data : JSON.stringify({
+                organization_id : this.props.login.orgId,
+                worksheet_id : worksheet.key
+            }),
+            headers : {
+                'Authorization' : `Bearer ${this.props.login.token}`,
+                'Content-Type' : 'application/json'
+            }
+        }
+        Axios(postData) .then(res => this.setState(prevState => {
+            const worksheetData = {
+                worksheet_name : worksheet.name,
+                data : [...res.data.data]
+            };
+            return {worksheetData : [...prevState.worksheetData,worksheetData]};
+        })) 
+        .catch(e => console.error(e));
+        
     }
 
     handleSubmit = (event) =>  {
@@ -228,7 +160,6 @@ class Dataset extends Component {
                 if(value.name === "Inner-Join" || value.name === "Right-Join" || value.name === "Left-Join" || value.name === "Outer-Join"){
                     Object.entries(this.engine.getDiagramModel().getNode(key).getPorts()).forEach(
                         ([name,val]) => {
-                            console.log('hi');
                             if(val.in){
                                 Object.entries(this.engine.getDiagramModel().getNode(key).getPort(name).getLinks()).forEach(
                                     ([linkKey,linkVal]) => {
@@ -237,7 +168,6 @@ class Dataset extends Component {
                                             field : linkVal.sourcePort.name,
                                             worksheet_1 : linkVal.sourcePort.parent.name
                                         }
-                                        console.log(JoinData);
                                         Object.entries(this.engine.getDiagramModel().getNode(key).getPorts()).forEach(
                                             ([n,v]) => {
                                                 if(!v.in){
@@ -258,7 +188,11 @@ class Dataset extends Component {
                 }
             }
         );
-        this.props.saveDataset(allJoinData);
+        this.props.saveDataset(this.state.name,allJoinData);
+    }
+
+    handleChange = e => {
+        this.setState({ name : e.target.value })
     }
     
     render(){
@@ -272,28 +206,36 @@ class Dataset extends Component {
 
         let saveOption = null;
 
+        let workspaceOption = null;
+
+        if(this.state.workSpace.length > 0) workspaceOption = (<CustomDropdown 
+            buttonText = "Select Workspace"
+            dropdownHeader = "Select Workspace"
+            dropdownList = {this.state.workSpace.map(workspace => {
+                return <div key = {workspace.workspace_id} onClick = {e => this.getWorksheets(workspace.workspace_id,e)}>{workspace.workspace_name}</div>
+            })}
+         />);
+
         if(Object.keys(this.engine.getDiagramModel().getNodes()).length >= 2){
             joinToolbar = (<JoinToolbar />);
         }
 
-        if(this.state.workSheet !== []){
-            list = this.state.workSheet.map((worksheet,key) => {
-               return ( <div key = {key}
+        if(this.state.workSheet.length > 0){
+            list = this.state.workSheet.map((worksheet) => {
+               return ( <div key = {worksheet.worksheet_id}
                         draggable = {true}
                         onDragStart = { event => {
-                            console.log('start');
-                            event.dataTransfer.setData('worksheet',JSON.stringify({ name : worksheet, key : key }));
-                            this.handleToggle(key);
+                            event.dataTransfer.setData('worksheet',JSON.stringify({ name : worksheet.worksheet_name, key : worksheet.worksheet_id }));
                         }}
                     ><List>
                     <ListItem dense button>
-                    <ListItemText primary = {worksheet}/>
+                    <ListItemText primary = {worksheet.worksheet_name}/>
                     <ListItemSecondaryAction>
                         <Radio
-                            checked  = {this.state.selectedWorkSheet.indexOf(key) !== -1}
-                            value = {worksheet}
-                            aria-label = {worksheet}
-                            name = {worksheet}
+                            checked  = {this.state.selectedWorkSheet.indexOf(worksheet.worksheet_id) !== -1}
+                            value = {worksheet.worksheet_name}
+                            aria-label = {worksheet.worksheet_name}
+                            name = {worksheet.worksheet_name}
                             classes = {{
                                 root : classes.radio,
                                 checked : classes.radio_checked,
@@ -310,13 +252,11 @@ class Dataset extends Component {
                     <OptionToolbar worksheetData = {this.state.worksheetData}/>
                  );
 
-            saveOption = (
-                <div onClick = {this.handleSubmit}>
-                    <CustomButtons color = "success">
-                        Save
-                    </CustomButtons>
-                </div>
-            );
+            saveOption = (<SaveOption 
+                handleSubmit = {this.handleSubmit}
+                handleChange = {this.handleChange}
+                content = {this.state.name}
+                />)
         }
 
         const drawer = (
@@ -332,6 +272,8 @@ class Dataset extends Component {
                     {"DATASET CREATION"}
                  </div>
                  <Divider />
+                 {workspaceOption}
+                 <Divider/>
                  <List>
                  {list}
                  </List>
@@ -357,13 +299,12 @@ class Dataset extends Component {
                             worksheet.addPort(new DefaultPortModel(true,'in-1','X'));
                             worksheet.addPort(new DefaultPortModel(false,'out-1','O'));
                             let points = this.engine.getRelativeMousePoint(event);
-                            console.log(worksheet);
                             worksheet.x = points.x;
                             worksheet.y = points.y;
                             this.engine.getDiagramModel().addNode(worksheet);
-                            console.log(this.engine.getDiagramModel());
                             this.forceUpdate ();
-                            this.getWorksheetData(data.name);
+                            if(data.name !== 'Inner-Join' && data.name !== 'Left-Join' && data.name !== 'Right-Join' && data.name !== 'Outer-Join')
+                            this.getWorksheetData(data);
                         
                         }}
                         onDragOver = { event => {
@@ -384,12 +325,14 @@ Dataset.propTypes = {
 }
 
 const mapStateToProps = state => ({
-    dataset : state.dataset
+    dataset : state.dataset,
+    login : state.login
 });
 
 const mapDispatchToProps = dispatch => {
     return {
-        saveDataset : joinData => dispatch(saveDataset(joinData))
+        saveDataset : (name,joinData) => dispatch(saveDataset(name,joinData)),
+        tableAdd : (table) => dispatch(tableAdd(table))
     }
 }
 

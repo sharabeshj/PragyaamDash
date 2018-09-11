@@ -15,10 +15,25 @@ export const fieldAdd = fields => {
     }
 }
 
-const saved = data => {
+export const tableAdd = table => {
+    return {
+        type : ActionTypes.TABLE_ADD,
+        table : table
+    }
+}
+
+// export const datasetName = name => {
+//     return {
+//         type : ActionTypes.SAVE_DATASET_NAME,
+//         name : name
+//     }
+// }
+
+const saved = (name,data) => {
     return {
         type : ActionTypes.SAVED,
-        joins : data
+        joins : data,
+        name : name
     }
 }
 
@@ -29,23 +44,31 @@ const saveError = error => {
     }
 }
 
-const save = (joinData,state) => {
+const loginSuccess = data => {
+    if(data.status){
+        return {
+            type : ActionTypes.LOGIN_SUCCESS,
+            data : data.data
+        }
+    }
+}
+
+const loginError = error => {
+    return {
+        type : ActionTypes.LOGIN_ERROR,
+        error : error
+    }
+}
+
+const save = (name,joinData,state) => {
     return dispatch => {
-        console.log(state());
         const postData = {
             url : 'http://127.0.0.1:8000/api/datasets/',
-            method : 'post',
+            method : 'POST',
             data : JSON.stringify({
-                name : 'dataset_2',
+                name : name,
                 fields : state().dataset.fields,
-                tables : [
-                    {
-                        name : "Worksheet 1",
-                    },
-                    {
-                        name : "Worksheet 2"
-                    }
-                ],
+                tables : state().dataset.tables,
                 joins : joinData
             }),
             auth :  {
@@ -54,10 +77,28 @@ const save = (joinData,state) => {
             },
             headers : { 'Content-Type' : 'application/json'}
         };
-        return Axios(postData) .then((res) => dispatch(saved(joinData))) .catch(e => dispatch(saveError(e)));
+        return Axios(postData) .then((res) => dispatch(saved(name,joinData))) .catch(e => dispatch(saveError(e)));
     }
 }
 
-export const saveDataset = joinData => {
-    return (dispatch,getState) => dispatch(save(joinData,getState))
+const validate = loginData => {
+    return dispatch => {
+        const postData = {
+            url : 'http://pragyaamfrontend.mysnippt.com/api/login',
+            method : 'POST',
+            data : JSON.stringify({
+                ...loginData
+            }),
+            headers : { 'Content-Type' : 'application/json'}
+        }
+        return Axios(postData) .then(res => dispatch(loginSuccess(res.data))) .catch( e => dispatch(loginError(e)));
+    }
+}
+
+export const saveDataset = (name,joinData) => {
+    return (dispatch,getState) => dispatch(save(name,joinData,getState))
+}
+
+export const login = (loginData) => {
+    return (dispatch,getState) => dispatch(validate(loginData))
 }

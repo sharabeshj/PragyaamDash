@@ -17,6 +17,14 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
+        volumeMounts:
+        - name: secrets
+          mountPath:  /etc/secrets
+          readOnly: true
+      volumes:
+      - name: secrets
+        secret: 
+          secretName: db-passwords
 ---
 apiVersion: v1
 kind: Service
@@ -25,7 +33,7 @@ metadata:
   labels:
     name: backend
 spec:
-  type: LoadBalancer
+  type: NodePort
   ports:
   - port: 8000
     targetPort: 8000

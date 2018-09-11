@@ -13,13 +13,17 @@ import CardHeader from '../Card/CardHeader';
 import customTabsStyle from '../../assets/jss/frontend/components/customTabsStyle';
 
 class CustomTabs extends React.Component {
-    state = {
-        value: 0
-    };
+    constructor(props){
+        super(props);
+        this.state = {
+            value: 0
+        };
+    
+    }
 
-    handleChange = (event, value) => {
+    handleChange = (event,value) => {
         console.log({"val" : value});
-        this.setState({ value });
+        this.setState({ value : value });
     };
 
     render() {
@@ -54,7 +58,6 @@ class CustomTabs extends React.Component {
                         scrollButtons="auto"
                     >
                         {tabs.map((prop, key) => {
-                            console.log(prop);
                             let icon = {};
                             if (prop.tabIcon) {
                                 icon = {
