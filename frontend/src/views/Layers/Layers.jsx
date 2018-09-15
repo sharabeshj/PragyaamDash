@@ -111,7 +111,7 @@ class Layers extends React.Component{
                                             tableData = {this.state.tableData.map(data => {
                                                 let dataArray = []
                                                 Object.entries(data).forEach(
-                                                    ([key,value]) => (key != 'id') ? dataArray = [...dataArray,value] : dataArray = [...dataArray]
+                                                    ([key,value]) => (key !== 'id') ? dataArray = [...dataArray,value] : dataArray = [...dataArray]
                                                 );
                                                 return dataArray
                                             })}

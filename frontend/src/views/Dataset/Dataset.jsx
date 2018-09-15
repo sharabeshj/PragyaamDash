@@ -1,6 +1,5 @@
 import React,{Component} from 'react';
 import PropTypes from 'prop-types';
-import classNames from 'classnames';
 import {
     DiagramWidget,
     DiagramEngine,
@@ -18,7 +17,7 @@ import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
 import ListItemText from '@material-ui/core/ListItemText';
 import ListItemSecondaryAction from '@material-ui/core/ListItemSecondaryAction';
-import { Divider, Typography, Radio } from '../../../node_modules/@material-ui/core';
+import { Divider, Radio } from '../../../node_modules/@material-ui/core';
 
 import OptionToolbar from '../../components/OptionToolbar/OptionToolbar';
 import JoinToolbar from '../../components/JoinToolbar/JoinToobar';
@@ -36,7 +35,11 @@ class Dataset extends Component {
     constructor(props){
         super(props);
         this.state = {
-            workSpace : [],
+            workSpace : [{
+                userid : "c249392y",
+                workspace_id : "H1XXFBT",
+                workspace_name : "H1XXFBT"
+            }],
             selectedWorkSpace : '',
             workSheet : [],
             selectedWorkSheet : [],
@@ -64,7 +67,7 @@ class Dataset extends Component {
                     'Content-Type' : 'application/json'
                 }
             };
-            Axios(postData).then( res => this.setState({ workSpace : res.data.data })).catch(e => console.error(e));
+            Axios(postData).then( res => this.setState(state => ({ workSpace : [...state.workSpace,...res.data.data]}))).catch(e => console.error(e));
         }
     }
 
@@ -125,11 +128,11 @@ class Dataset extends Component {
                 'Content-Type' : 'application/json'
             }
         };
-        Axios(postData) .then(res => this.setState({ workSheet : res.data.data })) .catch(e => console.error(e));
+        Axios(postData).then(res => this.setState({ workSheet : res.data.data })).catch(e => console.error(e));
     }
 
     getWorksheetData = (worksheet) => {
-        this.props.tableAdd(worksheet.name);
+        this.props.tableAdd(worksheet.key);
         const postData = {
             url : `http://pragyaamfrontend.mysnippt.com/api/entrypage`,
             method : 'POST',
@@ -142,7 +145,7 @@ class Dataset extends Component {
                 'Content-Type' : 'application/json'
             }
         }
-        Axios(postData) .then(res => this.setState(prevState => {
+        Axios(postData).then(res => this.setState(prevState => {
             const worksheetData = {
                 worksheet_name : worksheet.name,
                 data : [...res.data.data]
@@ -186,6 +189,7 @@ class Dataset extends Component {
                         }
                     );
                 }
+                this.engine.getDiagramModel().removeNode(key);
             }
         );
         this.props.saveDataset(this.state.name,allJoinData);
@@ -227,6 +231,7 @@ class Dataset extends Component {
                         onDragStart = { event => {
                             event.dataTransfer.setData('worksheet',JSON.stringify({ name : worksheet.worksheet_name, key : worksheet.worksheet_id }));
                         }}
+                        className = {classes.listStyle}
                     ><List>
                     <ListItem dense button>
                     <ListItemText primary = {worksheet.worksheet_name}/>
@@ -271,12 +276,10 @@ class Dataset extends Component {
                  <div className = {classes.toolbar}>
                     {"DATASET CREATION"}
                  </div>
-                 <Divider />
-                 {workspaceOption}
                  <Divider/>
-                 <List>
+                 {workspaceOption}
+                 <Divider />
                  {list}
-                 </List>
                  <Divider />
                  {joinToolbar}
                  <Divider />

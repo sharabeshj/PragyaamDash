@@ -23,7 +23,7 @@ import {
       border: "0",
       boxShadow: "0 2px 5px 0 rgba(0, 0, 0, 0.26)",
       top: "100%",
-      zIndex: "1000",
+      zIndex: "2000",
       minWidth: "160px",
       padding: "5px 0",
       margin: "2px 0 0",
@@ -37,9 +37,9 @@ import {
       padding: "0"
     },
     pooperResponsive: {
-      zIndex: "1200",
+      zIndex: "2000",
       [theme.breakpoints.down("sm")]: {
-        zIndex: "1640",
+        zIndex: "2000",
         position: "static",
         float: "none",
         width: "auto",

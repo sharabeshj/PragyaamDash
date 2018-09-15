@@ -15,7 +15,7 @@ const dropdownStyle = theme => ({
     links : {
         width : "20px",
         weight : "20px",
-        zIndex : "4",
+        zIndex : "2000",
         [theme.breakpoints.down("md")]: {
             display : "block",
             width : "30px",
@@ -25,7 +25,7 @@ const dropdownStyle = theme => ({
         }
     },
     linkText : {
-        zIndex : "4",
+        zIndex : "2000",
         ...defaultFont,
         fontSize : "14px"
     },
@@ -34,7 +34,7 @@ const dropdownStyle = theme => ({
     },
     popperResponsive : {
         [theme.breakpoints.down("md")]: {
-            zIndex : "1640",
+            zIndex : "2000",
             position : "static",
             float : "none",
             width : "auto",
@@ -79,7 +79,7 @@ const dropdownStyle = theme => ({
         border: "0",
         boxShadow: "0 2px 5px 0 rgba(0, 0, 0, 0.26)",
         top: "100%",
-        zIndex: "1000",
+        zIndex: "2000",
         minWidth: "160px",
         padding: "5px 0",
         margin: "2px 0 0",

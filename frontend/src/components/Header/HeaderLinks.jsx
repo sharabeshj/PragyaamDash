@@ -26,8 +26,11 @@ class HeaderLinks extends Component {
     };
 
     handleToggle = () => {
-        this.setState(state => ({ open : !state.open }));
+        this.setState(state => ({ open : !state.open, uOpen : false }));
     };
+    handleToggleU = () => {
+        this.setState(state => ({ uOpen : !state.uOpen, open : false }));
+    }
     handleClose = event => {
         if(this.anchorEl.contains(event.target)){
             return;
@@ -82,7 +85,7 @@ class HeaderLinks extends Component {
                         <Hidden
                             mdUp implementation = "css"
                         >
-                            <p onClick = {this.handleClick} className = {classes.linkText}>
+                            <p onClick = {this.handleClick } className = {classes.linkText}>
                                 Notification
                             </p>
                         </Hidden>
@@ -95,12 +98,12 @@ class HeaderLinks extends Component {
                         className = {
                             classNames({ [classes.popperClose]: !open }) + 
                             " " + 
-                            classes.popperNav
+                            classes.pooperNav
                         }                    
                     >
-                        {({ transitionProps, placement }) => (
+                        {({ TransitionProps, placement }) => (
                             <Grow
-                                {...transitionProps}
+                                {...TransitionProps}
                                 id = "menu-list-grow"
                                 style = {{
                                     transformOrigin :
@@ -153,6 +156,7 @@ class HeaderLinks extends Component {
                         simple
                         aria-label = "Person"
                         className = {classes.buttonLink}
+                        onClick = {this.handleToggleU}
                     >
                         <Person className = {classes.icons}/>
                         <p className = {classes.linkText}>Name of Orgainsation</p>
@@ -165,12 +169,12 @@ class HeaderLinks extends Component {
                         className = {
                             classNames({ [classes.popperClose]: !open }) + 
                             " " + 
-                            classes.popperNav
+                            classes.pooperNav
                         }                    
                     >
-                        {({ transitionProps, placement }) => (
+                        {({ TransitionProps, placement }) => (
                             <Grow
-                                {...transitionProps}
+                                {...TransitionProps}
                                 id = "menu-list-grow"
                                 style = {{
                                     transformOrigin :

@@ -39,5 +39,5 @@ RUN chmod +x ./entrypoint.sh
 
 ENTRYPOINT [ "./entrypoint.sh" ] 
 
-CMD export DJANGO_PASSWORD=$(cat /etc/secrets/djangouserpw);
+# CMD export DJANGO_PASSWORD=$(cat /etc/secrets/djangouserpw);
 

@@ -31,9 +31,7 @@ export const tableAdd = table => {
 
 const saved = (name,data) => {
     return {
-        type : ActionTypes.SAVED,
-        joins : data,
-        name : name
+        type : ActionTypes.SAVED
     }
 }
 
@@ -77,7 +75,7 @@ const save = (name,joinData,state) => {
             },
             headers : { 'Content-Type' : 'application/json'}
         };
-        return Axios(postData) .then((res) => dispatch(saved(name,joinData))) .catch(e => dispatch(saveError(e)));
+        return Axios(postData).then((res) => dispatch(saved(name,joinData))).catch(e => dispatch(saveError(e)));
     }
 }
 
@@ -91,7 +89,7 @@ const validate = loginData => {
             }),
             headers : { 'Content-Type' : 'application/json'}
         }
-        return Axios(postData) .then(res => dispatch(loginSuccess(res.data))) .catch( e => dispatch(loginError(e)));
+        return Axios(postData).then(res => dispatch(loginSuccess(res.data))).catch( e => dispatch(loginError(e)));
     }
 }
 

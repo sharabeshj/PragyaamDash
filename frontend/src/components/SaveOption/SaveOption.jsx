@@ -1,5 +1,4 @@
 import React from 'react';
-import PropTypes from 'prop-types';
 
 import CustomInput from '../CustomInput/CustomInput';
 import CustomButtons from '../CustomButtons/Button';

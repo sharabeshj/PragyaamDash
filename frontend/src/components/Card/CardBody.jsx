@@ -5,7 +5,6 @@ import PropTypes from 'prop-types';
 import { withStyles } from '@material-ui/core/styles';
 
 import cardBodyStyle from '../../assets/jss/frontend/components/cardBodyStyle';
-import Card from './Card';
 
 function cardBody({ ...props }){
     const { classes, className, children, plain, profile, ...rest } = props;

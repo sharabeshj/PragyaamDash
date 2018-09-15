@@ -3,7 +3,6 @@ import React from 'react';
 import { withStyles } from '@material-ui/core/styles';
 import Dialog from '@material-ui/core/Dialog';
 import DialogContent from '@material-ui/core/DialogActions';
-import DialogActions from '@material-ui/core/DialogActions';
 import Close from '@material-ui/icons/Close';
 import IconButton from '@material-ui/core/IconButton'
 import DialogTitle from '@material-ui/core/DialogTitle';

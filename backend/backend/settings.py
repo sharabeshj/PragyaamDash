@@ -38,7 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'app',
+    'api_v4',
     'corsheaders',
 ]
 
@@ -88,16 +88,8 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 #     raise Exception("NO DJNAGO_PASSWORD provided.")
 
 DATABASES = {
-    'default' : {
-        'ENGINE' : 'django.db.backends.postgresql_psycopg2',
-        'NAME' : 'pragyaam_test',
-        'USER' :  'sharabesh',
-        'PASSWORD' : 'shara1234',
-        'HOST' : '127.0.0.1',
-        'PORT' : '5432'
-    },
-    'redshift': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+    'default': {
+        'ENGINE': 'django_redshift_backend',
         'NAME' : 'testdb',
         'USER' : 'pragyaamtest',
         'PASSWORD': 'PragyaamTestUser1',

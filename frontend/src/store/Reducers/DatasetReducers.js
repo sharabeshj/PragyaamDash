@@ -15,14 +15,16 @@ const DatasetHandler = (state = { name : '', fields : [], joins : [], tables : [
         case ActionTypes.TABLE_ADD:
             return {
                 ...state,
-                tables : [...state.tables,action.table]
+                tables : [...state.tables,{ name : action.table }]
             }
 
         case ActionTypes.SAVED:
             return {
                 ...state,
-                joins : action.joins,
-                name : action.name
+                fields : [],
+                joins : [],
+                name : '',
+                tables : []
             }
 
         case ActionTypes.SAVE_ERROR:
@@ -30,7 +32,8 @@ const DatasetHandler = (state = { name : '', fields : [], joins : [], tables : [
                 ...state,
                 fields : [],
                 joins : [],
-                name : ''
+                name : '',
+                tables : []
             }
         default:
             return state;

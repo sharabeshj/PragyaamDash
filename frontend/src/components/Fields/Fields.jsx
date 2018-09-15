@@ -20,10 +20,6 @@ import fieldsStyle from '../../assets/jss/frontend/components/fieldsStyle';
 import { fieldAdd } from '../../store/Actions/ActionCreator';
 
 class Fields extends React.Component{
-    
-    constructor(props){
-        super(props);
-    }
 
     handleToggle = (value,e) => {
         const currentIndex = this.props.selectedFields.map(field => field.name).indexOf(value.column_aliases);
@@ -73,7 +69,12 @@ class Fields extends React.Component{
                         type : 'IntegerField',
                         settings : []
                     };
-                    break;                                    this.forceUpdate();
+                    break;
+                default:
+                    data = {
+                        ...data
+                    };
+                    break;
             }
             newSelectedfields.push(data);
         }
