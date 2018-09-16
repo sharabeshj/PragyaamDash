@@ -26,7 +26,7 @@ class Fields extends React.Component{
         const newSelectedfields = [...this.props.selectedFields];
 
         if(currentIndex === -1) {
-            console.log('came in ');
+            console.log(value);
             let data = {
                 name : value.column_aliases,
                 worksheet : this.props.worksheet_name

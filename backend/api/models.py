@@ -4,7 +4,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.core.validators import ValidationError
 
-from api_v4.utils import create_model
+from api.utils import create_model
 
 # Create your models here.
 

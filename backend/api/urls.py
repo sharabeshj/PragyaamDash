@@ -1,5 +1,5 @@
 from django.conf.urls import url
-from api_v4 import views
+from api import views
 
 urlpatterns = [
     url(r'^datasets/$',views.DatasetList.as_view()),

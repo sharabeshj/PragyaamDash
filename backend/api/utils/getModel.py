@@ -1,6 +1,6 @@
 from django.db import connections,models
 
-from api_v4.utils import create_model
+from api.utils import create_model
 
 
 def get_model(table_name,app_name,cursor):
@@ -29,8 +29,5 @@ def getColumns(name,cursor):
     print(info)
     fields = {}
     for item in info:
-        if len(item) == 3:
-            fields[item[0]] = {'type' : item[1],'length' : item[2]}
-        if len(item) == 2:
-            fields[item[0]] = {'type' : item[1]}
+        fields[item[0]] = {'type' : item[1],'length' : item[2]}
     return fields

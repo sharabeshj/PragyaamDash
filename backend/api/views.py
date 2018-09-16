@@ -1,9 +1,9 @@
 from django.shortcuts import render
 from django.contrib.auth.models import User
 
-from api_v4.models import Profile,Dataset,Field,Setting,Table,Join
-from api_v4.serializers import ProfileSerializer,DatasetSeraializer,FieldSerializer,SettingSerializer,GeneralSerializer,TableSerializer,JoinSerializer,DynamicFieldsModelSerializer
-from api_v4.utils import get_model,dictfetchall
+from api.models import Profile,Dataset,Field,Setting,Table,Join
+from api.serializers import ProfileSerializer,DatasetSeraializer,FieldSerializer,SettingSerializer,GeneralSerializer,TableSerializer,JoinSerializer,DynamicFieldsModelSerializer
+from api.utils import get_model,dictfetchall
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -127,8 +127,8 @@ class DatasetDetail(APIView):
                     
                     dynamic_serializer = DynamicFieldsModelSerializer(table_data,many = True,fields = set(model_fields))
                     model_data.append({ 'name' : t.name,'data' : dynamic_serializer.data})
-                    call_command('makemigrations')
-                    call_command('migratefake')
+                    call_command('makemigrations','api',empty = True)
+                    call_command('migrate')
                     # del table_model
                     # try:
                     #     del caches[model._meta.app_label][t.name]

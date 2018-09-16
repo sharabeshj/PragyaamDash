@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from api_v4.models import Profile,Dataset,Field,Setting,Table,Join
+from api.models import Profile,Dataset,Field,Setting,Table,Join
 
 class ProfileSerializer(serializers.ModelSerializer):
     
