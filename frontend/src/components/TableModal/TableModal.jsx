@@ -39,7 +39,7 @@ const TableModal = props => {
                     key = "Close"
                     aria-label = "close"
                     color = "inherit"
-                    onClick = {props.handleClose}
+                    onClick = {(e) => props.handleClose()}
                 >
                     <Close className = {classes.modalClose}/>
                 </IconButton>

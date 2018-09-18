@@ -28,7 +28,7 @@ import CustomDropdown from '../../components/CustomDropdown/CustomDropdown';
 import datasetStyle from '../../assets/jss/frontend/views/dataset';
 import '../../assets/css/srd.css';
 
-import { saveDataset,tableAdd } from '../../store/Actions/ActionCreator';
+import { saveDataset,tableAdd,fieldClear } from '../../store/Actions/ActionCreator';
 import Axios from 'axios';
 
 class Dataset extends Component {
@@ -72,8 +72,8 @@ class Dataset extends Component {
     }
 
     componentDidUpdate(prevProps,prevState){
-        if(this.props.dataset.fields){
             if(this.props.dataset.fields.length !== prevProps.dataset.fields.length){
+                console.log('came in did update');
                 this.props.dataset.fields.forEach(field =>  {
                     Object.entries(this.engine.getDiagramModel().getNodes()).forEach(
                         ([key,value]) => {
@@ -88,13 +88,12 @@ class Dataset extends Component {
                                     }
                                 );
                                 this.engine.getDiagramModel().getNode(key).addPort(new DefaultPortModel(false,`${field.name}`,field.name));
-                                this.forceUpdate();
                             }
                         }
                     )
                 });
+                this.forceUpdate();
             }
-        }
         
     }
 
@@ -148,7 +147,8 @@ class Dataset extends Component {
         Axios(postData).then(res => this.setState(prevState => {
             const worksheetData = {
                 worksheet_name : worksheet.name,
-                data : [...res.data.data]
+                data : [...res.data.data],
+                worksheet_key : worksheet.key
             };
             return {worksheetData : [...prevState.worksheetData,worksheetData]};
         })) 
@@ -169,15 +169,16 @@ class Dataset extends Component {
                                         let JoinData = {
                                             type : value.name,
                                             field : linkVal.sourcePort.name,
-                                            worksheet_1 : linkVal.sourcePort.parent.name
+                                            worksheet_1 : linkVal.sourcePort.parent.key
                                         }
                                         Object.entries(this.engine.getDiagramModel().getNode(key).getPorts()).forEach(
                                             ([n,v]) => {
                                                 if(!v.in){
                                                     Object.entries(this.engine.getDiagramModel().getNode(key).getPort(n).getLinks()).forEach(
                                                         ([oLinkName,oLinkVal]) => { 
-                                                            JoinData.worksheet_2 = oLinkVal.targetPort.parent.name;
+                                                            JoinData.worksheet_2 = oLinkVal.targetPort.parent.key;
                                                             allJoinData = [...new Set([...allJoinData,JoinData])];
+                                                            this.engine.getDiagramModel().removeLink(oLinkName);
                                                         }
                                                     );
                                                 }
@@ -197,6 +198,10 @@ class Dataset extends Component {
 
     handleChange = e => {
         this.setState({ name : e.target.value })
+    }
+
+    componentWillUnmount(){
+        this.props.fieldClear();
     }
     
     render(){
@@ -276,8 +281,6 @@ class Dataset extends Component {
                  <div className = {classes.toolbar}>
                     {"DATASET CREATION"}
                  </div>
-                 <Divider/>
-                 {workspaceOption}
                  <Divider />
                  {list}
                  <Divider />
@@ -291,6 +294,7 @@ class Dataset extends Component {
             <div className = {classes.root}>
                 <div className = {classes.appFrame}>
                 {drawer}
+                {workspaceOption}
                 <div className = {classes.content}>
                     {saveOption}
                     <div
@@ -304,6 +308,8 @@ class Dataset extends Component {
                             let points = this.engine.getRelativeMousePoint(event);
                             worksheet.x = points.x;
                             worksheet.y = points.y;
+                            if(data.name !== 'Inner-Join' && data.name !== 'Left-Join' && data.name !== 'Right-Join' && data.name !== 'Outer-Join')
+                            worksheet.key = data.key;
                             this.engine.getDiagramModel().addNode(worksheet);
                             this.forceUpdate ();
                             if(data.name !== 'Inner-Join' && data.name !== 'Left-Join' && data.name !== 'Right-Join' && data.name !== 'Outer-Join')
@@ -335,7 +341,8 @@ const mapStateToProps = state => ({
 const mapDispatchToProps = dispatch => {
     return {
         saveDataset : (name,joinData) => dispatch(saveDataset(name,joinData)),
-        tableAdd : (table) => dispatch(tableAdd(table))
+        tableAdd : (table) => dispatch(tableAdd(table)),
+        fieldClear : () => dispatch(fieldClear())
     }
 }
 

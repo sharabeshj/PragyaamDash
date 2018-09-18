@@ -100,3 +100,7 @@ export const saveDataset = (name,joinData) => {
 export const login = (loginData) => {
     return (dispatch,getState) => dispatch(validate(loginData))
 }
+
+export const fieldClear = () => {
+    return (dispatch,getState) => dispatch(saveError("error"))
+}

@@ -25,7 +25,7 @@ class CustomDropdown extends React.Component {
       this.handleClick = this.handleClick.bind(this);
       this.handleClose = this.handleClose.bind(this);
     }
-    handleClick() {
+    handleClick(e) {
       this.setState({ open: true });
     }
     handleClose(e) {
@@ -131,7 +131,6 @@ class CustomDropdown extends React.Component {
                           return (
                             <Divider
                               key={key}
-                              onClick={this.handleClose}
                               className={classes.dropdownDividerItem}
                             />
                           );

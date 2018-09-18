@@ -19,6 +19,7 @@ class OptionToolbar extends React.Component{
                    <Fields 
                         fieldData = { worksheet.data }
                         worksheet_name = {worksheet.worksheet_name}
+                        worksheet_key = {worksheet.worksheet_key}
                    />
                )
            }

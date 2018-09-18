@@ -107,7 +107,6 @@ class DatasetDetail(APIView):
             tables = Table.objects.filter(dataset = dataset)
             joins = Join.objects.filter(dataset =  dataset)
             model_fields = [f.name for f in model._meta.get_fields()]
-            print(model_fields)
             model_data = []
             data = []
 
@@ -135,7 +134,6 @@ class DatasetDetail(APIView):
                     # except KeyError:
                     #     pass
             join_model_data=[]
-            print(joins)
             
             if joins.count() == 0:
                 print('hi2')
@@ -144,83 +142,85 @@ class DatasetDetail(APIView):
                         print(a)
                         join_model_data.append({**dict(a)})
 
-            for join in joins:
+            else:
+                for join in joins:
 
-                # print(join.type)
+                    print(join.type)
 
-                if join.type == 'Inner-Join':
-                    for d in model_data:
-                        if d['name'] == join.worksheet_1:
-                            
-                            for x in d['data']:
-                                # print(d['table_data'])
-                                check = []
-                                for a in model_data:
-                                    if a['name'] == join.worksheet_2:
-                                        X = dict(x)
-                                        # print(a['table_data'])
-                                        for c in a['data']:
-                                            C = dict(c)
-                                            if C[join.field] == X[join.field]:
-                                                check.append(C)
-                                                # print(check)
-                                        if check == []:
+                    if join.type == 'Inner-Join':
+                        for d in model_data:
+                            if d['name'] == join.worksheet_1:
+                                
+                                for x in d['data']:
+                                    # print(d['table_data'])
+                                    check = []
+                                    for a in model_data:
+                                        if a['name'] == join.worksheet_2:
+                                            X = dict(x)
+                                            # print(a['table_data'])
+                                            for c in a['data']:
+                                                C = dict(c)
+                                                if C[join.field] == X[join.field]:
+                                                    check.append(C)
+                                                    # print(check)
+                                            if check != []:
+                                                for z in check:
+                                                    join_model_data.append({**X,**z})
                                             break
-                                        for z in check:
-                                            join_model_data.append({**X,**z})
-                                        break
-                    
-                    continue
-                if join.type == 'Left-Join':
-                    for d in model_data:
-                        if d['name'] == join.worksheet_1:
-                            
-                            for x in d['data']:
-                                check = []
-                                for a in model_data:
-                                    if a['name'] == join.worksheet_2:
-                                        X = dict(x)
-                                        for c in a['data']:
-                                            C = dict(c)
-                                            if C[join.field] == X[join.field]:
-                                                check.append(C)
-                                        if check == []:
-                                            join_model_data.append({**X})
+                        
+                        continue
+                    if join.type == 'Left-Join':
+                        print(model_data)
+                        for d in model_data:
+                            if d['name'] == join.worksheet_1:
+                                
+                                for x in d['data']:
+                                    check = []
+                                    for a in model_data:
+                                        if a['name'] == join.worksheet_2:
+                                            X = dict(x)
+                                            for c in a['data']:
+                                                C = dict(c)
+                                                if C[join.field] == X[join.field]:
+                                                    check.append(C)
+                                            if check == []:
+                                                join_model_data.append({**X})
+                                            else:
+                                                for z in check:
+                                                    join_model_data.append({**X,**z})
+                                            print(join_model_data)
+                                            break       
+                        continue
+                    if join.type == 'Right-Join':
+                        # print('came')
+                        for d in model_data:
+                            if d['name'] == join.worksheet_2:
+                                
+                                for x in d['data']:
+                                    for a in model_data:
+                                        if a['name'] == join.worksheet_1:
+                                            check = []
+                                            X = dict(x)
+                                            for c in a['data']:
+                                                C = dict(c)
+                                                if C[join.field] == X[join.field]:
+                                                    check.append(C)
+                                            if check == []:
+                                                # print({**dict(x)})
+                                                join_model_data.append({**X})
+                                            else:
+                                                for z in check:
+                                                    print({**z,**X})
+                                                    join_model_data.append({**z,**X})  
                                             break
-                                        for z in check:
-                                            join_model_data.append({**X,**z})
-                                        break       
-                    continue
-                if join.type == 'Right-Join':
-                    # print('came')
-                    for d in model_data:
-                        if d['name'] == join.worksheet_2:
-                            
-                            for x in d['data']:
-                                for a in model_data:
-                                    if a['name'] == join.worksheet_1:
-                                        check = []
-                                        X = dict(x)
-                                        for c in a['data']:
-                                            C = dict(c)
-                                            if C[join.field] == X[join.field]:
-                                                check.append(C)
-                                        if check == []:
-                                            # print({**dict(x)})
-                                            join_model_data.append({**X})
-                                            break
-                                        for z in check:
-                                            print({**z,**X})
-                                            join_model_data.append({**z,**X})  
-                                        break
-                    # print(join_model_data)     
-                    continue
-                if join.type == 'Outer-Join':
-                    for x in model_data:
-                        for c in x['data']:
+                        # print(join_model_data)     
+                        continue
+                    if join.type == 'Outer-Join':
+                        for x in model_data:
+                            for c in x['data']:
 
-                            join_model_data.append({**dict(c)})
-                    continue
+                                join_model_data.append({**dict(c)})
+                        continue
 
 
 

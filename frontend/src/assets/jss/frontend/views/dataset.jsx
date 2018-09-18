@@ -10,7 +10,7 @@ const datasetStyle = theme => ({
     appFrame : {
         height : '100%',
         zIndex : 1,
-        overflow : 'hidden',
+        overflow : 'auto',
         position : 'relative',
         display : 'flex',
         width : '100%',

@@ -22,14 +22,15 @@ import { fieldAdd } from '../../store/Actions/ActionCreator';
 class Fields extends React.Component{
 
     handleToggle = (value,e) => {
-        const currentIndex = this.props.selectedFields.map(field => field.name).indexOf(value.column_aliases);
+        const currentIndex = this.props.selectedFields.filter(item => item.key === this.props.worksheet_key).map(field => field.name).indexOf(value.column_aliases);
         const newSelectedfields = [...this.props.selectedFields];
 
         if(currentIndex === -1) {
             console.log(value);
             let data = {
                 name : value.column_aliases,
-                worksheet : this.props.worksheet_name
+                worksheet : this.props.worksheet_name,
+                key : this.props.worksheet_key
             }
             switch(value.type){
                 case 'text':
@@ -38,7 +39,7 @@ class Fields extends React.Component{
                         type : 'CharField',
                         settings : [{
                             name : 'max_length',
-                            value : 20
+                            value : 256
                         }]
                     };
                     break;
@@ -59,15 +60,21 @@ class Fields extends React.Component{
                 case 'single':
                     data = {
                         ...data,
-                        type : 'IntegerField',
-                        settings : []
+                        type : 'CharField',
+                        settings : [{
+                            name : 'max_length',
+                            value : 256
+                        }]
                     };
                     break;
                 case 'date':
                     data = {
                         ...data,
-                        type : 'IntegerField',
-                        settings : []
+                        type : 'CharField',
+                        settings : [{
+                            name : 'max_length',
+                            value : 256
+                        }]
                     };
                     break;
                 default:
@@ -95,7 +102,7 @@ class Fields extends React.Component{
                         <TableRow key = {key} className = {classes.tableRow}>
                             <TableCell className = {classes.tableCell}>
                                 <Checkbox 
-                                    checked = {this.props.selectedFields.map(val => val.name).indexOf(field.column_aliases) !== -1}
+                                    checked = {this.props.selectedFields.filter(item => item.key === this.props.worksheet_key).map(val => val.name).indexOf(field.column_aliases) !== -1}
                                     tabIndex={-1}
                                     onClick = {(e) => this.handleToggle(field,e)}
                                     checkedIcon={<Check className = {classes.checkedIcon}/>}

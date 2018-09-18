@@ -24,7 +24,8 @@ class Layers extends React.Component{
         this.state = {
             datasets : [],
             modalOpen : false,
-            tableData : []
+            tableData : [],
+            name : ''
         }
     }
     componentDidMount(){
@@ -56,7 +57,7 @@ class Layers extends React.Component{
             }
         }
         axios(postData)
-            .then(res => this.setState({ modalOpen : true,tableData : res.data }))
+            .then(res => this.setState({ modalOpen : true,tableData : res.data,name : name }))
             .catch(e => console.error(e));
     }
 
@@ -77,7 +78,7 @@ class Layers extends React.Component{
             }
         }
         axios(postData)
-            .then(res => this.setState({ modalOpen : true,tableData : res.data }))
+            .then(res => this.setState({ modalOpen : true,tableData : res.data,name : name }))
             .catch(e => console.error(e));
     }
     render(){
@@ -88,9 +89,7 @@ class Layers extends React.Component{
             datasets = this.state.datasets.map((dataset,index) => {
                 const color = colorChoices[Math.floor(Math.random()*colorChoices.length)];
                 return (
-                <div key = {index}>
-                    < GridContainer>
-                        <GridItem xs = {12} sm = {6} md = {4} lg = {4}>
+                        <GridItem key = {index} xs = {12} sm = {6} md = {4} lg = {4}>
                             <Card>
                                 <CardHeader color = {color} >
                                     <h5 className = {classes.cardTitleWhite}>{dataset.name}</h5>
@@ -106,19 +105,6 @@ class Layers extends React.Component{
                                          <CustomButton name = {dataset.name} simple color = "success" size = "sm" onClick = {() => this.handleAdd(dataset.name)}>
                                             Add
                                          </CustomButton>
-                                         {this.state.tableData !== [] ? (<TableModal 
-                                            title = {dataset.name}
-                                            tableData = {this.state.tableData.map(data => {
-                                                let dataArray = []
-                                                Object.entries(data).forEach(
-                                                    ([key,value]) => (key !== 'id') ? dataArray = [...dataArray,value] : dataArray = [...dataArray]
-                                                );
-                                                return dataArray
-                                            })}
-                                            handleClose = {this.handleClose}
-                                            fields = {dataset.fields}
-                                            modalOpen = {this.state.modalOpen}
-                                         />) : null }
                                     </div>
                                 </CardBody>
                                 <CardFooter chart>
@@ -131,8 +117,6 @@ class Layers extends React.Component{
                                 </CardFooter>
                             </Card>
                         </GridItem>
-                    </GridContainer>
-                </div>
             )});
             
         }
@@ -146,7 +130,23 @@ class Layers extends React.Component{
                         Create Dataset <Add />
                     </CustomButton>
                 </div>
-                {datasets}
+                <GridContainer>
+                    {datasets}
+                </GridContainer>
+  
+                {(this.state.tableData.length > 0 && this.state.modalOpen)  ? (<TableModal 
+                                            title = {this.state.name}
+                                            tableData = {this.state.tableData.map(data => {
+                                                let dataArray = []
+                                                Object.entries(data).forEach(
+                                                    ([key,value]) => dataArray = [...dataArray,value]
+                                                );
+                                                return dataArray
+                                            })}
+                                            handleClose = {this.handleClose}
+                                            fields = {Object.entries(this.state.tableData[0]).map(item => item[0])}
+                                            modalOpen = {this.state.modalOpen}
+                                         />) : null }
             </div>
         );
     }
