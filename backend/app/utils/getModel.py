@@ -1,6 +1,6 @@
 from django.db import connections,models
 
-from api.utils import create_model
+from app.utils import create_model
 
 
 def get_model(table_name,app_name,cursor):
@@ -20,7 +20,7 @@ def get_model(table_name,app_name,cursor):
         else: print ("Problem handling datatbase table",x,y['type'])
 
     
-    return create_model(table_name,attrs,app_label=app_name,module='',options={'db_table' : table_name})
+    return create_model(table_name,attrs,app_label=app_name,module='',options={'db_table' : table_name,'managed' : False})
 
 def getColumns(name,cursor):
 

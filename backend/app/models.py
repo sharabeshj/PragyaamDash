@@ -4,7 +4,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.core.validators import ValidationError
 
-from api.utils import create_model
+from app.utils import create_model
 
 # Create your models here.
 
@@ -32,8 +32,9 @@ class Dataset(models.Model):
     def get_django_model(self):
 
         fields = [(f.name, f.get_django_field()) for f in self.fields.all()]
+        fields.append(tuple(('id',getattr(models,'IntegerField')(**dict([('primary_key' ,True)])))))
 
-        return create_model(self.name, dict(fields), self._meta.app_label)
+        return create_model(self.name, dict(fields), self._meta.app_label,options={'db_table' : self.name})
 
     class Meta:
         unique_together = (('profile','name'),)

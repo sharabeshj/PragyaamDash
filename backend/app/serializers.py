@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from api.models import Profile,Dataset,Field,Setting,Table,Join
+from app.models import Dataset,Field,Setting,Table,Join,Profile
 
 class ProfileSerializer(serializers.ModelSerializer):
     
@@ -17,7 +17,7 @@ class DatasetSeraializer(serializers.ModelSerializer):
 
     class Meta:
         model = Dataset
-        fields = ('profile','name','fields')
+        fields = ('name','fields','profile')
 
 class FieldSerializer(serializers.ModelSerializer):
 

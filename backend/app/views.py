@@ -1,9 +1,9 @@
 from django.shortcuts import render
 from django.contrib.auth.models import User
 
-from api.models import Profile,Dataset,Field,Setting,Table,Join
-from api.serializers import ProfileSerializer,DatasetSeraializer,FieldSerializer,SettingSerializer,GeneralSerializer,TableSerializer,JoinSerializer,DynamicFieldsModelSerializer
-from api.utils import get_model,dictfetchall
+from app.models import Dataset,Field,Setting,Table,Join,Profile
+from app.serializers import DatasetSeraializer,FieldSerializer,SettingSerializer,GeneralSerializer,TableSerializer,JoinSerializer,DynamicFieldsModelSerializer,ProfileSerializer
+from app.utils import get_model,dictfetchall
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -15,6 +15,8 @@ from django.contrib import admin
 from django.core.management import call_command
 from django.db import connections
 from django.core.cache import caches
+from django.db.migrations.recorder import MigrationRecorder
+from django.core.management.commands import sqlmigrate
 
 import collections
 import json
@@ -54,7 +56,7 @@ class DatasetList(APIView):
         serializer = DatasetSeraializer(data = data)
         if serializer.is_valid():
             serializer.save(profile = profile)
-            dataset = Dataset.objects.filter(profile__user = request.user).get(name = data['name'])
+            dataset = Dataset.objects.get(name = data['name'])
             for f in data['fields']:
                 field_serializer = FieldSerializer(data = f)
                 if field_serializer.is_valid():
@@ -77,6 +79,14 @@ class DatasetList(APIView):
             admin.site.register(model)
             call_command('makemigrations')
             call_command('migrate')
+            last_migration = MigrationRecorder.Migration.objects.latest('id')
+            last_migration_object = sqlmigrate.Command()
+            last_migration_sql = last_migration_object.handle(app_label = last_migration.app, migration_name = last_migration.name,database = 'default', backwards = False)
+            print(last_migration_sql)
+            for item in last_migration_sql.split('\n'):
+                if item.split(' ')[0] == 'CREATE':
+                    with connections['redshift'].cursor() as cursor:
+                        cursor.execute(item)
             return Response({'message' : 'success'},status=status.HTTP_201_CREATED)
         return Response(serializer.errors,status = status.HTTP_400_BAD_REQUEST)
 
@@ -85,9 +95,9 @@ class DatasetDetail(APIView):
 
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
-    def get_object(self,user,name):
+    def get_object(self,name,user):
         try:
-            return Dataset.objects.filter(profile__user = user).get(name = name)
+            return Dataset.objects.filter(profile = user.profile).get(name = name)
 
         except Dataset.DoesNotexist:
             return Http404
@@ -95,12 +105,12 @@ class DatasetDetail(APIView):
 
     def post(self,request):
         
-        dataset = self.get_object(request.user,request.data['name'])
+        dataset = self.get_object(request.data['name'],request.user)
         model = dataset.get_django_model()
         GeneralSerializer.Meta.model = model
         
         if request.data['view_mode'] == 'view':
-            data_subset = model.objects.all()
+            data_subset = model.objects.using('redshift').all()
             data_serializer = GeneralSerializer(data_subset,many = True)
             return Response(data_serializer.data,status=status.HTTP_200_OK)
         else:
@@ -126,7 +136,7 @@ class DatasetDetail(APIView):
                     
                     dynamic_serializer = DynamicFieldsModelSerializer(table_data,many = True,fields = set(model_fields))
                     model_data.append({ 'name' : t.name,'data' : dynamic_serializer.data})
-                    call_command('makemigrations','api',empty = True)
+                    call_command('makemigrations')
                     call_command('migrate')
                     # del table_model
                     # try:
@@ -337,10 +347,10 @@ class DatasetDetail(APIView):
             if serializer.is_valid(raise_exception = True):
                 print('hi')
 
-                serializer.save()
+                serializer.save(using = 'redshift')
             else:
                 return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
-            data_subset = model.objects.all()
+            data_subset = model.objects.using('redshift').all()
             data_serializer = GeneralSerializer(data_subset,many = True)
             return Response(data_serializer.data,status=status.HTTP_200_OK)
         return Response({'message' : 'error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

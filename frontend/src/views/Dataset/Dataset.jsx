@@ -35,11 +35,7 @@ class Dataset extends Component {
     constructor(props){
         super(props);
         this.state = {
-            workSpace : [{
-                userid : "c249392y",
-                workspace_id : "H1XXFBT",
-                workspace_name : "H1XXFBT"
-            }],
+            workSpace : [],
             selectedWorkSpace : '',
             workSheet : [],
             selectedWorkSheet : [],
