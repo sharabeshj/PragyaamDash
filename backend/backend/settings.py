@@ -39,7 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'app',
-    'corsheaders',
+    'corsheaders'
 ]
 
 MIDDLEWARE = [
@@ -104,6 +104,8 @@ DATABASES = {
         'PORT' : 5439,   
     }
 }
+
+DATABASE_ROUTERS = ['app.routers.Router']
 
 
 # Password validation

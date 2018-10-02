@@ -78,7 +78,7 @@ class DatasetList(APIView):
             model = dataset.get_django_model()
             admin.site.register(model)
             call_command('makemigrations')
-            call_command('migrate')
+            call_command('migrate',fake = True)
             last_migration = MigrationRecorder.Migration.objects.latest('id')
             last_migration_object = sqlmigrate.Command()
             last_migration_sql = last_migration_object.handle(app_label = last_migration.app, migration_name = last_migration.name,database = 'default', backwards = False)
@@ -117,6 +117,7 @@ class DatasetDetail(APIView):
             tables = Table.objects.filter(dataset = dataset)
             joins = Join.objects.filter(dataset =  dataset)
             model_fields = [f.name for f in model._meta.get_fields()]
+            print(model_fields)
             model_data = []
             data = []
 
@@ -347,9 +348,9 @@ class DatasetDetail(APIView):
             if serializer.is_valid(raise_exception = True):
                 print('hi')
 
-                serializer.save(using = 'redshift')
+                serializer.save()
             else:
-                return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+                return Response('error',status=status.HTTP_400_BAD_REQUEST)
             data_subset = model.objects.using('redshift').all()
             data_serializer = GeneralSerializer(data_subset,many = True)
             return Response(data_serializer.data,status=status.HTTP_200_OK)

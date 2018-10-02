@@ -58,6 +58,7 @@ class GeneralSerializer(serializers.ModelSerializer):
         model = None
         fields = '__all__'
 
+
 class DynamicFieldsModelSerializer(serializers.ModelSerializer):
 
     def __init__(self,*args,**kwargs):
