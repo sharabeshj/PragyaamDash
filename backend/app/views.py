@@ -1,8 +1,8 @@
 from django.shortcuts import render
 from django.contrib.auth.models import User
 
-from app.models import Dataset,Field,Setting,Table,Join,Profile
-from app.serializers import DatasetSeraializer,FieldSerializer,SettingSerializer,GeneralSerializer,TableSerializer,JoinSerializer,DynamicFieldsModelSerializer,ProfileSerializer
+from app.models import Dataset,Field,Setting,Table,Join,Profile,Report
+from app.serializers import DatasetSeraializer,FieldSerializer,SettingSerializer,GeneralSerializer,TableSerializer,JoinSerializer,DynamicFieldsModelSerializer,ProfileSerializer,ReportSerializer
 from app.utils import get_model,dictfetchall
 
 from rest_framework.views import APIView
@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.http import Http404
 from rest_framework import permissions
+from rest_framework import viewsets
 
 from django.contrib import admin
 from django.core.management import call_command
@@ -20,6 +21,10 @@ from django.core.management.commands import sqlmigrate
 
 import collections
 import json
+from django_pandas.io import read_frame
+import matplotlib.pyplot as plt
+import mpld3
+
 # Create your views here.
 
 class ProfileDetail(APIView):
@@ -110,7 +115,7 @@ class DatasetDetail(APIView):
         GeneralSerializer.Meta.model = model
         
         if request.data['view_mode'] == 'view':
-            data_subset = model.objects.using('redshift').all()
+            data_subset = model.objects.all()
             data_serializer = GeneralSerializer(data_subset,many = True)
             return Response(data_serializer.data,status=status.HTTP_200_OK)
         else:
@@ -351,7 +356,45 @@ class DatasetDetail(APIView):
                 serializer.save()
             else:
                 return Response('error',status=status.HTTP_400_BAD_REQUEST)
-            data_subset = model.objects.using('redshift').all()
+            data_subset = model.objects.all()
             data_serializer = GeneralSerializer(data_subset,many = True)
             return Response(data_serializer.data,status=status.HTTP_200_OK)
         return Response({'message' : 'error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+class ReportGenerate(viewsets.ViewSet):
+
+    def report_options(self,request):
+
+        report_type = request.data['type']
+        if report_type == 'hor_bar':
+            return Response({'options' : ['X_field','Y_field']})
+
+    def get_object(self,name,user):
+        try:
+            return Dataset.objects.filter(profile = user.profile).get(name = name)
+
+        except Dataset.DoesNotexist:
+            return Http404
+
+    def report_generate(self,request):
+
+        report_type = request.data['type']
+        dataset = request.data['dataset']
+        dataset_detail = self.get_object(dataset,request.user)
+        model = dataset_detail.get_django_model()
+        data = model.objects.all()
+        df = read_frame(data)
+
+        if report_type == 'hor_bar':
+            X_field = request.data['options']['X_field']
+            Y_field = request.data['options']['Y_field']
+            df_required = df.loc[:,df.columns.isin(list((X_field,Y_field)))]
+            plt.rcdefaults()
+            fig,ax = plt.subplots()
+            ax = df_required.plot(kind = 'barh', title = request.data['report_title'], legend = True,fontsize = 12)
+            ax.set_xlabel(X_field,fontsize = 12)
+            ax.set_ylabel(Y_field,fontsize = 12)
+
+            return Response({'data' : mpld3.fig_to_dict(fig)}, status = status.HTTP_200_OK)
+        
+        return Response('error',status = status.HTTP_400_BAD_REQUEST)

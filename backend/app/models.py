@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.contrib.postgres.fields import JSONField
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.core.validators import ValidationError
@@ -88,3 +89,9 @@ class Join(models.Model):
     field = models.CharField(max_length = 50)
     worksheet_1 = models.CharField(max_length = 50)
     worksheet_2 = models.CharField(max_length = 50)
+
+class Report(models.Model):
+    
+    dataset = models.ForeignKey(Dataset,related_name = 'reports', on_delete = models.CASCADE)
+    profile = models.ForeignKey(Profile,related_name = 'reports', on_delete = models.CASCADE)
+    data = JSONField()

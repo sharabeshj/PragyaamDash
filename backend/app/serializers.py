@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from app.models import Dataset,Field,Setting,Table,Join,Profile
+from app.models import Dataset,Field,Setting,Table,Join,Profile,Report
 
 class ProfileSerializer(serializers.ModelSerializer):
     
@@ -77,3 +77,13 @@ class DynamicFieldsModelSerializer(serializers.ModelSerializer):
     class Meta:
         model = None
         fields = '__all__'
+
+class ReportSerializer(serializers.ModelSerializer):
+
+    dataset = serializers.ReadOnlyField(source = 'dataset.name')
+    profile = serializers.ReadOnlyField(source = 'profile.user.username')
+
+    class Meta:
+        model = Report
+        fields = ('dataset','profile','data')
+
