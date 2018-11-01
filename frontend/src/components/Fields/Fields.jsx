@@ -77,9 +77,24 @@ class Fields extends React.Component{
                         }]
                     };
                     break;
+                case 'image':
+                    data = {
+                        ...data,
+                        type : 'CharField',
+                        settings : [{
+                            name : 'max_length',
+                            value : 256
+                        }]
+                    };
+                    break;
                 default:
                     data = {
-                        ...data
+                        ...data,
+                        type : 'CharField',
+                        settings : [{
+                            name : 'max_length',
+                            value : 256
+                        }]
                     };
                     break;
             }

@@ -1,11 +1,40 @@
-{
-    "name" : "dataset_1",
-    "fields" : [{"name" : "field_1", "type" : "CharField","worksheet" : "test_table_1", "settings" : [{"name" : "max_length", "value" : 20}]},{"name" : "field_3","worksheet" : "test_table_2", "type" : "IntegerField", "settings" : []},{"name" : "field_4","worksheet" : "test_table_2","type" : "CharField","settings" : [{"name" : "max_length", "value"  : 20}]},{"name" : "field_1", "worksheet" : "test_table_3","type" : "CharField","settings" : [{"name" : "max_length", "value" : 20}]},{"name" : "field_4", "worksheet" : "test_table_3", "type" : "CharField", "settings" : [{"name" : "max_length", "value" : 20}]}],
-    "tables" : [{"name" : "test_table_1"},{"name" : "test_table_2"}, {"name" : "test_table_3"}],
-    "joins" : [{"type" : "Inner-Join","field" : "field_1","worksheet_1" : "test_table_1","worksheet_2" : "test_table_3"},{"type" : "Inner Join" , "field" : "field_4", "worksheet_1" : "test_table_2","worksheet_2" : "test_table_3"}]
-}
+[
+    {
+        "id": 3,
+        "creditor_type": null,
+        "number_check": 32,
+        "wer": "image 3"
+    },
+    {
+        "id": 1,
+        "creditor_type": null,
+        "number_check": 34,
+        "wer": "image"
+    },
+    {
+        "id": 2,
+        "creditor_type": "type 2",
+        "number_check": null,
+        "wer": null
+    },
+    {
+        "id": 2,
+        "creditor_type": null,
+        "number_check": 64,
+        "wer": "image 2"
+    },
+    {
+        "id": 1,
+        "creditor_type": "type 1",
+        "number_check": null,
+        "wer": null
+    },
+    {
+        "id": 3,
+        "creditor_type": "type3",
+        "number_check": null,
+        "wer": null
+    }
+]
 
-{
-    "name" : "dataset_1",
-    "view_mode" : "add"
-}
+{"data":{"width":640.0,"height":480.0,"axes":[{"bbox":[0.125,0.10999999999999999,0.775,0.77],"xlim":[0.0,1.0],"ylim":[0.0,1.0],"xdomain":[0.0,1.0],"ydomain":[0.0,1.0],"xscale":"linear","yscale":"linear","axes":[{"position":"bottom","nticks":6,"tickvalues":null,"tickformat":null,"scale":"linear","fontsize":10.0,"grid":{"gridOn":false},"visible":true},{"position":"left","nticks":6,"tickvalues":null,"tickformat":null,"scale":"linear","fontsize":10.0,"grid":{"gridOn":false},"visible":true}],"axesbg":"#FFFFFF","axesbgalpha":null,"zoomable":true,"id":"el25777140342889458320","lines":[],"paths":[],"markers":[],"texts":[],"collections":[],"images":[],"sharex":[],"sharey":[]}],"data":{},"id":"el25777140342926196296","plugins":[{"type":"reset"},{"type":"zoom","button":true,"enabled":false},{"type":"boxzoom","button":true,"enabled":false}]}}

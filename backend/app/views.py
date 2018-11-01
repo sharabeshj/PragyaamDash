@@ -143,7 +143,7 @@ class DatasetDetail(APIView):
                     dynamic_serializer = DynamicFieldsModelSerializer(table_data,many = True,fields = set(model_fields))
                     model_data.append({ 'name' : t.name,'data' : dynamic_serializer.data})
                     call_command('makemigrations')
-                    call_command('migrate')
+                    call_command('migrate',fake = True)
                     # del table_model
                     # try:
                     #     del caches[model._meta.app_label][t.name]
@@ -383,12 +383,15 @@ class ReportGenerate(viewsets.ViewSet):
         dataset_detail = self.get_object(dataset,request.user)
         model = dataset_detail.get_django_model()
         data = model.objects.all()
+        print(data)
         df = read_frame(data)
 
         if report_type == 'hor_bar':
             X_field = request.data['options']['X_field']
             Y_field = request.data['options']['Y_field']
             df_required = df.loc[:,df.columns.isin(list((X_field,Y_field)))]
+            df_required = df_required.dropna()
+            print(df_required)
             plt.rcdefaults()
             fig,ax = plt.subplots()
             ax = df_required.plot(kind = 'barh', title = request.data['report_title'], legend = True,fontsize = 12)

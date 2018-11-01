@@ -1,0 +1,137 @@
+import React from 'react';
+import PropTypes from 'prop-types';
+import { withStyles } from '@material-ui/core/styles';
+import classnames from 'classnames';
+import ExpansionPanel from '@material-ui/core/ExpansionPanel';
+import ExpansionPanelDetails from '@material-ui/core/ExpansionPanelDetails';
+import ExpansionPanelSummary from '@material-ui/core/ExpansionPanelSummary';
+import ExpansionPanelActions from '@material-ui/core/ExpansionPanelActions';
+import Typography from '@material-ui/core/Typography';
+import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
+import BarChart from '@material-ui/icons/BarChart';
+import Chip from '@material-ui/core/Chip';
+import Button from '@material-ui/core/Button';
+import TextField from '@material-ui/core/TextField';
+import Divider from '@material-ui/core/Divider';
+
+import reportToolbarStyles from '../../assets/jss/frontend/components/reportToolbarStyles';
+
+function ReportToolbar(props) {
+    const { classes } = props;
+    return (
+        <div className={classes.root}>
+            <ExpansionPanel defaultExpanded>
+                <ExpansionPanelSummary expandIcon={<ExpandMoreIcon/>}>
+                    <div className={classes.column}>
+                        <Typography className={classes.heading}>
+                            Report Toolbar
+                        </Typography>
+                    </div>
+                    <div className={classes.column}>
+                        <Typography className={classes.secondary}>
+                            Select options
+                        </Typography>
+                    </div>
+                </ExpansionPanelSummary>
+                <ExpansionPanelDetails className={classes.details}>
+                    <div className={classes.column}>
+                        <Button variant={"fab"} aria-labe={"Hor_bar"} className={classes.HorBarButton}>
+                            <BarChart/>
+                        </Button>
+                    </div>
+                    <div className={classes.column}>
+                        <TextField
+                            id="reportTitle"
+                            label="Report Title"
+                            className = {classes.textField}
+                            value={props.reportTitle}
+                            onChange={props.handleTitleChange}
+                            margin="normal"
+                            variant="outlined"
+                        />
+                        <TextField
+                            id={"select dataset"}
+                            select
+                            label={"Select dataset"}
+                            className={classes.textField}
+                            value={props.selectedDataset}
+                            onChange={props.handleDatasetChange}
+                            SelectProps={{
+                                native : true,
+                                MenuProps : {
+                                    className : classes.menu,
+                                },
+                            }}
+                            helperText={"Please select your dataset"}
+                            margin = "normal"
+                            variant={"outlined"}
+                        >
+                            {props.datasets.map(option => (
+                                <option key={option.name} value={option.name} data-fields = {`${option.fields}`}>
+                                    {option.name}
+                                </option>
+                            ))}
+                        </TextField>
+                        <TextField
+                            id={"select x field"}
+                            select
+                            label={"Select X Field"}
+                            className={classes.textField}
+                            value={props.selectedXField}
+                            onChange={(e) => props.handleFieldChange(e.currentTarget.value,null)}
+                            SelectProps={{
+                                native : true,
+                                MenuProps : {
+                                    className : classes.menu,
+                                },
+                            }}
+                            helperText={"Please select your x field"}
+                            margin = "normal"
+                            variant={"outlined"}
+                        >
+                            {props.fields && props.fields.map(field => (
+                                <option disabled={props.selectedFields.indexOf(field)!=-1} value={field} key={field}>
+                                    {field}
+                                </option>
+                            ))}
+                        </TextField>
+                        <TextField
+                            id={"select y field"}
+                            select
+                            label={"Select Y Field"}
+                            className={classes.textField}
+                            value={props.selectedYField}
+                            onChange={(e) => props.handleFieldChange(null,e.currentTarget.value)}
+                            SelectProps={{
+                                native : true,
+                                MenuProps : {
+                                    className : classes.menu,
+                                },
+                            }}
+                            helperText={"Please select your x field"}
+                            margin = "normal"
+                            variant={"outlined"}
+                        >
+                            {props.fields && props.fields.map(field => (
+                                <option disabled={props.selectedFields.indexOf(field)!=-1} value={field} key={field}>
+                                    {field}
+                                </option>
+                            ))}
+                        </TextField>
+                    </div>
+                </ExpansionPanelDetails>
+                <Divider/>
+                <ExpansionPanelActions>
+                    <Button size={"small"}>Cancel</Button>
+                    <Button size={"small"} color={"primary"} onClick={props.handleSave}>Save</Button>
+                </ExpansionPanelActions>
+            </ExpansionPanel>
+        </div>
+        );
+}
+
+ReportToolbar.propTypes = {
+    classes : PropTypes.object.isRequired,
+};
+
+export default withStyles(reportToolbarStyles)(ReportToolbar);
