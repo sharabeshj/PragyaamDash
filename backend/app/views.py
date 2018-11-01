@@ -394,9 +394,10 @@ class ReportGenerate(viewsets.ViewSet):
             print(df_required)
             plt.rcdefaults()
             fig,ax = plt.subplots()
-            ax = df_required.plot(kind = 'barh', title = request.data['report_title'], legend = True,fontsize = 12)
+            ax.barh(df_required.iloc[:,1],df_required.iloc[:,0],align='center',color = 'green')
             ax.set_xlabel(X_field,fontsize = 12)
-            ax.set_ylabel(Y_field,fontsize = 12)
+            ax.set_ylabel(Y_field, fontsize = 12)
+            # plt.show()
 
             return Response({'data' : mpld3.fig_to_dict(fig)}, status = status.HTTP_200_OK)
         
