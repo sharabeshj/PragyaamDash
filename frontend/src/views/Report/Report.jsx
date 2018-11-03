@@ -11,12 +11,14 @@ class Report extends React.Component{
             datasets : [],
             fields : [],
             reportTitle : '',
+            reportType: '',
             selectedFields : [],
             selectedXField : '',
             selectedYField : '',
             selectedDataset :  '',
-            report_data : ''
+            report_data : {}
         };
+        this.ref = React.createRef();
     };
 
     componentDidMount(){
@@ -47,8 +49,9 @@ class Report extends React.Component{
         });
     };
 
-    handleTitleChange = (e) => {
-        this.setState({ reportTitle : e.target.value })
+    handleChange =  name => (e) => {
+        console.log(e.currentTarget.value);
+        this.setState({ [name] : e.currentTarget.value })
     }
 
     handleFieldChange  = (xField,yField) => {
@@ -59,19 +62,39 @@ class Report extends React.Component{
             }));
         }
         else {
-            this.setState(prevState => ({
-                selectedFields : [...prevState.selectedFields,xField],
-                selectedYField : yField
-            }));
+            this.setState(prevState => {
+                if(prevState.selectedYField.indexOf(yField) === -1){
+                    return {
+                        selectedFields : [...prevState.selectedFields,yField],
+                        selectedYField : [...prevState.selectedYField,yField]
+                    }
+                }
+                else {
+                    return {
+                        selectedFields : [...prevState.selectedFields],
+                        selectedYField : [...prevState.selectedYField]
+                    }
+                }
+            });
         }
     };
+
+    handleCancel = () => {
+        this.setState({ fields : [],
+            reportTitle : '',
+            reportType: '',
+            selectedFields : [],
+            selectedXField : '',
+            selectedYField : [],
+            selectedDataset :  ''});
+    }
 
     handleSave = () => {
         const postData = {
             url : 'http://127.0.0.1:8000/api/report_generate/',
             method : 'POST',
             data : JSON.stringify({
-                'type' : 'hor_bar',
+                'type' : this.state.reportType,
                 'dataset' : this.state.selectedDataset,
                 'report_title' : this.state.reportTitle,
                 'options' : {
@@ -89,26 +112,34 @@ class Report extends React.Component{
             .then(res => this.setState((prevState) => {
                 const data = res.data.data;
                 // const new_data = data.slice(1,-1);
-                return { report_data : data };
+                return { report_data : {...data} };
             }))
             .catch(err => console.error(err));
     }
 
     render(){
-        let report_data = (<div id='report_data'></div>);
-        if(this.state.report_data !== ''){
+        let report_data = (<div id='report_data' ref = {this.ref}></div>);
+        if(Object.keys(this.state.report_data).length !== 0 && this.state.report_data.constructor === Object){
+            console.log(this.ref.current.firstChild);
+            if(this.ref.current.firstChild !== null){
+                this.ref.current.removeChild(this.ref.current.firstChild);
+            }
+            // document.getElementById('report_data').removeChild(document.getElementById('report_data').firstElementChild.nodeName)
             window.mpld3.draw_figure('report_data',this.state.report_data);
         }
         return (
             <Aux>
                 <ReportToolbar
-                    handleDatasetChange={this.handleDatasetChange}
-                    handleFieldChange={this.handleFieldChange}
-                    handleSave={this.handleSave}
                     datasets = {this.state.datasets}
                     fields = {this.state.fields}
                     reportTitle = {this.state.reportTitle}
-                    handleTitleChange = {this.handleTitleChange}
+                    reportType = {this.state.reportType}
+                    handleChange = {this.handleChange}
+                    handleDatasetChange={this.handleDatasetChange}
+                    handleFieldChange={this.handleFieldChange}
+                    handleCancel={this.handleCancel}
+                    handleSave={this.handleSave}
+                    selectedYField = {this.state.selectedYField}
                     selectedDataset  ={this.state.selectedDataset}
                     selectedFields = {this.state.selectedFields}
                     selectedXField = {this.state.selectedXField}

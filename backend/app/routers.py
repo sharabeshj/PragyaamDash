@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.db.migrations.recorder import MigrationRecorder
 
 
+
 class Router:
 
     def db_for_read(self,model,**hints):
