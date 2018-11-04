@@ -15,6 +15,7 @@ import ViewList from '@material-ui/icons/ViewList';
 import ViewModule from '@material-ui/icons/ViewModule';
 import PieChart from '@material-ui/icons/PieChart';
 import DonutLarge from '@material-ui/icons/DonutLarge';
+import ScatterPlot from '@material-ui/icons/ScatterPlot';
 import Chip from '@material-ui/core/Chip';
 import Button from '@material-ui/core/Button';
 import TextField from '@material-ui/core/TextField';
@@ -116,6 +117,9 @@ function ReportToolbar(props) {
                         </Button>
                         <Button variant={"fab"} aria-label={"donut_graph"} className={classes.HorBarButton} value='donut_graph' onClick={props.handleChange('reportType')} disabled = {props.reportType === '' ? false : true}> 
                             <DonutLarge/>
+                        </Button>
+                        <Button variant={"fab"} aria-label={"scatter_graph"} className={classes.HorBarButton} value='scatter_graph' onClick={props.handleChange('reportType')} disabled = {props.reportType === '' ? false : true}> 
+                            <ScatterPlot/>
                         </Button>
                     </div>
                     <div className={classes.column}>

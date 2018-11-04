@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.http import Http404
 from rest_framework import permissions
-from rest_framework import viewsets
+from rest_framework import viewsets,generics
 
 from django.contrib import admin
 from django.core.management import call_command
@@ -567,7 +567,7 @@ class ReportGenerate(viewsets.ViewSet):
             print(df_required)
             plt.rcdefaults()
             fig,ax = plt.subplots()
-            data = df_required.loc[:,X_field]
+            data = np.array(df_required.loc[:,X_field])
             wedges, texts = ax.pie(data, wedgeprops=dict(width=0.5), startangle=-40)
 
             bbox_props = dict(boxstyle="square,pad=0.3", fc="w", ec="k", lw=0.72)
@@ -581,11 +581,67 @@ class ReportGenerate(viewsets.ViewSet):
                 horizontalalignment = {-1: "right", 1: "left"}[int(np.sign(x))]
                 connectionstyle = "angle,angleA=0,angleB={}".format(ang)
                 kw["arrowprops"].update({"connectionstyle": connectionstyle})
+                print(data[i])
                 ax.annotate(data[i], xy=(x, y), xytext=(1.35*np.sign(x), 1.4*y),
                             horizontalalignment=horizontalalignment, **kw)
 
             ax.set_title(request.data['report_title'])
 
             return Response({ 'data' : mpld3.fig_to_dict(fig)}, status = status.HTTP_200_OK)
+        
+        if report_type == 'scatter_graph':
+            X_field = request.data['options']['X_field']
+            Y_field = request.data['options']['Y_field']
+            all_fields = []
+            all_fields.extend(Y_field)
+            all_fields.extend([X_field])
+            df_required = df.loc[:,all_fields]
+            df_required = df_required.dropna()
+            print(df_required)
+            plt.rcdefaults()
+            fig,ax = plt.subplots()
+            # nx = np.arange(0,len(np.unique(df_required.loc[:,X_field])),1)
+            for y in Y_field:
+                ax.scatter(df_required.loc[:,X_field],df_required.loc[:,y])
+    
+            ax.set_xlabel(X_field)
+            label = 'fields-'
+            for y in Y_field:
+                label = label + y
+            ax.set_ylabel(label)
+            ax.set_title(request.data['report_title'])
+
+            return Response({ 'data' : mpld3.fig_to_dict(fig)}, status = status.HTTP_200_OK)
+
 
         return Response('error',status = status.HTTP_400_BAD_REQUEST)
+
+
+class ReportList(APIView):
+
+    permission_classes = (permissions.IsAuthenticated,)
+    
+    def get(self,request):
+
+        reports = Report.objects.filter(profile = request.user.profile).all()
+        serializer = ReportSerializer(reports, many=True)
+
+        return Response(serializer.data, status = status.HTTP_200_OK)
+    
+    def get_object(self,name,user):
+        try:
+            return Report.objects.filter(profile = user.profile).get(name = name)
+        except:
+            return Http404
+
+    def post(self, request):
+
+        data = request.data
+        dataset = self.get_object(data['dataset'],request.user)
+
+        if serializer.is_valid():
+            serializer.save(profile = request.user.profile, dataset = dataset)
+
+            return Response(serializer.data,status = status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
