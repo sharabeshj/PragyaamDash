@@ -13,10 +13,17 @@ const switchRoutes = (
 );
 
 class Report extends React.Component {
+
+    componentDidMount(){
+        this.props.history.replace()
+    }
+
     render(){
         return (
             <aux>
                 {switchRoutes}
+
+
             </aux>
         );
     }
