@@ -34,7 +34,6 @@ function ReportToolbar(props) {
         className={classes.textField}
         onChange={(e) => props.handleFieldChange(null,e.currentTarget.value)}
         SelectProps={{
-            native : true,
             MenuProps : {
                 className : classes.menu,
             },
@@ -61,7 +60,6 @@ function ReportToolbar(props) {
                             value={yField}
                             onChange={(e) => props.handleFieldChange(null,e.currentTarget.value)}
                             SelectProps={{
-                                native : true,
                                 MenuProps : {
                                     className : classes.menu,
                                 },
@@ -138,9 +136,8 @@ function ReportToolbar(props) {
                             label={"Select dataset"}
                             className={classes.textField}
                             value={props.selectedDataset}
-                            onChange={props.handleDatasetChange}
+                            onChange={(e) => props.handleDatasetChange(e)}
                             SelectProps={{
-                                native : true,
                                 MenuProps : {
                                     className : classes.menu,
                                 },
@@ -150,7 +147,7 @@ function ReportToolbar(props) {
                             variant={"outlined"}
                         >
                             {props.datasets.map(option => (
-                                <option key={option.name} value={option.name} data-fields = {`${option.fields}`}>
+                                <option key={String(props.datasets.indexOf(option))} value={option.name} data-fields = {`${option.fields}`}>
                                     {option.name}
                                 </option>
                             ))}
@@ -163,7 +160,6 @@ function ReportToolbar(props) {
                             value={props.selectedXField}
                             onChange={(e) => props.handleFieldChange(e.currentTarget.value,null)}
                             SelectProps={{
-                                native : true,
                                 MenuProps : {
                                     className : classes.menu,
                                 },

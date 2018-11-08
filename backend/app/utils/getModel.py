@@ -17,6 +17,7 @@ def get_model(table_name,app_name,cursor):
         elif fieldType == 'float': attrs[x] = models.FloatField(max_length = y['length'],null = True)
         elif fieldType == 'integer': attrs[x] =  models.IntegerField(null = True)
         elif fieldType == 'text': attrs[x] = models.TextField(null = True)
+        elif fieldType == 'numeric': attrs[x] = models.IntegerField(null=True)
         else: print ("Problem handling datatbase table",x,y['type'])
 
     

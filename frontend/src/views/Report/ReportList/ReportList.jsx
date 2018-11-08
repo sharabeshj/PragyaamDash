@@ -14,14 +14,14 @@ import Typography from '@material-ui/core/Typography';
 import { withStyles } from '@material-ui/core/styles';
 import Add from '@material-ui/icons/Add';
 
-import reportListStyles from '../../assets/jss/frontend/components/reportToolbarStyles';
+import reportListStyles from '../../../assets/jss/frontend/components/ReportList';
 
 
 class ReportList extends React.Component{
     constructor(props){
         super(props);
         this.state = {
-            reportDataList = []
+            reportDataList : []
         };
     }
 
@@ -89,8 +89,21 @@ class ReportList extends React.Component{
                                             id={String(this.state.reportDataList.indexOf(report))}
                                         />
                                         <CardContent className={classes.card}>
-                                            
+                                            <Typography gutterBottom variant="h5" component="h2">
+                                                {report.title}
+                                            </Typography>
+                                            <Typography>
+                                                {report.description}
+                                            </Typography>
                                         </CardContent>
+                                        <CardActions>
+                                            <Button size="small" color="success">
+                                                Add
+                                            </Button>
+                                            <Button size="small" color="success">
+                                                Edit
+                                            </Button>
+                                        </CardActions>
                                     </Card>
                                 </Grid>
                             ))}
@@ -98,6 +111,12 @@ class ReportList extends React.Component{
                     </div>
                 </main>
             </React.Fragment>
-        )
+        );
     }
 }
+
+ReportList.propTypes = {
+    classes : PropTypes.object.isRequired,
+};
+
+export default withStyles(reportListStyles)(ReportList);

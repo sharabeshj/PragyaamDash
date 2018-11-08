@@ -114,6 +114,7 @@ class DatasetDetail(APIView):
         dataset = self.get_object(request.data['name'],request.user)
         model = dataset.get_django_model()
         GeneralSerializer.Meta.model = model
+        print(model)
         
         if request.data['view_mode'] == 'view':
             data_subset = model.objects.all()
@@ -126,7 +127,7 @@ class DatasetDetail(APIView):
             print(model_fields)
             model_data = []
             data = []
-
+            model.objects.all().delete()
 
             for t in tables:
                 with connections['redshift'].cursor() as cursor:
@@ -353,10 +354,9 @@ class DatasetDetail(APIView):
             serializer = GeneralSerializer(data = join_model_data,many = True)
             if serializer.is_valid(raise_exception = True):
                 print('hi')
-
                 serializer.save()
             else:
-                return Response('error',status=status.HTTP_400_BAD_REQUEST)
+                return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
             data_subset = model.objects.all()
             data_serializer = GeneralSerializer(data_subset,many = True)
             return Response(data_serializer.data,status=status.HTTP_200_OK)
@@ -468,6 +468,7 @@ class ReportGenerate(viewsets.ViewSet):
             y = 0
             j = 0
             while i <= (ny-1)*width/2:
+                print(nx)
                 ax.bar(nx-i,df_required.loc[:,Y_field[y]],width,label=Y_field[y])
                 i = i + width
                 y = y + 1
@@ -549,9 +550,16 @@ class ReportGenerate(viewsets.ViewSet):
             df_required = df.loc[:,df.columns.isin(all_fields)]
             df_required = df_required.dropna()
             print(df_required)
+            df_num = df_required.select_dtypes(exclude = [np.number])
+            all_columns = list(df_num)
+            df_num[all_columns] = df_num[all_columns].astype('category')
+            df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes)
+            print(df_num.dtypes)
+            df_required.update(df_num)
+            print(df_required)
             plt.rcdefaults()
             fig,ax = plt.subplots()
-            wedges, texts, autotexts = ax.pie(df_required.loc[:,X_field],autopct = lambda pct : self.func(pct, df_required.loc[:,X_field]),textprops = dict(color = 'w'))
+            wedges, texts  = ax.pie(df_required.loc[:,X_field],textprops = dict(color = 'w'))
             ax.legend(wedges, df_required.loc[:,X_field], title = X_field)
             ax.set_title(request.data['report_title'])
 

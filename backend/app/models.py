@@ -94,4 +94,6 @@ class Report(models.Model):
     
     dataset = models.ForeignKey(Dataset,related_name = 'reports', on_delete = models.CASCADE)
     profile = models.ForeignKey(Profile,related_name = 'reports', on_delete = models.CASCADE)
+    title = models.CharField(max_length = 50)
+    description = models.TextField()
     data = JSONField()
