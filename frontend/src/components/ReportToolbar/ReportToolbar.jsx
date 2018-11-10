@@ -49,7 +49,7 @@ function ReportToolbar(props) {
         ))}
     </TextField>);
     let selectedYOptions = null;
-    if(props.selectedYField.length > 0){
+    if(props.selectedYField && props.selectedYField.length > 0){
         selectedYOptions = props.selectedYField.map(yField => (
             <TextField
                             id={"select y field"}

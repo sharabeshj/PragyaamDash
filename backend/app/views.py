@@ -364,6 +364,8 @@ class DatasetDetail(APIView):
     
 class ReportGenerate(viewsets.ViewSet):
 
+    permission_classes = (permissions.IsAuthenticated,)
+
     def report_options(self,request):
 
         report_type = request.data['type']
@@ -458,18 +460,23 @@ class ReportGenerate(viewsets.ViewSet):
             print(all_fields)
             df_required = df.loc[:,df.columns.isin(all_fields)]
             df_required = df_required.dropna()
-            print(df_required)
             plt.rcdefaults()
             fig,ax = plt.subplots()
             width = 0.35
             nx = np.arange(len(np.unique(df_required.loc[:,X_field])))
             ny = len(Y_field)
+            df_num = df_required.select_dtypes(exclude = [np.number])
+            all_columns = list(df_num)
+            df_num[all_columns] = df_num[all_columns].astype('category')
+            df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes)
+            df_required.update(df_num)
+            print(df_required)
             i = -(ny-1)*width/2
             y = 0
             j = 0
             while i <= (ny-1)*width/2:
-                print(nx)
-                ax.bar(nx-i,df_required.loc[:,Y_field[y]],width,label=Y_field[y])
+                print(len(np.array(df_required.loc[:,Y_field[y]])))
+                ax.bar(nx-i,tuple(np.array(df_required.loc[:,Y_field[y]])),width,label=Y_field[y])
                 i = i + width
                 y = y + 1
             

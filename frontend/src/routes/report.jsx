@@ -1,13 +1,13 @@
-import ReportToolbar from '../components/ReportToolbar/ReportToolbar';
+import ReportCreate from '../views/Report/ReportCreate/ReportCreate';
 import ReportList from '../views/Report/ReportList/ReportList';
 
 const reportRoutes = [
     {
-        path : "/reportCreate",
-        component : ReportToolbar
+        path : "/report/reportCreate",
+        component : ReportCreate
     },
     {
-        path : "/reportList",
+        path : "/",
         component : ReportList
     }
 ];

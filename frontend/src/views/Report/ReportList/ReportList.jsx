@@ -2,6 +2,7 @@ import React from 'react';
 import Axios from 'axios';
 import PropTypes from 'prop-types';
 import classNames from 'classnames';
+import {Link} from 'react-router-dom';
 
 import Button from '@material-ui/core/Button';
 import Card from '@material-ui/core/Card';
@@ -13,6 +14,8 @@ import Grid from '@material-ui/core/Grid';
 import Typography from '@material-ui/core/Typography';
 import { withStyles } from '@material-ui/core/styles';
 import Add from '@material-ui/icons/Add';
+
+import CustomButton from '../../../components/CustomButtons/Button';
 
 import reportListStyles from '../../../assets/jss/frontend/components/ReportList';
 
@@ -66,13 +69,16 @@ class ReportList extends React.Component{
                             <div className={classes.heroButtons}>
                                 <Grid container spacing={16} justify="center">
                                     <Grid item>
-                                        <Button variant="contained" color="success">
+                                    <Link to='/report/reportCreate'>
+                                    <CustomButton size = 'md' color="primary">
                                             Create Report<Add/>
-                                        </Button>
+                                        </CustomButton>
+                                    </Link>
+                                        
                                     </Grid>
                                     <Grid item>
-                                        <Button variant="outlines" color="success">
-                                            View dashboard
+                                        <Button variant="outlined" color="success">
+                                            <Link to="/dashboard">View dashboard</Link>
                                         </Button>
                                     </Grid>
                                 </Grid>
