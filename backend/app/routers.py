@@ -9,13 +9,13 @@ class Router:
     def db_for_read(self,model,**hints):
         
         if model not in [Dataset,Field,Setting,Table,Join,Profile,User,MigrationRecorder.Migration,Report]:
-            return 'redshift'
+            return 'default'
         return 'default'
     
     def db_for_write(self,model,**hints):
 
         if model not in [Dataset,Field,Setting,Table,Join,Profile,User,MigrationRecorder.Migration,Report]:
-            return 'redshift'
+            return 'default'
         return 'default'
     
     def allow_relation(self,obj1,obj2,**hints):

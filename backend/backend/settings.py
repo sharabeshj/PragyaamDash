@@ -96,14 +96,14 @@ DATABASES = {
         'HOST' : '127.0.0.1',
         'PORT' : '5432'
     },
-    'redshift': {
-        'ENGINE': 'django_redshift_backend',
-        'NAME' : 'testdb',
-        'USER' : 'pragyaamtest',
-        'PASSWORD': 'PragyaamTestUser1',
-        'HOST' : 'pragyaam-test.cpfjyhfhhtvd.ap-south-1.redshift.amazonaws.com',
-        'PORT' : 5439,   
-    }
+    # 'redshift': {
+    #     'ENGINE': 'django_redshift_backend',
+    #     'NAME' : 'testdb',
+    #     'USER' : 'pragyaamtest',
+    #     'PASSWORD': 'PragyaamTestUser1',
+    #     'HOST' : 'pragyaam-test.cpfjyhfhhtvd.ap-south-1.redshift.amazonaws.com',
+    #     'PORT' : 5439,   
+    # }
 }
 
 DATABASE_ROUTERS = ['app.routers.Router']

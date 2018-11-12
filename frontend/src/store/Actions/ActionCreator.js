@@ -104,3 +104,25 @@ export const login = (loginData) => {
 export const fieldClear = () => {
     return (dispatch,getState) => dispatch(saveError("error"))
 }
+
+export const mobileResizeFunction = () => {
+    if(window.innerWidth > 960){
+        return {
+            type : ActionTypes.MOBILE_RESIZE,
+            mobileOpen : false
+        }
+    }
+}
+
+export const handleDrawerToggle = () => {
+    return {
+        type : ActionTypes.DRAWER_TOGGLE
+    }
+}
+
+export const handleDrawerToggleOnUpdate = () => {
+    return {
+        type : ActionTypes.DRAWER_TOGGLE_ON_UPDATE,
+        mobileOpen : false
+    }
+}

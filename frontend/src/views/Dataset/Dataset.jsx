@@ -24,6 +24,8 @@ import JoinToolbar from '../../components/JoinToolbar/JoinToobar';
 import Aux from '../../hoc/aux/aux';
 import SaveOption from '../../components/SaveOption/SaveOption';
 import CustomDropdown from '../../components/CustomDropdown/CustomDropdown';
+import GeneralModal from '../../components/GeneralModal/GeneralModal';
+import CustomButton from '../../components/CustomButtons/Button';
 
 import datasetStyle from '../../assets/jss/frontend/views/dataset';
 import '../../assets/css/srd.css';
@@ -41,7 +43,8 @@ class Dataset extends Component {
             selectedWorkSheet : [],
             worksheetData : [],
             joinData : [],
-            name : ''
+            name : '',
+            modalOpen : false
         };
     }
 
@@ -199,6 +202,10 @@ class Dataset extends Component {
     componentWillUnmount(){
         this.props.fieldClear();
     }
+
+    handleClose = () => {
+        this.setState(prevState => ({ modalOpen : !prevState.modalOpen }))
+    }
     
     render(){
         const {classes} = this.props;
@@ -255,7 +262,12 @@ class Dataset extends Component {
         if(this.state.worksheetData.length > 0){
             console.log('hi');
             optionToolbar = (
+                <GeneralModal
+                    modalOpen = {this.state.modalOpen}
+                    handleClose = {this.handleClose}
+                >
                     <OptionToolbar worksheetData = {this.state.worksheetData}/>
+                </GeneralModal>
                  );
 
             saveOption = (<SaveOption 
@@ -264,6 +276,12 @@ class Dataset extends Component {
                 content = {this.state.name}
                 />)
         }
+
+        const fieldsOption = (
+            <CustomButton onClick = {this.handleClose}>
+                Select fields
+            </CustomButton>
+        )
 
         const drawer = (
             <Aux>
@@ -277,6 +295,8 @@ class Dataset extends Component {
                  <div className = {classes.toolbar}>
                     {"DATASET CREATION"}
                  </div>
+                 <Divider />
+                 {fieldsOption}
                  <Divider />
                  {list}
                  <Divider />

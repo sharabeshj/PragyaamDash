@@ -91,7 +91,7 @@ class DatasetList(APIView):
             print(last_migration_sql)
             for item in last_migration_sql.split('\n'):
                 if item.split(' ')[0] == 'CREATE':
-                    with connections['redshift'].cursor() as cursor:
+                    with connections['default'].cursor() as cursor:
                         cursor.execute(item)
             return Response({'message' : 'success'},status=status.HTTP_201_CREATED)
         return Response(serializer.errors,status = status.HTTP_400_BAD_REQUEST)
@@ -130,10 +130,10 @@ class DatasetDetail(APIView):
             model.objects.all().delete()
 
             for t in tables:
-                with connections['redshift'].cursor() as cursor:
+                with connections['default'].cursor() as cursor:
                     cursor.execute('select * from "%s"'%(t.name))
                     table_data = dictfetchall(cursor)
-
+                    print(table_data)
 
                     table_model = get_model(t.name,model._meta.app_label,cursor)
                     DynamicFieldsModelSerializer.Meta.model = table_model
@@ -143,6 +143,7 @@ class DatasetDetail(APIView):
                     }
                     
                     dynamic_serializer = DynamicFieldsModelSerializer(table_data,many = True,fields = set(model_fields))
+                    print(dynamic_serializer.data)
                     model_data.append({ 'name' : t.name,'data' : dynamic_serializer.data})
                     call_command('makemigrations')
                     call_command('migrate',fake = True)
@@ -436,7 +437,7 @@ class ReportGenerate(viewsets.ViewSet):
             print(df_required)
             plt.rcdefaults()
             fig,ax = plt.subplots()
-            nx = np.arange(0,len(np.unique(df_required.loc[:,X_field])),1)
+            nx = np.arange(len(df_required.loc[:,X_field])) 
             arg_list = []
             for y in Y_field:
                 arg_list.append(nx)
@@ -463,7 +464,8 @@ class ReportGenerate(viewsets.ViewSet):
             plt.rcdefaults()
             fig,ax = plt.subplots()
             width = 0.35
-            nx = np.arange(len(np.unique(df_required.loc[:,X_field])))
+            nx = np.arange(len(df_required.loc[:,X_field]))
+            X = df_required.loc[:,X_field]
             ny = len(Y_field)
             df_num = df_required.select_dtypes(exclude = [np.number])
             all_columns = list(df_num)
@@ -475,8 +477,8 @@ class ReportGenerate(viewsets.ViewSet):
             y = 0
             j = 0
             while i <= (ny-1)*width/2:
-                print(len(np.array(df_required.loc[:,Y_field[y]])))
-                ax.bar(nx-i,tuple(np.array(df_required.loc[:,Y_field[y]])),width,label=Y_field[y])
+                print(len(nx-i),len(df_required.loc[:,Y_field[y]]))
+                ax.bar(nx-i,df_required.loc[:,Y_field[y]],width,tick_label=X)
                 i = i + width
                 y = y + 1
             
@@ -615,7 +617,7 @@ class ReportGenerate(viewsets.ViewSet):
             print(df_required)
             plt.rcdefaults()
             fig,ax = plt.subplots()
-            # nx = np.arange(0,len(np.unique(df_required.loc[:,X_field])),1)
+            nx = np.arange(len(df_required.loc[:,X_field]))
             for y in Y_field:
                 ax.scatter(df_required.loc[:,X_field],df_required.loc[:,y])
     

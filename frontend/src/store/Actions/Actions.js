@@ -8,3 +8,6 @@ export const SAVED = 'SAVED';
 export const SAVE_ERROR = 'SAVE_ERROR';
 export const LOGIN_SUCCESS = 'LOGIN_SUCCESS';
 export const LOGIN_ERROR = 'LOGIN_ERROR';
+export const MOBILE_RESIZE = 'MOBILE_RESIZE';
+export const DRAWER_TOGGLE = 'DRAWER_TOGGLE';
+export const DRAWER_TOGGLE_ON_UPDATE = 'DRAWER_TOGGLE_ON_UPDATE';
