@@ -73,10 +73,12 @@ class DynamicFieldsModelSerializer(serializers.ModelSerializer):
             existing = set(self.fields.keys())
             for field_name in existing - allowed:
                 self.fields.pop(field_name)
+            print(self.fields)
     
     class Meta:
         model = None
         fields = '__all__'
+
 
 class ReportSerializer(serializers.ModelSerializer):
 

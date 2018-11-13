@@ -123,7 +123,7 @@ class DatasetDetail(APIView):
         else:
             tables = Table.objects.filter(dataset = dataset)
             joins = Join.objects.filter(dataset =  dataset)
-            model_fields = [f.name for f in model._meta.get_fields()]
+            model_fields = [f.name for f in model._meta.get_fields() if f.name is not 'id']
             print(model_fields)
             model_data = []
             data = []
@@ -133,7 +133,7 @@ class DatasetDetail(APIView):
                 with connections['default'].cursor() as cursor:
                     cursor.execute('select * from "%s"'%(t.name))
                     table_data = dictfetchall(cursor)
-                    print(table_data)
+                    # print(table_data)
 
                     table_model = get_model(t.name,model._meta.app_label,cursor)
                     DynamicFieldsModelSerializer.Meta.model = table_model
@@ -143,7 +143,7 @@ class DatasetDetail(APIView):
                     }
                     
                     dynamic_serializer = DynamicFieldsModelSerializer(table_data,many = True,fields = set(model_fields))
-                    print(dynamic_serializer.data)
+                    # print(dynamic_serializer.data)
                     model_data.append({ 'name' : t.name,'data' : dynamic_serializer.data})
                     call_command('makemigrations')
                     call_command('migrate',fake = True)
@@ -153,13 +153,16 @@ class DatasetDetail(APIView):
                     # except KeyError:
                     #     pass
             join_model_data=[]
+
+            id_count = 0
             
             if joins.count() == 0:
                 print('hi2')
                 for x in model_data:
                     for a in x['data']:
                         print(a)
-                        join_model_data.append({**dict(a)})
+                        id_count +=1
+                        join_model_data.append({**dict(a),'id' : id_count })
 
             else:
                 for join in joins:
@@ -184,7 +187,8 @@ class DatasetDetail(APIView):
                                                     # print(check)
                                             if check != []:
                                                 for z in check:
-                                                    join_model_data.append({**X,**z})
+                                                    id_count += 1 
+                                                    join_model_data.append({**X,**z,'id' : id_count})
                                             break
                         
                         continue
@@ -203,10 +207,12 @@ class DatasetDetail(APIView):
                                                 if C[join.field] == X[join.field]:
                                                     check.append(C)
                                             if check == []:
-                                                join_model_data.append({**X})
+                                                id_count += 1
+                                                join_model_data.append({**X, 'id' : id_count})
                                             else:
                                                 for z in check:
-                                                    join_model_data.append({**X,**z})
+                                                    id_count += 1
+                                                    join_model_data.append({**X,**z, 'id' : id_count})
                                             print(join_model_data)
                                             break       
                         continue
@@ -226,11 +232,13 @@ class DatasetDetail(APIView):
                                                     check.append(C)
                                             if check == []:
                                                 # print({**dict(x)})
-                                                join_model_data.append({**X})
+                                                id_count += 1
+                                                join_model_data.append({**X, 'id' : id_count})
                                             else:
                                                 for z in check:
                                                     print({**z,**X})
-                                                    join_model_data.append({**z,**X})  
+                                                    id_count += 1
+                                                    join_model_data.append({**z,**X, 'id' : id_count})  
                                             break
                         # print(join_model_data)     
                         continue

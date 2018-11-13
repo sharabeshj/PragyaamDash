@@ -14,6 +14,7 @@ def get_model(table_name,app_name,cursor):
         if x == 'id': ''
         elif fieldType == 'character varying': attrs[x] = models.CharField(max_length = y['length'],null = True)
         elif fieldType == 'date' : attrs[x] = models.CharField(max_length = 20,null = True)
+        elif fieldType == 'timestamp without time zone': attrs[x] = models.CharField(max_length = 40, null= True)
         elif fieldType == 'float': attrs[x] = models.FloatField(max_length = y['length'],null = True)
         elif fieldType == 'integer': attrs[x] =  models.IntegerField(null = True)
         elif fieldType == 'text': attrs[x] = models.TextField(null = True)
@@ -25,7 +26,10 @@ def get_model(table_name,app_name,cursor):
 
 def getColumns(name,cursor):
 
-    cursor.execute("select column_name,data_type,character_maximum_length from information_schema.columns where table_name = '"+name.lower()    +"';")
+    #for redshift
+    #cursor.execute("select column_name,data_type,character_maximum_length from information_schema.columns where table_name = '"+name.lower()    +"';")
+     #for local 
+    cursor.execute("select column_name, data_type, character_maximum_length from information_schema.columns where table_schema = 'public' and table_name = '%s';" %(name))
     info = cursor.fetchall()
     print(info)
     fields = {}
