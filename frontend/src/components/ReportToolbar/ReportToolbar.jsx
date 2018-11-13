@@ -177,6 +177,20 @@ function ReportToolbar(props) {
                         {selectedYOptions}
                         {newSelectedYOptions}
                     </div>
+                    <div className={classes.column}>
+                        <TextField
+                            id="outlined-multiline-flexible"
+                            label="description"
+                            placeholder="Write some description on the report"
+                            multiline
+                            rows="10"
+                            value={props.reportDescription}
+                            onChange={props.handleChange('reportDescription')}
+                            className={classes.textField}
+                            margin="normal"
+                            variant="outlined"
+                        />
+                    </div>
                 </ExpansionPanelDetails>
                 <Divider/>
                 <ExpansionPanelActions>

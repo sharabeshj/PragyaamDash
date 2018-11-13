@@ -7,7 +7,7 @@ const reportRoutes = [
         component : ReportCreate
     },
     {
-        path : "/",
+        path : "/report",
         component : ReportList
     }
 ];

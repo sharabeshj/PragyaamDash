@@ -12,6 +12,7 @@ class ReportCreate extends React.Component{
             fields : [],
             reportTitle : '',
             reportType: '',
+            reportDescription : '',
             selectedFields : [],
             selectedXField : '',
             selectedYField : '',
@@ -97,6 +98,7 @@ class ReportCreate extends React.Component{
                 'type' : this.state.reportType,
                 'dataset' : this.state.selectedDataset,
                 'report_title' : this.state.reportTitle,
+                'report_description' : this.state.reportDescription,
                 'options' : {
                     'X_field' : this.state.selectedXField,
                     'Y_field' : this.state.selectedYField
@@ -134,6 +136,7 @@ class ReportCreate extends React.Component{
                     fields = {this.state.fields}
                     reportTitle = {this.state.reportTitle}
                     reportType = {this.state.reportType}
+                    reportDescription = {this.state.reportDescription}
                     handleChange = {this.handleChange}
                     handleDatasetChange={this.handleDatasetChange}
                     handleFieldChange={this.handleFieldChange}
