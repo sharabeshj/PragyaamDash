@@ -29,7 +29,7 @@ const dashboardRoutes = [
   },
   {
     collapse: true,
-    path: "/dataset",
+    path: "/datasets",
     name: "Dataset",
     state: "openDatasets",
     icon: Storage,
@@ -50,8 +50,7 @@ const dashboardRoutes = [
   },
   {
     path: "/layer",
-    sidebarName: "Layers",
-    navbarName: "Layers",
+    name: "Layer",
     icon: Layer,
     component: Layers
   },

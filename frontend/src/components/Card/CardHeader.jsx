@@ -13,17 +13,25 @@ function CardHeader({ ...props }){
         children,
         color,
         plain,
+        image,
+        contact,
+        signup,
         stats,
         icon,
+        text,
         ...rest
     } = props;
     const cardHeaderClasses = classNames({
-        [classes.cardHeader] : true,
+        [classes.cardHeader]: true,
         [classes[color + "CardHeader"]]: color,
         [classes.cardHeaderPlain]: plain,
-        [classes.cardHeaderStats] : stats,
-        [classes.cardHeaderIcon] : icon,
-        [className] : className !== undefined
+        [classes.cardHeaderImage]: image,
+        [classes.cardHeaderContact]: contact,
+        [classes.cardHeaderSignup]: signup,
+        [classes.cardHeaderStats]: stats,
+        [classes.cardHeaderIcon]: icon,
+        [classes.cardHeaderText]: text,
+        [className]: className !== undefined
     });
 
     return (
@@ -34,19 +42,23 @@ function CardHeader({ ...props }){
 }
 
 CardHeader.propTypes = {
-    classes : PropTypes.object.isRequired,
+    classes: PropTypes.object.isRequired,
     className: PropTypes.string,
-    color : PropTypes.oneOf([
-        "warning",
-        "success",
-        "danger",
-        "info",
-        "primary",
-        "rose"
+    color: PropTypes.oneOf([
+      "warning",
+      "success",
+      "danger",
+      "info",
+      "primary",
+      "rose"
     ]),
     plain: PropTypes.bool,
+    image: PropTypes.bool,
+    contact: PropTypes.bool,
+    signup: PropTypes.bool,
     stats: PropTypes.bool,
-    icon : PropTypes.bool
+    icon: PropTypes.bool,
+    text: PropTypes.bool
 };
 
 export default withStyles(cardHeaderStyle)(CardHeader);

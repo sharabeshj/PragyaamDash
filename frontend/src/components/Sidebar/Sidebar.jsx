@@ -2,13 +2,17 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { NavLink } from 'react-router-dom';
 import cx from "classnames";
+import PerfectScrollbar from "perfect-scrollbar";
 
-import { withStyles } from '@material-ui/core/styles';
-import Drawer from '@material-ui/core/Drawer';
-import Hidden from '@material-ui/core/Hidden';
-import List from '@material-ui/core/List';
+import withStyles from "@material-ui/core/styles/withStyles";
+import Drawer from "@material-ui/core/Drawer";
+import List from "@material-ui/core/List";
 import ListItem from "@material-ui/core/ListItem";
 import ListItemIcon from "@material-ui/core/ListItemIcon";
+import ListItemText from "@material-ui/core/ListItemText";
+import Hidden from "@material-ui/core/Hidden";
+import Collapse from "@material-ui/core/Collapse";
+import Icon from "@material-ui/core/Icon";
 
 import HeaderLinks from '../Header/HeaderLinks';
 
@@ -31,10 +35,9 @@ class SidebarWrapper extends React.Component {
     }
   }
   render() {
-    const { className, user, headerLinks, links } = this.props;
+    const { className, headerLinks, links } = this.props;
     return (
       <div className={className} ref="sidebarWrapper">
-        {user}
         {headerLinks}
         {links}
       </div>
@@ -52,7 +55,7 @@ class Sidebar extends React.Component {
         }
     }
     activeRoute(routeName) {
-        return props.location.pathname.indexOf(routeName) > -1 ? true : false;
+        return this.props.location.pathname.indexOf(routeName) > -1 ? true : false;
     }
     openCollapse(collapse){
         var st={}
@@ -64,30 +67,17 @@ class Sidebar extends React.Component {
             classes, 
             color, 
             logo, 
+            image,
             routes,
             bgColor,
             logoText
         } = this.props;
-        const itemText =
-        classes.itemText +
-        " " +
-        cx({
-            [classes.itemTextMini]: this.props.miniActive && this.state.miniActive,
-        });
-        const collapseItemText =
-        classes.collapseItemText +
-        " " +
-        cx({
-            [classes.collapseItemTextMini]:
-            this.props.miniActive && this.state.miniActive,
-        });
-        const caret = classes.caret;
-        const collapseItemMini = classes.collapseItemMini;
+    
         let links = (
             <List className = {classes.list}>
                 {routes.map((prop,key) => {
                     if(prop.redirect) return null;
-                    if (prop.collapse) {
+                    if  (prop.collapse) {
                         const navLinkClasses =
                           classes.itemLink +
                           " " +
@@ -248,16 +238,16 @@ class Sidebar extends React.Component {
                 navigator.platform.indexOf("Win") > -1
             });
         return (
-            <div>
+            <div ref="mainPanel">
                 <Hidden mdUp implementation = "css">
                     <Drawer
                         variant = "temporary"
                         anchor = "right"
-                        open = {props.open}
+                        open = {this.props.open}
                         classes = {{
-                            paper :  drawerPaper + " " + classes.drawerPaper
+                            paper :  drawerPaper + " " + classes[bgColor + "Background"]
                         }}
-                        onClose = {props.handleDrawerToggle}
+                        onClose = {this.props.handleDrawerToggle}
                         ModalProps = {{
                             keepMounted : true
                         }}
@@ -284,7 +274,7 @@ class Sidebar extends React.Component {
                         variant = "permanent"
                         open
                         classes = {{
-                            paper : drawerPaper + " " + classes.drawerPaper
+                            paper : drawerPaper + " " + classes[bgColor + "Background"]
                         }}
                     >
                         {brand}

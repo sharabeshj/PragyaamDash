@@ -3,6 +3,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { Switch, Route, Redirect } from 'react-router-dom';
 import { connect } from 'react-redux';
+import cx from 'classnames';
 
 import PerfectScrollbar from 'perfect-scrollbar';
 import '../../../node_modules/perfect-scrollbar/css/perfect-scrollbar.css';
@@ -19,7 +20,7 @@ import dashboardStyle from "../../assets/jss/frontend/layouts/dashboardStyle";
 import { mobileResizeFunction, handleDrawerToggle, handleDrawerToggleOnUpdate, handleMiniSidebarToggle } from '../../store/Actions/ActionCreator';
 
 import logo from "assets/img/logo.png";
-import image from "../../assets/img/sidebar-2.png"
+import image from "assets/img/sidebar-2.jpg";
 
 const switchRoutes = (
   <Switch>
@@ -80,7 +81,7 @@ class App extends React.Component {
       classes.mainPanel +
       " " +
       cx({
-        [classes.mainPanelSidebarMini]: this.state.miniActive,
+        [classes.mainPanelSidebarMini]: this.props.miniActive,
         [classes.mainPanelWithPerfectScrollbar]:
           navigator.platform.indexOf("Win") > -1
       });
@@ -101,7 +102,7 @@ class App extends React.Component {
           miniActive={this.props.miniActive}
           {...rest}
         />
-        <div className={classes.mainPanel} ref="mainPanel">
+        <div className={mainPanel} ref="mainPanel">
           <Header
             sidebarMinimize = {this.props.handleMiniSidebarToggle}
             miniActive = {this.props.miniActive}

@@ -1,8 +1,19 @@
 import React from 'react';
 import Axios from 'axios';
-import ReportToolbar from "../../../components/ReportToolbar/ReportToolbar";
+import {withStyles} from '@material-ui/core/styles';
+import ChartistGraph from 'react-chartist';
 
+import GridContainer from '../../../components/Grid/GridContainer';
+import GridItem from '../../../components/Grid/GridItem';
+import Card from '../../../components/Card/Card';
+import CardHeader from '../../../components/Card/CardHeader';
+import CardIcon from '../../../components/Card/CardIcon';
+import CardBody from '../../../components/Card/CardBody';
+import CardFooter from '../../../components/Card/CardFooter';
+import ReportToolbar from "../../../components/ReportToolbar/ReportToolbar";
 import Aux from '../../../hoc/aux/aux';
+
+import reportCreateStyle from '../../../assets/jss/frontend/views/reportCreateStyle';
 
 class ReportCreate extends React.Component{
     constructor(){
@@ -120,14 +131,48 @@ class ReportCreate extends React.Component{
     }
 
     render(){
-        let report_data = (<div id='report_data' ref = {this.ref}></div>);
+        let report_data = null;
+        const {classes} = this.props;
         if(Object.keys(this.state.report_data).length !== 0 && this.state.report_data.constructor === Object){
-            console.log(this.ref.current.firstChild);
-            if(this.ref.current.firstChild !== null){
-                this.ref.current.removeChild(this.ref.current.firstChild);
-            }
-            // document.getElementById('report_data').removeChild(document.getElementById('report_data').firstElementChild.nodeName)
-            window.mpld3.draw_figure('report_data',this.state.report_data);
+            report_data = (<GridContainer xs={12} sm={12} md={6}>
+                <Card>
+                    <CardHeader color="success" icon>
+                        <CardIcon color="success">
+                            {() => {
+                                switch(this.state.reportType){
+                                    case 'hor_bar':
+                                        return (<Sort />);
+                                    case 'line_graph':
+                                        return (<ShowChart />);
+                                    case 'bar':
+                                        return (<BarChart />);
+                                    case 'stacked_hor_bar':
+                                        return (<ViewList />);
+                                    case 'stacked_bar_graph':
+                                        return (<ViewModule />);
+                                    case 'pie_graph':
+                                        return (<PieChart />);
+                                    case 'donut_graph':
+                                        return (<DonutLarge />);
+                                    case 'scatter_graph':
+                                        return (<ScatterPlot />);
+                                }
+                            }}
+                        </CardIcon>
+                        <h4 className={classes.cardIconTitle}>
+                            {this.state.reportTitle}
+                        </h4>
+                    </CardHeader>
+                    <CardBody>
+                        <ChartistGraph 
+                            data={this.state.report_data}
+                            type={this.state.reportType}
+                            options={this.state.reportOptions}
+                            listener={this.state.reportAnimation}
+                        />
+                    </CardBody>
+                </Card>
+            </GridContainer>);
         }
         return (
             <Aux>
@@ -150,10 +195,10 @@ class ReportCreate extends React.Component{
                  />
 
                 {report_data}
-                
+
             </Aux>
         );
     }
 }
 
-export default ReportCreate;
+export default withStyles(reportCreateStyle)(ReportCreate);

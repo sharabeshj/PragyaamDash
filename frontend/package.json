@@ -5,6 +5,7 @@
   "dependencies": {
     "@material-ui/core": "3.1.1",
     "@material-ui/icons": "3.0.1",
+    "axios": "^0.18.0",
     "chartist": "0.10.1",
     "history": "4.7.2",
     "moment": "2.22.2",
@@ -26,7 +27,10 @@
     "react-swipeable-views": "0.13.0",
     "react-table": "6.8.6",
     "react-tagsinput": "3.19.0",
-    "redux": "^4.0.1"
+    "redux": "^4.0.1",
+    "redux-logger": "^3.0.6",
+    "redux-thunk": "^2.3.0",
+    "storm-react-diagrams": "^5.2.1"
   },
   "scripts": {
     "build-css": "node-sass-chokidar --include-path ./src --include-path ./node_modules src/ -o src/",

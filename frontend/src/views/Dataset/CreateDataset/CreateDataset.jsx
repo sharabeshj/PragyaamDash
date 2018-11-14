@@ -27,11 +27,11 @@ import CustomDropdown from '../../../components/CustomDropdown/CustomDropdown';
 import GeneralModal from '../../../components/GeneralModal/GeneralModal';
 import CustomButton from '../../../components/CustomButtons/Button';
 
-import createDatasetStyle from '../../../../assets/jss/frontend/views/createDataset';
+import createDatasetStyle from '../../../assets/jss/frontend/views/createDataset';
 
-import '../../assets/css/srd.css';
+import '../../../assets/css/srd.css';
 
-import { saveDataset,tableAdd,fieldClear } from '../../store/Actions/ActionCreator';
+import { saveDataset,tableAdd,fieldClear } from '../../../store/Actions/ActionCreator';
 import Axios from 'axios';
 
 class CreateDataset extends Component {
@@ -346,7 +346,7 @@ class CreateDataset extends Component {
     }
 }
 
-Dataset.propTypes = {
+CreateDataset.propTypes = {
     classes : PropTypes.object.isRequired,
 }
 

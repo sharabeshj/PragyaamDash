@@ -31,24 +31,16 @@ class HeaderLinks extends Component {
       };
 
     handleToggle = () => {
-        this.setState(state => ({ open : !state.open, uOpen : false }));
+        this.setState({ open : !this.state.open, uOpen : false });
     };
     handleToggleU = () => {
-        this.setState(state => ({ uOpen : !state.uOpen, open : false }));
+        this.setState({ uOpen : !this.state.uOpen, open : false });
     }
-    handleClose = event => {
-        if(this.anchorEl.contains(event.target)){
-            return;
-        }
-
+    handleClose = () => {
         this.setState({ open : false });
     };
 
     handleUClose = event => {
-        if(this.anchorEl.contains(event.target)){
-            return;
-        }
-
         this.setState({ open : false });
     };
     render(){
@@ -64,7 +56,6 @@ class HeaderLinks extends Component {
           });
         return (
             <div>
-                <div className = {classes.searchWrapper}>
                     <CustomInput 
                         formControlProps={{
                             className: classes.top + " " + classes.search
@@ -77,12 +68,11 @@ class HeaderLinks extends Component {
                             }
                         }} 
                     />
-                    <Button color = "simple" aria-label = "edit" justIcon round className={searchButton}>
+                    <Button color = "white" aria-label = "edit" justIcon round className={searchButton}>
                         <HelpOutline 
                         className={classes.headerLinksSvg + " " + classes.searchIcon}
                         />
                     </Button>
-                </div>
                 <div className = {managerClasses}>
                     <Button
                         buttonRef = { node => {
@@ -133,31 +123,31 @@ class HeaderLinks extends Component {
                                         <MenuList role = "menu">
                                             <MenuItem
                                                 onClick = {this.handleClose}
-                                                className = {classes.dropdownItem}
+                                                className = {dropdownItem}
                                             >
                                                 Mike John responded to your email                                            
                                             </MenuItem>
                                             <MenuItem
                                                 onClick = {this.handleClose}
-                                                className = {classes.dropdownItem}
+                                                className = {dropdownItem}
                                             >
                                                 You have 5 new tasks                                           
                                             </MenuItem>
                                             <MenuItem
                                                 onClick = {this.handleClose}
-                                                className = {classes.dropdownItem}
+                                                className = {dropdownItem}
                                             >
                                                 You're now friend with Andrew                                         
                                             </MenuItem>
                                             <MenuItem
                                                 onClick = {this.handleClose}
-                                                className = {classes.dropdownItem}
+                                                className = {dropdownItem}
                                             >
                                                 Another Notification                                            
                                             </MenuItem>
                                             <MenuItem
                                                 onClick = {this.handleClose}
-                                                className = {classes.dropdownItem}
+                                                className = {dropdownItem}
                                             >
                                                 Another One                                         
                                             </MenuItem>
@@ -213,31 +203,31 @@ class HeaderLinks extends Component {
                                         <MenuList role = "menu">
                                             <MenuItem
                                                 onClick = {this.handleClose}
-                                                className = {classes.dropdownItem}
+                                                className = {dropdownItem}
                                             >
                                                 Mike John responded to your email                                            
                                             </MenuItem>
                                             <MenuItem
                                                 onClick = {this.handleClose}
-                                                className = {classes.dropdownItem}
+                                                className = {dropdownItem}
                                             >
                                                 You have 5 new tasks                                           
                                             </MenuItem>
                                             <MenuItem
                                                 onClick = {this.handleClose}
-                                                className = {classes.dropdownItem}
+                                                className = {dropdownItem}
                                             >
                                                 You're now friend with Andrew                                         
                                             </MenuItem>
                                             <MenuItem
                                                 onClick = {this.handleClose}
-                                                className = {classes.dropdownItem}
+                                                className = {dropdownItem}
                                             >
                                                 Another Notification                                            
                                             </MenuItem>
                                             <MenuItem
                                                 onClick = {this.handleClose}
-                                                className = {classes.dropdownItem}
+                                                className = {dropdownItem}
                                             >
                                                 Another One                                         
                                             </MenuItem>
