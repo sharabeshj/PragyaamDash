@@ -8,16 +8,16 @@ import Typography from '@material-ui/core/Typography';
 import AccessTime from '@material-ui/icons/AccessTime';
 import Add from '@material-ui/icons/Add';
 
-import GridItem from '../../components/Grid/GridItem';
-import GridContainer from '../../components/Grid/GridContainer';
-import Card from '../../components/Card/Card';
-import CardBody from '../../components/Card/CardBody';
-import CardHeader from '../../components/Card/CardHeader';
-import CardFooter from '../../components/Card/CardFooter';
-import CustomButton from '../../components/CustomButtons/Button';
-import TableModal from '../../components/TableModal/TableModal';
+import GridItem from '../../../components/Grid/GridItem';
+import GridContainer from '../../../components/Grid/GridContainer';
+import Card from '../../../components/Card/Card';
+import CardBody from '../../../components/Card/CardBody';
+import CardHeader from '../../../components/Card/CardHeader';
+import CardFooter from '../../../components/Card/CardFooter';
+import CustomButton from '../../../components/CustomButtons/Button';
+import TableModal from '../../../components/TableModal/TableModal';
 
-import datasetListStyle from '../../assets/jss/frontend/views/datasetList';
+import datasetListStyle from '../../../assets/jss/frontend/views/datasetList';
 
 class DatasetList extends React.Component{
     constructor(props){

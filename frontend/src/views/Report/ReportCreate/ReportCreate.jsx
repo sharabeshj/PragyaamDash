@@ -150,6 +150,7 @@ class ReportCreate extends React.Component{
                  />
 
                 {report_data}
+                
             </Aux>
         );
     }

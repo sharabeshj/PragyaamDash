@@ -17,17 +17,17 @@ import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
 import ListItemText from '@material-ui/core/ListItemText';
 import ListItemSecondaryAction from '@material-ui/core/ListItemSecondaryAction';
-import { Divider, Radio } from '../../../node_modules/@material-ui/core';
+import { Divider, Radio } from '../../../../node_modules/@material-ui/core';
 
-import OptionToolbar from '../../components/OptionToolbar/OptionToolbar';
-import JoinToolbar from '../../components/JoinToolbar/JoinToobar';
-import Aux from '../../hoc/aux/aux';
-import SaveOption from '../../components/SaveOption/SaveOption';
-import CustomDropdown from '../../components/CustomDropdown/CustomDropdown';
-import GeneralModal from '../../components/GeneralModal/GeneralModal';
-import CustomButton from '../../components/CustomButtons/Button';
+import OptionToolbar from '../../../components/OptionToolbar/OptionToolbar';
+import JoinToolbar from '../../../components/JoinToolbar/JoinToobar';
+import Aux from '../../../hoc/aux/aux';
+import SaveOption from '../../../components/SaveOption/SaveOption';
+import CustomDropdown from '../../../components/CustomDropdown/CustomDropdown';
+import GeneralModal from '../../../components/GeneralModal/GeneralModal';
+import CustomButton from '../../../components/CustomButtons/Button';
 
-import createDatasetStyle from '../../../assets/jss/frontend/views/createDataset';
+import createDatasetStyle from '../../../../assets/jss/frontend/views/createDataset';
 
 import '../../assets/css/srd.css';
 
@@ -363,4 +363,4 @@ const mapDispatchToProps = dispatch => {
     }
 }
 
-export default connect(mapStateToProps,mapDispatchToProps)(withStyles(CreateDatasetStyle)(CreateDataset));
+export default connect(mapStateToProps,mapDispatchToProps)(withStyles(createDatasetStyle)(CreateDataset));
