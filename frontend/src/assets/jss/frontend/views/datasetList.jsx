@@ -1,5 +1,5 @@
 
-const layersStyle = {
+const datasetListStyle = {
     stats: {
         color: "#999999",
         display: "inline-flex",
@@ -66,4 +66,4 @@ const layersStyle = {
   }
 };
 
-export default layersStyle;
+export default datasetListStyle;

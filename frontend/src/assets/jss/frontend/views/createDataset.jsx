@@ -3,7 +3,7 @@ import {
 } from '../../frontend';
 import green from '@material-ui/core/colors/green';
 
-const datasetStyle = theme => ({
+const CreateDatasetStyle = theme => ({
     root : {
         flexGrow : 1,
     },
@@ -39,4 +39,4 @@ const datasetStyle = theme => ({
     }
 });
 
-export default datasetStyle;
+export default CreateDatasetStyle;

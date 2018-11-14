@@ -6,7 +6,7 @@ import registerServiceWorker from './registerServiceWorker';
 import { Provider } from 'react-redux';
 import ConfigureStore from './store/ConfigureStore';
 
-import './assets/css/frontend.css';
+import './assets/scss/frontend.css';
 
 import indexRoutes from './routes/index';
 

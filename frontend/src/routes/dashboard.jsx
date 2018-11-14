@@ -4,8 +4,10 @@ import Home from '@material-ui/icons/Home';
 import TableChart from '@material-ui/icons/TableChart';
 import Layer from '@material-ui/icons/Layers'
 
-import Dataset from '../views/Dataset/Dataset';
-import Report from '../views/Report/Report';
+import CreateDataset from '../views/Dataset/CreateDataset/CreateDataset';
+import DatasetList from '../views/Dataset/DatasetList/DatasetList';
+import ReportCreate from '../views/Report/ReportCreate/ReportCreate';
+import ReportList from '../views/Report/ReportList/ReportList';
 import HomePage from '../views/HomePage/HomePage';
 import WorkspacePage from '../views/WorkspacePage/WorkspacePage';
 import Layers from '../views/Layers/Layers';
@@ -15,24 +17,36 @@ import Layers from '../views/Layers/Layers';
 const dashboardRoutes = [
   {
     path: "/home",
-    sidebarName: "Home",
-    navbarName: "Home",
+    name: "Dashboard",
     icon:Home,
     component:HomePage
   },
   { 
     path: "/workspace",
-    sidebarName: "Workspace",
-    navbarName: "Workspace",
+    name: "Workspace",
     icon: TableChart,
     component: WorkspacePage    
   },
   {
+    collapse: true,
     path: "/dataset",
-    sidebarName: "Dataset",
-    navbarName: "Dataset",
+    name: "Dataset",
+    state: "openDatasets",
     icon: Storage,
-    component: Dataset
+    views: [
+      {
+        path: "/datasets/create",
+        name: "Create Dataset",
+        mini: "CD",
+        component: CreateDataset
+      },
+      {
+        path: "/datasets/list",
+        name: "Dataset List",
+        mini: "DL",
+        component: DatasetList
+      }
+    ]
   },
   {
     path: "/layer",
@@ -42,11 +56,24 @@ const dashboardRoutes = [
     component: Layers
   },
   {
-    path: "/report",
-    sidebarName: "Report",
-    navbarName: "Report",
+    collapse: true,
+    path: "/reports",
+    name: "Reports",
     icon: PhotoFilter,
-    component: Report
+    views: [
+      {
+        path: "/reports/create",
+        name: "Create Report",
+        mini: "CR",
+        component: ReportCreate
+      },
+      {
+        path: "/reports/list",
+        name: "Report List",
+        mini: "RL",
+        component: ReportList
+      }
+    ]
   },
   { redirect: true, path: "/", to: "/dashboard", navbarName: "Redirect" }
 ];

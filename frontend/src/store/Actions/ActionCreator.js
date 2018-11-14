@@ -126,3 +126,9 @@ export const handleDrawerToggleOnUpdate = () => {
         mobileOpen : false
     }
 }
+
+export const handleMiniSidebarToggle = () => {
+    return {
+        type : ActionTypes.SIDEBAR_MINI_TOGGLE
+    }
+}

@@ -1,5 +1,6 @@
 import React,{ Component } from 'react';
 import classNames from 'classnames';
+import PropTypes from "prop-types";
 
 import { withStyles } from '@material-ui/core/styles';
 import MenuItem from '@material-ui/core/MenuItem';
@@ -8,7 +9,7 @@ import Grow from '@material-ui/core/Grow';
 import Paper from '@material-ui/core/Paper';
 import ClickAwayListener from '@material-ui/core/ClickAwayListener';
 import Hidden from '@material-ui/core/Hidden';
-import Poppers from '@material-ui/core/Popper';
+import Popper from '@material-ui/core/Popper';
 
 import Notifications from '@material-ui/icons/Notifications';
 import Person from '@material-ui/icons/Person';
@@ -24,6 +25,10 @@ class HeaderLinks extends Component {
         open : false,
         uOpen : false
     };
+
+    handleClick = () => {
+        this.setState({ open: !this.state.open });
+      };
 
     handleToggle = () => {
         this.setState(state => ({ open : !state.open, uOpen : false }));
@@ -49,68 +54,81 @@ class HeaderLinks extends Component {
     render(){
         const { classes } = this.props;
         const { open,uOpen } = this.state;
+        const searchButton = classes.top + " " + classes.searchButton;
+        const dropdownItem = classNames(
+            classes.dropdownItem,
+            classes.primaryHover
+          );
+          const managerClasses = classNames({
+            [classes.managerClasses]: true
+          });
         return (
             <div>
                 <div className = {classes.searchWrapper}>
                     <CustomInput 
-                        formControlProps = {{
-                            classNames : classes.margin + " " + classes.search
-                        }}
+                        formControlProps={{
+                            className: classes.top + " " + classes.search
+                          }}
                         inputProps = {{
                             placeholder : "Search",
                             inputProps : {
-                                "aria-label" : "Search"
+                                "aria-label" : "Search",
+                                className: classes.searchInput
                             }
                         }} 
                     />
-                    <Button color = "simple" aria-label = "edit" justIcon round >
-                        <HelpOutline />
+                    <Button color = "simple" aria-label = "edit" justIcon round className={searchButton}>
+                        <HelpOutline 
+                        className={classes.headerLinksSvg + " " + classes.searchIcon}
+                        />
                     </Button>
                 </div>
-                <div className = {classes.manager}>
+                <div className = {managerClasses}>
                     <Button
                         buttonRef = { node => {
                             this.anchorEl = node;
                         }}
-                        color = {window.innerWidth > 959 ? "transparent" : "white" }
-                        justIcon = { window.innerWidth > 959}
-                        simple = {!(window.innerWidth > 959)}
-                        aria-owns = { open ? "menu-list-grow" : null}
+                        color = {"transparent"}
+                        justIcon
+                        aria-label="Notifications"
+                        aria-owns = { open ? "menu-list" : null}
                         aria-haspopup = "true"
                         onClick = { this.handleToggle }
                         className = { classes.buttonLink }
                     >
-                        <Notifications className = {classes.icons}/>
+                        <Notifications
+                            className={
+                                classes.headerLinksSvg + " " + classes.links
+                              }
+                        />
                         <span className = {classes.Notifications}>5</span>
                         <Hidden
                             mdUp implementation = "css"
                         >
-                            <p onClick = {this.handleClick } className = {classes.linkText}>
+                            <span onClick = {this.handleClick } className = {classes.linkText}>
                                 Notification
-                            </p>
+                            </span>
                         </Hidden>
                     </Button>
-                    <Poppers
+                    <Popper
                         open = {open}
                         anchorEl = {this.anchorEl}
                         transition 
                         disablePortal
-                        className = {
-                            classNames({ [classes.popperClose]: !open }) + 
-                            " " + 
-                            classes.pooperNav
-                        }                    
+                        placement="bottom"
+                        className={classNames({
+                            [classes.popperClose]: !open,
+                            [classes.pooperResponsive]: true,
+                            [classes.pooperNav]: true
+                          })}                 
                     >
                         {({ TransitionProps, placement }) => (
                             <Grow
                                 {...TransitionProps}
-                                id = "menu-list-grow"
-                                style = {{
-                                    transformOrigin :
-                                        placement === "bottom" ? "center top" : "center bottom"
-                                }}
+                                id = "menu-list"
+                                style={{ transformOrigin: "0 0 0" }}
                             >
-                                <Paper>
+                                <Paper className={classes.dropdown}>
                                     <ClickAwayListener onClickAway = {this.handleClose}>
                                         <MenuList role = "menu">
                                             <MenuItem
@@ -148,68 +166,77 @@ class HeaderLinks extends Component {
                                 </Paper>
                             </Grow>
                         )}
-                    </Poppers>
+                    </Popper>
                 </div>
-                <div className = {classes.manager}>
+                <div className = {managerClasses}>
                     <Button
-                        color = {window.innerWidth > 959 ? "transparent" : "white"}
-                        simple
-                        aria-label = "Person"
-                        className = {classes.buttonLink}
-                        onClick = {this.handleToggleU}
+                        buttonRef = { node => {
+                            this.anchorEl = node;
+                        }}
+                        color = {"transparent"}
+                        justIcon
+                        aria-label="Person"
+                        aria-owns = { open ? "menu-list" : null}
+                        aria-haspopup = "true"
+                        onClick = { this.handleToggleU }
+                        className = { classes.buttonLink }
                     >
-                        <Person className = {classes.icons}/>
-                        <p className = {classes.linkText}>Name of Orgainsation</p>
+                        <Person
+                            className={
+                                classes.headerLinksSvg + " " + classes.links
+                              }
+                        />
+                        <span className = {classes.linkText}>
+                                Notification
+                            </span>
                     </Button>
-                    <Poppers
-                        open = {uOpen}
+                    <Popper
+                        open = {open}
                         anchorEl = {this.anchorEl}
                         transition 
                         disablePortal
-                        className = {
-                            classNames({ [classes.popperClose]: !open }) + 
-                            " " + 
-                            classes.pooperNav
-                        }                    
+                        placement="bottom"
+                        className={classNames({
+                            [classes.popperClose]: !open,
+                            [classes.pooperResponsive]: true,
+                            [classes.pooperNav]: true
+                          })}                 
                     >
                         {({ TransitionProps, placement }) => (
                             <Grow
                                 {...TransitionProps}
-                                id = "menu-list-grow"
-                                style = {{
-                                    transformOrigin :
-                                        placement === "bottom" ? "center top" : "center bottom"
-                                }}
+                                id = "menu-list"
+                                style={{ transformOrigin: "0 0 0" }}
                             >
-                                <Paper>
+                                <Paper className={classes.dropdown}>
                                     <ClickAwayListener onClickAway = {this.handleUClose}>
                                         <MenuList role = "menu">
                                             <MenuItem
-                                                onClick = {this.handleUClose}
+                                                onClick = {this.handleClose}
                                                 className = {classes.dropdownItem}
                                             >
                                                 Mike John responded to your email                                            
                                             </MenuItem>
                                             <MenuItem
-                                                onClick = {this.handleUClose}
+                                                onClick = {this.handleClose}
                                                 className = {classes.dropdownItem}
                                             >
                                                 You have 5 new tasks                                           
                                             </MenuItem>
                                             <MenuItem
-                                                onClick = {this.handleUClose}
+                                                onClick = {this.handleClose}
                                                 className = {classes.dropdownItem}
                                             >
                                                 You're now friend with Andrew                                         
                                             </MenuItem>
                                             <MenuItem
-                                                onClick = {this.handleUClose}
+                                                onClick = {this.handleClose}
                                                 className = {classes.dropdownItem}
                                             >
                                                 Another Notification                                            
                                             </MenuItem>
                                             <MenuItem
-                                                onClick = {this.handleUClose}
+                                                onClick = {this.handleClose}
                                                 className = {classes.dropdownItem}
                                             >
                                                 Another One                                         
@@ -219,11 +246,15 @@ class HeaderLinks extends Component {
                                 </Paper>
                             </Grow>
                         )}
-                    </Poppers>
+                    </Popper>
                 </div>
             </div>
         );
     }
 }
+
+HeaderLinks.propTypes = {
+    classes : PropTypes.object.isRequired
+};
 
 export default withStyles(headerLinksStyle)(HeaderLinks);

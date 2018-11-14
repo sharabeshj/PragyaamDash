@@ -16,25 +16,35 @@ import dashboardRoutes from "routes/dashboard.jsx";
 
 import dashboardStyle from "../../assets/jss/frontend/layouts/dashboardStyle";
 
-import { mobileResizeFunction, handleDrawerToggle, handleDrawerToggleOnUpdate } from '../../store/Actions/ActionCreator';
+import { mobileResizeFunction, handleDrawerToggle, handleDrawerToggleOnUpdate, handleMiniSidebarToggle } from '../../store/Actions/ActionCreator';
 
-import logo from "assets/img/reactlogo.png";
+import logo from "assets/img/logo.png";
+import image from "../../assets/img/sidebar-2.png"
 
 const switchRoutes = (
   <Switch>
     {dashboardRoutes.map((prop, key) => {
       if (prop.redirect)
         return <Redirect from={prop.path} to={prop.to} key={key} />;
+      if (prop.collapse)
+        return prop.views.map((prop, key) => {
+          return (
+            <Route path={prop.path} component={prop.component} key={key} />
+          );
+        });
       return <Route path={prop.path} component={prop.component} key={key} />;
     })}
   </Switch>
 );
+
+var ps;
 
 class App extends React.Component {
   constructor(props) {
     super(props);
     this.dashboardRoutes = dashboardRoutes;
     this.logo = logo;
+
   }
   
   getRoute() {
@@ -42,9 +52,13 @@ class App extends React.Component {
   }
   componentDidMount() {
     if (navigator.platform.indexOf("Win") > -1) {
-      const ps = new PerfectScrollbar(this.refs.mainPanel);
+      ps = new PerfectScrollbar(this.refs.mainPanel, {
+        suppressScrollX: true,
+        suppressScrollY: false
+      });
+      document.body.style.overflow = "hidden";
     }
-    window.addEventListener("resize", this.props.mobileResizeFunction);
+    window.addEventListener("resize", this.props.resizeFunction);
   }
   componentDidUpdate(e) {
     if (e.history.location.pathname !== e.location.pathname) {
@@ -55,10 +69,21 @@ class App extends React.Component {
     }
   }
   componentWillUnmount() {
-    window.removeEventListener("resize", this.props.mobileResizeFunction);
+    if (navigator.platform.indexOf("Win") > -1) {
+      ps.destroy();
+    }
+    window.removeEventListener("resize", this.resizeFunction);
   }
   render() {
     const { classes, ...rest } = this.props;
+    const mainPanel =
+      classes.mainPanel +
+      " " +
+      cx({
+        [classes.mainPanelSidebarMini]: this.state.miniActive,
+        [classes.mainPanelWithPerfectScrollbar]:
+          navigator.platform.indexOf("Win") > -1
+      });
     const dashboardRoutes = this.dashboardRoutes;
     const logo = this.logo;
     console.log(dashboardRoutes);
@@ -67,13 +92,19 @@ class App extends React.Component {
         <Sidebar
           routes={dashboardRoutes}
           logo={logo}
+          logoText={"PragYaam"}
+          image={image}
           handleDrawerToggle={this.props.handleDrawerToggle}
           open={this.props.mobileOpen}
           color="blue"
+          bgColor="black"
+          miniActive={this.props.miniActive}
           {...rest}
         />
         <div className={classes.mainPanel} ref="mainPanel">
           <Header
+            sidebarMinimize = {this.props.handleMiniSidebarToggle}
+            miniActive = {this.props.miniActive}
             routes={dashboardRoutes}
             handleDrawerToggle={this.props.handleDrawerToggle}
             {...rest}
@@ -92,13 +123,15 @@ App.propTypes = {
 };
 
 const mapStateToProps = state => ({
-  mobileOpen : state.drawer.mobileOpen
+  mobileOpen : state.drawer.mobileOpen,
+  miniActive : state.drawer.miniActive
 });
 
 const mapDispatchToProps = dispatch => ({
   mobileResizeFunction : () => dispatch(mobileResizeFunction()),
   handleDrawerToggle : () => dispatch(handleDrawerToggle()),
-  handleDrawerToggleOnUpdate : () => dispatch(handleDrawerToggleOnUpdate())
+  handleDrawerToggleOnUpdate : () => dispatch(handleDrawerToggleOnUpdate()),
+  handleMiniSidebarToggle : () => dispatch(handleMiniSidebarToggle())
 });
 
 export default connect(mapStateToProps, mapDispatchToProps)(withStyles(dashboardStyle)(App));

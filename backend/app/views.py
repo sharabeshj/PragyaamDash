@@ -471,12 +471,13 @@ class ReportGenerate(viewsets.ViewSet):
             df_required = df_required.dropna()
             plt.rcdefaults()
             fig,ax = plt.subplots()
-            width = 0.35
+            width = 1
             nx = np.arange(len(df_required.loc[:,X_field]))
             X = df_required.loc[:,X_field]
             ny = len(Y_field)
             df_num = df_required.select_dtypes(exclude = [np.number])
             all_columns = list(df_num)
+            all_columns.remove(X_field)
             df_num[all_columns] = df_num[all_columns].astype('category')
             df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes)
             df_required.update(df_num)
@@ -486,15 +487,17 @@ class ReportGenerate(viewsets.ViewSet):
             j = 0
             while i <= (ny-1)*width/2:
                 print(len(nx-i),len(df_required.loc[:,Y_field[y]]))
-                ax.bar(nx-i,df_required.loc[:,Y_field[y]],width,tick_label=X)
+                ax.bar(nx-i,df_required.loc[:,Y_field[y]],width,label=Y_field[y])
                 i = i + width
                 y = y + 1
             
-            ax.set_xlabel(X_field)
+            ax.set_xticks(nx)
+            ax.set_xticklabels(tuple(np.array(df_required.loc[:,X_field])))    
             label = 'fields-'
             for y in Y_field:
                 label = label + y
             ax.set_ylabel(label)
+            ax.set_title(request.data['report_title'], size = '20')
             ax.legend()
 
             return Response({ 'data' : mpld3.fig_to_dict(fig)}, status = status.HTTP_200_OK)
