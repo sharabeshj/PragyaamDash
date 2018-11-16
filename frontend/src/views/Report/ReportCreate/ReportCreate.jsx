@@ -54,7 +54,9 @@ class ReportCreate extends React.Component{
             selectedDataset :  '',
             report_data : {},
             reportOptions : {},
-            reportListeners : {}
+            reportListeners : {},
+            filterChecked : false,
+            selectedOperation : ''
         };
         this.ref = React.createRef();
         // this.resetFunc.bind(this);
@@ -182,6 +184,23 @@ class ReportCreate extends React.Component{
             .catch(err => console.error(err));
     }
 
+    handleFilterToggle = () => {
+        this.setState(prevState => ({ filterChecked : !prevState.filterChecked }));
+    }
+
+    handleFilterOptions = (state) => {
+        this.setState(prevState => {
+            const new_report_data = {
+                ...prevState.report_data,
+                labels : [...prevState.report_data.labels].slice(state.xRange[0],state.xRange[1]+1)
+            };
+            for(let i=0;i < new_report_data.series.length; i++){
+                new_report_data.series[i] = [...new_report_data.series[i]].slice(state.yRange[0], state.yRange[1] +1)
+            }
+            return { report_data : new_report_data, selectedOperation : state.selectedOperation }
+        })
+    }
+
     render(){
         let report_data = null;
         const {classes} = this.props;
@@ -221,7 +240,13 @@ class ReportCreate extends React.Component{
                 </Card>
                 </GridItem>
                 <GridItem xs={12} sm={12} md={6}>
-                    <FilterOptions />
+                    <FilterOptions 
+                        yLen={this.state.report_data.series[0].length}
+                        xLen={this.state.report_data.labels.length}
+                        filterChecked = {this.state.filterChecked}
+                        handleFilterToggle={this.handleFilterToggle}
+                        handleFilterOptions={this.handleFilterOptions}
+                    />
                 </GridItem>
             </GridContainer>);
         }

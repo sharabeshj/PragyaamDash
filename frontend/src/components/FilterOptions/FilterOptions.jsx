@@ -1,7 +1,6 @@
 import React from 'react';
 import Datetime from 'react-datetime';
 import TagsInput from 'react-tagsinput';
-import nouislider from 'nouislider';
 
 import { withStyles } from  '@material-ui/core/styles';
 import FormControl from "@material-ui/core/FormControl";
@@ -20,6 +19,8 @@ import Card from '../../components/Card/Card';
 import CardHeader from '../Card/CardHeader';
 import CardIcon from '../Card/CardIcon';
 import CardBody from '../Card/CardBody';
+import CustomButton from '../CustomButtons/Button';
+import FilterHiddenOptions from './FilterHiddenOptions';
 
 import filterOptionsStyle from '../../assets/jss/frontend/components/filterOptionsStyle';
 
@@ -27,28 +28,45 @@ class FilterOptions extends React.Component{
     constructor(props){
         super(props);
         this.state= {
-            measureOperation : ['SUM', 'COUNT', 'COUNT DISTINCT', 'MAX', 'MIN', 'AVERAGE']
+            measureOperation : ['SUM', 'COUNT', 'COUNT DISTINCT', 'MAX', 'MIN', 'AVERAGE'],
+            yRange : [0, this.props.yLen],
+            xRange : [0, this.props.xLen],
+            selectedOperation : ''
         }
     }
 
-    componentDidMount(){
-        nouislider.create(this.refs.ySlider,{
-            start: [this.props.yLen],
-            connect: [true,false],
-            step: 1,
-            range: { min: 0, max: this.props.yLen }
-        });
-        nouislider.create(this.refs.xSlider, {
-            start: [0,this.props.xLen],
-            connect: [false, true, false],
-            step: 1,
-            range: { min: 0, max: this.props.xLen }
-        });
+    handleSelectedOperation = key => {
+        this.setState({ selectedOperation : key });
+    }
+
+    handleXRange = (values) => {
+        this.setState({ xRange : values });
+    }
+
+    handleYRange = values => {
+        this.setState({ yRange : values });
+    }
+
+    handleFilterOptions = () => {
+        this.props.handleFilterOptions({ ...this.state });
     }
 
     render(){
         const { classes } = this.props;
-
+        let filters  = null;
+        if(this.props.filterChecked){
+            filters = (<FilterHiddenOptions 
+                yLen = {this.state.yLen}
+                xLen = {this.state.xLen}
+                yRange = {this.state.yRange}
+                xRange = {this.state.xRange}
+                measureOperation = {this.state.measureOperation}
+                handleXRange = {this.handleXRange}
+                handleYRange = {this.handleYRange}
+                handleSelectedOperation = {this.handleSelectedOperation}
+                handleFilterOptions = {this.handleFilterOptions}
+                />);
+        }
         return (
             <div>
                 <GridContainer>
@@ -65,7 +83,7 @@ class FilterOptions extends React.Component{
                                                 control={
                                                     <Switch 
                                                         checked={this.props.filterChecked}
-                                                        onChange={this.handleFilterToggle}
+                                                        onChange={this.props.handleFilterToggle}
                                                         value="filter"
                                                         classes={{
                                                             switchBase: classes.switchBase,
@@ -84,41 +102,7 @@ class FilterOptions extends React.Component{
                                         </div>
                                     </GridItem>
                                 </GridContainer>
-                                <br />
-                                <br />
-                                <GridContainer>
-                                    <GridItem xs={12} sm={12} md={6}>
-                                        <legend>Measure Operation</legend>
-                                        <GridContainer>
-                                            <GridItem xs={12} sm={6} md={6} lg={6}>
-                                                <CustomDropdown 
-                                                    hoverColor="info"
-                                                    buttonText="Measure Operation"
-                                                    buttonProps = {{
-                                                        round: true,
-                                                        fullWidth: true,
-                                                        style: { marginBottom : "0" },
-                                                        color: "info"
-                                                    }}
-                                                    dropdownHeader="Select Operation"
-                                                    dropdownList={this.state.measureOperation.map(key => (
-                                                        <div key = {key} onClick={() => this.props.handleOperationChange(key)}>key</div>
-                                                    ))}
-                                                />
-                                            </GridItem>
-                                        </GridContainer> 
-                                    </GridItem>
-                                </GridContainer>
-                                <br />
-                                <br />
-                                <GridContainer>
-                                    <GridItem xs = {12} sm ={12} md = {12}>
-                                        <legend>Range Optimizer</legend>
-                                        <div className="slider-info" ref="ySlider"/>
-                                        <br />
-                                        <div  className="slider-success" ref="xSlider"/>
-                                    </GridItem>
-                                </GridContainer>
+                                {filters}
                             </CardBody>
                         </Card>
                     </GridItem>
