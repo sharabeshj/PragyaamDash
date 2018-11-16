@@ -132,3 +132,10 @@ export const handleMiniSidebarToggle = () => {
         type : ActionTypes.SIDEBAR_MINI_TOGGLE
     }
 }
+
+// export const getDefaultGraphData = (name) => {
+//     return {
+//         type : ActionTypes.GRAPH_DEFAULT,
+//         name : name
+//     }
+// }

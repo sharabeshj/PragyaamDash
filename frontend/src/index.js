@@ -7,6 +7,8 @@ import { Provider } from 'react-redux';
 import ConfigureStore from './store/ConfigureStore';
 
 import './assets/scss/frontend.css';
+import './assets/css/tooltip.css';
+import './assets/css/zoom.css';
 
 import indexRoutes from './routes/index';
 

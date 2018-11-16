@@ -460,7 +460,7 @@ class ReportGenerate(viewsets.ViewSet):
 
             return Response({ 'data' : mpld3.fig_to_dict(fig)}, status = status.HTTP_200_OK)
         
-        if report_type == 'bar_graph':
+        if report_type == 'Bar':
             X_field = request.data['options']['X_field']
             Y_field = request.data['options']['Y_field']
             all_fields = []
@@ -469,9 +469,9 @@ class ReportGenerate(viewsets.ViewSet):
             print(all_fields)
             df_required = df.loc[:,df.columns.isin(all_fields)]
             df_required = df_required.dropna()
-            plt.rcdefaults()
-            fig,ax = plt.subplots()
-            width = 1
+            # plt.rcdefaults()
+            # fig,ax = plt.subplots()
+            # width = 1
             nx = np.arange(len(df_required.loc[:,X_field]))
             X = df_required.loc[:,X_field]
             ny = len(Y_field)
@@ -481,26 +481,37 @@ class ReportGenerate(viewsets.ViewSet):
             df_num[all_columns] = df_num[all_columns].astype('category')
             df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes)
             df_required.update(df_num)
-            print(df_required)
-            i = -(ny-1)*width/2
-            y = 0
-            j = 0
-            while i <= (ny-1)*width/2:
-                print(len(nx-i),len(df_required.loc[:,Y_field[y]]))
-                ax.bar(nx-i,df_required.loc[:,Y_field[y]],width,label=Y_field[y])
-                i = i + width
-                y = y + 1
+            # print(df_required)
+            # i = -(ny-1)*width/2
+            # y = 0
+            # j = 0
+            # while i <= (ny-1)*width/2:
+            #     print(len(nx-i),len(df_required.loc[:,Y_field[y]]))
+            #     ax.bar(nx-i,df_required.loc[:,Y_field[y]],width,label=Y_field[y])
+            #     i = i + width
+            #     y = y + 1
             
-            ax.set_xticks(nx)
-            ax.set_xticklabels(tuple(np.array(df_required.loc[:,X_field])))    
-            label = 'fields-'
-            for y in Y_field:
-                label = label + y
-            ax.set_ylabel(label)
-            ax.set_title(request.data['report_title'], size = '20')
-            ax.legend()
+            # ax.set_xticks(nx)
+            # ax.set_xticklabels(tuple(np.array(df_required.loc[:,X_field])))    
+            # label = 'fields-'
+            # for y in Y_field:
+            #     label = label + y
+            # ax.set_ylabel(label)
+            # ax.set_title(request.data['report_title'], size = '20')
+            # ax.legend()
 
-            return Response({ 'data' : mpld3.fig_to_dict(fig)}, status = status.HTTP_200_OK)
+            data = {
+                'labels' : np.array(df_required.loc[:,X_field]),
+                'series' : []
+            }
+
+            add = []
+            for y in Y_field:
+                add = [{ 'meta' : y, 'value' : i } for i in np.array(df_required.loc[:,y])]
+                data['series'].append(add)
+            
+
+            return Response({ 'data' : data}, status = status.HTTP_200_OK)
         
         if report_type == 'stacked_hor_bar':
             X_field = request.data['options']['Y_field']

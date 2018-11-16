@@ -3,6 +3,16 @@ import Axios from 'axios';
 import {withStyles} from '@material-ui/core/styles';
 import ChartistGraph from 'react-chartist';
 
+import BarChart from '@material-ui/icons/BarChart';
+import ShowChart from '@material-ui/icons/ShowChart';
+import Sort from '@material-ui/icons/Sort';
+import ViewList from '@material-ui/icons/ViewList';
+import ViewModule from '@material-ui/icons/ViewModule';
+import PieChart from '@material-ui/icons/PieChart';
+import DonutLarge from '@material-ui/icons/DonutLarge';
+import ScatterPlot from '@material-ui/icons/ScatterPlot';
+import ZoomOutMap from '@material-ui/icons/ZoomOutMap';
+
 import GridContainer from '../../../components/Grid/GridContainer';
 import GridItem from '../../../components/Grid/GridItem';
 import Card from '../../../components/Card/Card';
@@ -12,8 +22,22 @@ import CardBody from '../../../components/Card/CardBody';
 import CardFooter from '../../../components/Card/CardFooter';
 import ReportToolbar from "../../../components/ReportToolbar/ReportToolbar";
 import Aux from '../../../hoc/aux/aux';
+import Danger from '../../../components/Typography/Danger';
+import FilterOptions from '../../../components/FilterOptions/FilterOptions';
+
+import {
+    roundedLineChart,
+    straightLinesChart,
+    simpleBarChart,
+    colouredLineChart,
+    multipleBarsChart,
+    colouredLinesChart,
+    pieChart
+  } from "variables/charts.jsx";
 
 import reportCreateStyle from '../../../assets/jss/frontend/views/reportCreateStyle';
+
+let resetFunc;
 
 class ReportCreate extends React.Component{
     constructor(){
@@ -28,10 +52,15 @@ class ReportCreate extends React.Component{
             selectedXField : '',
             selectedYField : '',
             selectedDataset :  '',
-            report_data : {}
+            report_data : {},
+            reportOptions : {},
+            reportListeners : {}
         };
         this.ref = React.createRef();
+        // this.resetFunc.bind(this);
     };
+
+    // resetFunc = () => {}
 
     componentDidMount(){
         this.getDatasets();
@@ -64,6 +93,29 @@ class ReportCreate extends React.Component{
     handleChange =  name => (e) => {
         console.log(e.currentTarget.value);
         this.setState({ [name] : e.currentTarget.value })
+    }
+
+    handleGraphChange = e => {
+        const defaultData = this.getDefaultGraph(e.currentTarget.value);
+        console.log(defaultData);
+        this.setState({
+            ...defaultData
+        });
+    }
+
+    getDefaultGraph = name =>  {
+        switch(name){
+            case 'Bar':
+                return {
+                    reportType : name,
+                    icon : (<BarChart/>),
+                    report_data : multipleBarsChart.data,
+                    reportOptions : multipleBarsChart.options,
+                    reportListeners : multipleBarsChart.animation
+                }
+            default:
+                return {}
+        }
     }
 
     handleFieldChange  = (xField,yField) => {
@@ -134,30 +186,12 @@ class ReportCreate extends React.Component{
         let report_data = null;
         const {classes} = this.props;
         if(Object.keys(this.state.report_data).length !== 0 && this.state.report_data.constructor === Object){
-            report_data = (<GridContainer xs={12} sm={12} md={6}>
+            report_data = (<GridContainer>
+                <GridItem xs={12} sm={12} md={6}>
                 <Card>
                     <CardHeader color="success" icon>
                         <CardIcon color="success">
-                            {() => {
-                                switch(this.state.reportType){
-                                    case 'hor_bar':
-                                        return (<Sort />);
-                                    case 'line_graph':
-                                        return (<ShowChart />);
-                                    case 'bar':
-                                        return (<BarChart />);
-                                    case 'stacked_hor_bar':
-                                        return (<ViewList />);
-                                    case 'stacked_bar_graph':
-                                        return (<ViewModule />);
-                                    case 'pie_graph':
-                                        return (<PieChart />);
-                                    case 'donut_graph':
-                                        return (<DonutLarge />);
-                                    case 'scatter_graph':
-                                        return (<ScatterPlot />);
-                                }
-                            }}
+                            {this.state.icon}
                         </CardIcon>
                         <h4 className={classes.cardIconTitle}>
                             {this.state.reportTitle}
@@ -168,10 +202,27 @@ class ReportCreate extends React.Component{
                             data={this.state.report_data}
                             type={this.state.reportType}
                             options={this.state.reportOptions}
-                            listener={this.state.reportAnimation}
+                            listener={this.state.reportListeners}
                         />
                     </CardBody>
+                    <CardFooter stats>
+                        <div className={classes.stats}>
+                        <Danger>
+                            <ZoomOutMap />
+                        </Danger>
+                        <a href="#pablo" onClick={e => {
+                            console.log(resetFunc);
+                            resetFunc && resetFunc();
+                            }}>
+                            Zoom
+                        </a>
+                        </div>
+                    </CardFooter>
                 </Card>
+                </GridItem>
+                <GridItem xs={12} sm={12} md={6}>
+                    <FilterOptions />
+                </GridItem>
             </GridContainer>);
         }
         return (
@@ -183,6 +234,7 @@ class ReportCreate extends React.Component{
                     reportType = {this.state.reportType}
                     reportDescription = {this.state.reportDescription}
                     handleChange = {this.handleChange}
+                    handleGraphChange = {this.handleGraphChange}
                     handleDatasetChange={this.handleDatasetChange}
                     handleFieldChange={this.handleFieldChange}
                     handleCancel={this.handleCancel}
@@ -193,7 +245,6 @@ class ReportCreate extends React.Component{
                     selectedXField = {this.state.selectedXField}
                     selectedYField = {this.state.selectedYField}
                  />
-
                 {report_data}
 
             </Aux>
