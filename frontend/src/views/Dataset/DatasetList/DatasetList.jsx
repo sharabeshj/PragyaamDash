@@ -41,12 +41,12 @@ class DatasetList extends React.Component{
 
     handleClose = () => this.setState({ modalOpen : false,tableData : [] });
 
-    handleView = (name) => {
+    handleView = (dataset_id, name) => {
         const postData = {
             url : 'http://127.0.0.1:8000/api/dataset_detail/',
             method : 'POST',
             data : JSON.stringify({
-                name : name,
+                dataset_id : dataset_id,
                 view_mode : 'view'
             }),
             auth : {
@@ -62,12 +62,12 @@ class DatasetList extends React.Component{
             .catch(e => console.error(e));
     }
 
-    handleAdd = (name) => {
+    handleAdd = (dataset_id,name) => {
         const postData = {
             url : 'http://127.0.0.1:8000/api/dataset_detail/',
             method : 'POST',
             data : JSON.stringify({
-                name : name,
+                dataset_id : dataset_id,
                 view_mode : 'add'
             }),
             auth : {
@@ -79,7 +79,7 @@ class DatasetList extends React.Component{
             }
         }
         axios(postData)
-            .then(res => this.setState({ modalOpen : true,tableData : res.data,name : name }))
+            .then(res => this.setState({ modalOpen : true,tableData : res.data, name : name }))
             .catch(e => console.error(e));
     }
     render(){
@@ -87,10 +87,10 @@ class DatasetList extends React.Component{
         let datasets = null;
         const colorChoices =  ['success','warning','danger','info'];
         if(this.state.datasets !== []){
-            datasets = this.state.datasets.map((dataset,index) => {
+            datasets = this.state.datasets.map((dataset) => {
                 const color = colorChoices[Math.floor(Math.random()*colorChoices.length)];
                 return (
-                        <GridItem key = {index} xs = {12} sm = {6} md = {4} lg = {4}>
+                        <GridItem key = {dataset.dataset_id} xs = {12} sm = {6} md = {4} lg = {4}>
                             <Card>
                                 <CardHeader color = {color} >
                                     <h5 className = {classes.cardTitleWhite}>{dataset.name}</h5>
@@ -100,10 +100,10 @@ class DatasetList extends React.Component{
                                          <Typography variant = "subheading">
                                             {`Fields - ${dataset.fields.length}`}
                                          </Typography>
-                                         <CustomButton name = {dataset.name} color = {color} size = "sm" onClick = {() => this.handleView(dataset.name)}>
+                                         <CustomButton dataset_id = {dataset.dataset_id} color = {color} size = "sm" onClick = {() => this.handleView(dataset.dataset_id,dataset.name)}>
                                             View
                                          </CustomButton>
-                                         <CustomButton name = {dataset.name} simple color = "success" size = "sm" onClick = {() => this.handleAdd(dataset.name)}>
+                                         <CustomButton dataset_id = {dataset.dataset_id} simple color = "success" size = "sm" onClick = {() => this.handleAdd(dataset.dataset_id, dataset.name)}>
                                             Add
                                          </CustomButton>
                                     </div>

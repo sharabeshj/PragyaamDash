@@ -83,7 +83,7 @@ class ReportCreate extends React.Component{
             let newFields = [];
             for(i=0; i < prevState.datasets.length; i++){
                 console.log(e.target.value);
-                if(prevState.datasets[i].name == e.target.value){
+                if(prevState.datasets[i].dataset_id == e.target.value){
                     newFields = prevState.datasets[i].fields;
                     break;
                 }
@@ -114,6 +114,14 @@ class ReportCreate extends React.Component{
                     report_data : multipleBarsChart.data,
                     reportOptions : multipleBarsChart.options,
                     reportListeners : multipleBarsChart.animation
+                }
+            case "Line":
+                return {
+                    reportType : name,
+                    icon : (<ShowChart />),
+                    report_data : colouredLinesChart.data,
+                    reportOptions : colouredLinesChart.options,
+                    reportListeners : colouredLinesChart.animation
                 }
             default:
                 return {}
@@ -155,7 +163,7 @@ class ReportCreate extends React.Component{
             selectedDataset :  ''});
     }
 
-    handleSave = () => {
+    handleLoad = () => {
         const postData = {
             url : 'http://127.0.0.1:8000/api/report_generate/',
             method : 'POST',
@@ -199,6 +207,32 @@ class ReportCreate extends React.Component{
             }
             return { report_data : new_report_data, selectedOperation : state.selectedOperation }
         })
+    }
+
+    handleSave = () => {
+        const postData = {
+            url : 'http://127.0.0.1:8000/api/reports/',
+            method: 'POST',
+            data: JSON.stringify({
+                'dataset_id' : this.state.selectedDataset,
+                'data' : {
+                    'report_type' : this.state.reportType,
+                    'report_title' : this.state.reportTitle,
+                    'report_description' : this.state.reportDescription,
+                    'report_data' : this.state.report_data,
+                    'reported' : false
+                }
+            }),
+            auth: {
+                username : 'sharabesh',
+                password : 'shara1234'
+            },
+            headers : {
+                'Content-Type' : 'application/json'
+            }
+        }
+        Axios(postData)
+        .then(res => this.props.history.push('/reports/list'))
     }
 
     render(){
@@ -246,6 +280,7 @@ class ReportCreate extends React.Component{
                         filterChecked = {this.state.filterChecked}
                         handleFilterToggle={this.handleFilterToggle}
                         handleFilterOptions={this.handleFilterOptions}
+                        handleSave={this.handleSave}
                     />
                 </GridItem>
             </GridContainer>);
@@ -263,7 +298,7 @@ class ReportCreate extends React.Component{
                     handleDatasetChange={this.handleDatasetChange}
                     handleFieldChange={this.handleFieldChange}
                     handleCancel={this.handleCancel}
-                    handleSave={this.handleSave}
+                    handleLoad={this.handleLoad}
                     selectedYField = {this.state.selectedYField}
                     selectedDataset  ={this.state.selectedDataset}
                     selectedFields = {this.state.selectedFields}

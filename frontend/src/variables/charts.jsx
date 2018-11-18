@@ -523,6 +523,67 @@ const multipleBarsChart = {
   }
 };
 
+const multipleBarsChartReport = {
+  data: {
+    labels: [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "Mai",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec"
+    ],
+    series: [
+      [542, 443, 320, 780, 553, 453, 326, 434, 568, 610, 756, 895],
+      [412, 243, 280, 580, 453, 353, 300, 364, 368, 410, 636, 695]
+    ]
+  },
+  options: {
+    seriesBarDistance: 10,
+    axisX: {
+      showGrid: false,
+      showLabel : false
+    },
+    axisY:{
+      onlyInteger: true
+    }
+  },
+  responsiveOptions: [
+    [
+      "screen and (max-width: 640px)",
+      {
+        seriesBarDistance: 5,
+        axisX: {
+          labelInterpolationFnc: function(value) {
+            return value[0];
+          }
+        }
+      }
+    ]
+  ],
+  animation: {
+    draw: function(data) {
+      if (data.type === "bar") {
+        data.element.animate({
+          opacity: {
+            begin: (data.index + 1) * delays2,
+            dur: durations2,
+            from: 0,
+            to: 1,
+            easing: "ease"
+          }
+        });
+      }
+    }
+  }
+};
+
 // ##############################
 // // // Coloured Lines Chart
 // #############################
@@ -558,10 +619,77 @@ const colouredLinesChart = {
     axisX: {
       showGrid: false
     },
-    low: 0,
-    high: 1000,
+    // low: 0,
+    // high: 1000,
     showPoint: true,
     height: "300px"
+  },
+  animation: {
+    draw: function(data) {
+      if (data.type === "line" || data.type === "area") {
+        data.element.animate({
+          d: {
+            begin: 600,
+            dur: 700,
+            from: data.path
+              .clone()
+              .scale(1, 0)
+              .translate(0, data.chartRect.height())
+              .stringify(),
+            to: data.path.clone().stringify(),
+            easing: Chartist.Svg.Easing.easeOutQuint
+          }
+        });
+      } else if (data.type === "point") {
+        data.element.animate({
+          opacity: {
+            begin: (data.index + 1) * delays,
+            dur: durations,
+            from: 0,
+            to: 1,
+            easing: "ease"
+          }
+        });
+      }
+    }
+  }
+};
+
+const colouredLinesChartReport = {
+  data: {
+    labels: [
+      "'06",
+      "'07",
+      "'08",
+      "'09",
+      "'10",
+      "'11",
+      "'12",
+      "'13",
+      "'14",
+      "'15"
+    ],
+    series: [
+      [287, 385, 490, 554, 586, 698, 695, 752, 788, 846, 944],
+      [67, 152, 143, 287, 335, 435, 437, 539, 542, 544, 647],
+      [23, 113, 67, 190, 239, 307, 308, 439, 410, 410, 509]
+    ]
+  },
+  options: {
+    lineSmooth: Chartist.Interpolation.cardinal({
+      tension: 10
+    }),
+    axisY: {
+      showGrid: true,
+      offset: 40
+    },
+    axisX: {
+      showGrid: false,
+      showLabel : false
+    },
+    // low: 0,
+    // high: 1000,
+    showPoint: true
   },
   animation: {
     draw: function(data) {
@@ -619,6 +747,8 @@ module.exports = {
   simpleBarChart,
   colouredLineChart,
   multipleBarsChart,
+  multipleBarsChartReport,
   colouredLinesChart,
+  colouredLinesChartReport,
   pieChart
 };

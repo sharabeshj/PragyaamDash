@@ -98,7 +98,7 @@ function ReportToolbar(props) {
                         <Button variant={"fab"} aria-label={"Hor_bar"} className={classes.HorBarButton} value = 'hor_bar' onClick = {props.handleGraphChange} disabled = {props.reportType === '' ? false : true}>
                             <Sort/>
                         </Button>
-                        <Button variant={"fab"} aria-label={"Line_graph"} className={classes.HorBarButton} value = 'line_graph' onClick = {props.handleGraphChange} disabled = {props.reportType === '' ? false : true}>
+                        <Button variant={"fab"} aria-label={"Line_graph"} className={classes.HorBarButton} value = 'Line' onClick = {props.handleGraphChange} disabled = {props.reportType === '' ? false : true}>
                             <ShowChart/>
                         </Button>
                         <Button variant={"fab"} aria-label={"bar_graph"} className={classes.HorBarButton} value = 'Bar' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}>
@@ -147,7 +147,7 @@ function ReportToolbar(props) {
                             variant={"outlined"}
                         >
                             {props.datasets.map(option => (
-                                <option key={String(props.datasets.indexOf(option))} value={option.name} data-fields = {`${option.fields}`}>
+                                <option key={String(props.datasets.indexOf(option))} value={option.dataset_id} data-fields = {`${option.fields}`}>
                                     {option.name}
                                 </option>
                             ))}
@@ -195,7 +195,7 @@ function ReportToolbar(props) {
                 <Divider/>
                 <ExpansionPanelActions>
                     <Button size={"small"} onClick={props.handleCancel}>Cancel</Button>
-                    <Button size={"small"} color={"primary"} onClick={props.handleSave}>Save</Button>
+                    <Button size={"small"} color={"primary"} onClick={props.handleLoad}>Save</Button>
                 </ExpansionPanelActions>
             </ExpansionPanel>
         </div>

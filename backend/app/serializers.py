@@ -14,10 +14,11 @@ class DatasetSeraializer(serializers.ModelSerializer):
 
     profile = serializers.ReadOnlyField(source = 'profile.user.username')
     fields = serializers.SlugRelatedField(many = True, slug_field='name',read_only = True)
+    dataset_id = serializers.UUIDField()
 
     class Meta:
         model = Dataset
-        fields = ('name','fields','profile')
+        fields = ('dataset_id','name','fields','profile')
 
 class FieldSerializer(serializers.ModelSerializer):
 
@@ -84,8 +85,9 @@ class ReportSerializer(serializers.ModelSerializer):
 
     dataset = serializers.ReadOnlyField(source = 'dataset.name')
     profile = serializers.ReadOnlyField(source = 'profile.user.username')
+    report_id = serializers.UUIDField()
 
     class Meta:
         model = Report
-        fields = ('dataset','profile','data')
+        fields = ('report_id','dataset','profile','data')
 

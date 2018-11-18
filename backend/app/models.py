@@ -7,6 +7,8 @@ from django.core.validators import ValidationError
 
 from app.utils import create_model
 
+import uuid
+
 # Create your models here.
 
 class Profile(models.Model):
@@ -26,6 +28,7 @@ class Dataset(models.Model):
      
     profile = models.ForeignKey(Profile,related_name='datasets',on_delete = models.CASCADE)
     name = models.CharField(max_length = 50)
+    dataset_id = models.UUIDField(primary_key = True, default = uuid.uuid4, editable = False)
 
     def __str__(self):
          return self.name
@@ -94,6 +97,5 @@ class Report(models.Model):
     
     dataset = models.ForeignKey(Dataset,related_name = 'reports', on_delete = models.CASCADE)
     profile = models.ForeignKey(Profile,related_name = 'reports', on_delete = models.CASCADE)
-    title = models.CharField(max_length = 50)
-    description = models.TextField()
+    report_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable = False)
     data = JSONField()

@@ -29,11 +29,25 @@ class FilterOptions extends React.Component{
         super(props);
         this.state= {
             measureOperation : ['SUM', 'COUNT', 'COUNT DISTINCT', 'MAX', 'MIN', 'AVERAGE'],
-            yRange : [0, this.props.yLen],
-            xRange : [0, this.props.xLen],
-            selectedOperation : ''
+            selectedOperation : '',
+            yRange : [0,props.yLen],
+            xRange : [0,props.xLen],
+            initial : 1
         }
     }
+
+    // static getDerivedStateFromProps(nextProps,prevState){
+    //     // console.log(nextProps.yLen);
+    //     if(prevState.initial) {
+    //         console.log(nextProps.yLen)
+    //         return {
+    //             yRange : [0,nextProps.yLen],
+    //             xRange : [0,nextProps.xLen],
+    //             initial : 0
+    //         }
+    //     }
+    //     else return null;
+    // }
 
     handleSelectedOperation = key => {
         this.setState({ selectedOperation : key });
@@ -44,6 +58,7 @@ class FilterOptions extends React.Component{
     }
 
     handleYRange = values => {
+        console.log(values);
         this.setState({ yRange : values });
     }
 
@@ -69,8 +84,6 @@ class FilterOptions extends React.Component{
         }
         return (
             <div>
-                <GridContainer>
-                    <GridItem xs={12} sm={12} md={6}> 
                         <Card>
                             <CardBody>
                                 <br />
@@ -101,12 +114,15 @@ class FilterOptions extends React.Component{
                                             />
                                         </div>
                                     </GridItem>
+                                    <GridItem xs={6} sm={6} md={6}>
+                                        <CustomButton color="success" onClick={this.props.handleSave}>
+                                            SAVE
+                                        </CustomButton>
+                                    </GridItem>
                                 </GridContainer>
                                 {filters}
                             </CardBody>
                         </Card>
-                    </GridItem>
-                </GridContainer>
             </div>
         );
     }

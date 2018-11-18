@@ -101,9 +101,9 @@ class DatasetDetail(APIView):
 
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
-    def get_object(self,name,user):
+    def get_object(self,dataset_id,user):
         try:
-            return Dataset.objects.filter(profile = user.profile).get(name = name)
+            return Dataset.objects.filter(profile = user.profile).get(dataset_id = dataset_id)
 
         except Dataset.DoesNotexist:
             return Http404
@@ -111,7 +111,7 @@ class DatasetDetail(APIView):
 
     def post(self,request):
         
-        dataset = self.get_object(request.data['name'],request.user)
+        dataset = self.get_object(request.data['dataset_id'],request.user)
         model = dataset.get_django_model()
         GeneralSerializer.Meta.model = model
         print(model)
@@ -381,9 +381,9 @@ class ReportGenerate(viewsets.ViewSet):
         if report_type == 'hor_bar':
             return Response({'options' : ['X_field','Y_field']})
 
-    def get_object(self,name,user):
+    def get_object(self,dataset_id,user):
         try:
-            return Dataset.objects.filter(profile = user.profile).get(name = name)
+            return Dataset.objects.filter(profile = user.profile).get(dataset_id = dataset_id)
 
         except Dataset.DoesNotexist:
             return Http404
@@ -434,7 +434,7 @@ class ReportGenerate(viewsets.ViewSet):
 
             return Response({'data' : mpld3.fig_to_dict(fig)}, status = status.HTTP_200_OK)
         
-        if report_type == 'line_graph':
+        if report_type == 'Line':
             X_field = request.data['options']['X_field']
             Y_field = request.data['options']['Y_field']
             all_fields = []
@@ -443,22 +443,36 @@ class ReportGenerate(viewsets.ViewSet):
             df_required = df.loc[:,all_fields]
             df_required = df_required.dropna()
             print(df_required)
-            plt.rcdefaults()
-            fig,ax = plt.subplots()
-            nx = np.arange(len(df_required.loc[:,X_field])) 
-            arg_list = []
-            for y in Y_field:
-                arg_list.append(nx)
-                arg_list.append(df_required.loc[:,y])
-            print(*arg_list)
-            ax.plot(*arg_list)
-            ax.set_xlabel(X_field)
-            label = 'fields-'
-            for y in Y_field:
-                label = label + y
-            ax.set_ylabel(label)
+            # plt.rcdefaults()
+            # fig,ax = plt.subplots()
+            # nx = np.arange(len(df_required.loc[:,X_field])) 
+            # arg_list = []
+            # for y in Y_field:
+            #     arg_list.append(nx)
+            #     arg_list.append(df_required.loc[:,y])
+            # print(*arg_list)
+            # ax.plot(*arg_list)
+            # ax.set_xlabel(X_field)
+            # label = 'fields-'
+            df_num = df_required.select_dtypes(exclude = [np.number])
+            all_columns = list(df_num)
+            all_columns.remove(X_field)
+            df_num[all_columns] = df_num[all_columns].astype('category')
+            df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes)
+            df_required.update(df_num)
 
-            return Response({ 'data' : mpld3.fig_to_dict(fig)}, status = status.HTTP_200_OK)
+            data = {
+                'labels' : np.array(df_required.loc[:,X_field]),
+                'series' : []
+            }
+
+            add = []
+            for y in Y_field:
+                add = [{ 'meta' : y, 'value' : i } for i in np.array(df_required.loc[:,y])]
+                data['series'].append(add)
+            # ax.set_ylabel(label)
+
+            return Response({ 'data' : data}, status = status.HTTP_200_OK)
         
         if report_type == 'Bar':
             X_field = request.data['options']['X_field']
@@ -667,16 +681,23 @@ class ReportList(APIView):
 
         return Response(serializer.data, status = status.HTTP_200_OK)
     
-    def get_object(self,name,user):
+    def get_object(self,dataset_id,user):
         try:
-            return Report.objects.filter(profile = user.profile).get(name = name)
+            return Dataset.objects.filter(profile = user.profile).get(dataset_id = dataset_id)
+        except:
+            return Http404
+
+    
+    def get_report_object(self,report_id,user):
+        try:
+            return Report.objects.filter(profile = user.profile).get(report_id = report_id)
         except:
             return Http404
 
     def post(self, request):
-
         data = request.data
-        dataset = self.get_object(data['dataset'],request.user)
+        dataset = self.get_object(data['dataset_id'],request.user)
+        serializer = ReportSerializer(data = data)
 
         if serializer.is_valid():
             serializer.save(profile = request.user.profile, dataset = dataset)
@@ -684,3 +705,18 @@ class ReportList(APIView):
             return Response(serializer.data,status = status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+    
+    def put(self,request):
+
+        data = request.data
+        print(data)
+        report = self.get_report_object(data['report_id'], request.user)
+
+        serializer = ReportSerializer(report, data = data)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status = status.HTTP_200_OK)
+        
+        return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+
