@@ -47,9 +47,9 @@ class HomePage extends React.Component{
     componentDidMount(){
 
         const loginData = {
-            email : "codemycompany@gmail.com",
-            organization_id: "c479676e",
-            password : "123456"
+            email : "shreyansh@pragyaam.in",
+            organization_id: "pragyaam",
+            password : "Pragyaam@12345"
         };
         console.log(loginData);
         this.props.login(loginData);
@@ -63,17 +63,33 @@ class HomePage extends React.Component{
             }
         };
 
-        Axios(postData)
-        .then(res => this.setState(() => {
-            let dashReportsdata = [];
-            dashReportsdata = res.data.map(report => {
-                if(report.reported && initial){
-                    return {
-                        ...report,
-                    }
-                }
-            })
-        }))
+        // Axios(postData)
+        // .then(res => this.setState(() => {
+        //     let dashReportsdata = [],x_available=0,y_available=0;
+        //     for(let i=0; i < res.data.length; i++){
+        //         if(res.data[i].reported && !report.initial){
+
+        //         }
+        //     }
+        //     dashReportsdata = res.data.map(report => {
+
+        //         if(report.reported && report.initial){
+
+        //             return {
+        //                 ...report,
+        //                 data : {
+        //                     ...report.data,
+        //                     pos : {
+        //                         x : 10,
+        //                         y : 10,
+        //                         width: 400,
+        //                         height : 300
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     })
+        // }))
     }
 
     componentDidUpdate(prevProps){

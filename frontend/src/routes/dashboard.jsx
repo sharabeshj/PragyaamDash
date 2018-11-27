@@ -8,7 +8,8 @@ import CreateDataset from '../views/Dataset/CreateDataset/CreateDataset';
 import DatasetList from '../views/Dataset/DatasetList/DatasetList';
 import ReportCreate from '../views/Report/ReportCreate/ReportCreate';
 import ReportList from '../views/Report/ReportList/ReportList';
-import HomePage from '../views/HomePage/HomePage';
+import HomePageCustomize from '../views/HomePage/HomePageCustomize/HomePageCustomize';
+import HomePageDisplay from '../views/HomePage/HomePageDisplay/HomePageDisplay';
 import WorkspacePage from '../views/WorkspacePage/WorkspacePage';
 import Layers from '../views/Layers/Layers';
 
@@ -19,7 +20,20 @@ const dashboardRoutes = [
     path: "/home",
     name: "Dashboard",
     icon:Home,
-    component:HomePage
+    views : [
+      {
+        path: "/home/customize",
+        name: "Dashboard Customize",
+        mini : "DC",
+        component : HomePageCustomize
+      },
+      {
+        path: "/home/display",
+        name: "Dashboard",
+        mini: "D",
+        component: HomePageDisplay
+      }
+    ]
   },
   { 
     path: "/workspace",
