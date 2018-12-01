@@ -56,7 +56,9 @@ class ReportCreate extends React.Component{
             reportOptions : {},
             reportListeners : {},
             filterChecked : false,
-            selectedOperation : ''
+            selectedOperation : '',
+            selectedGroupBy : '',
+            selectedMeasureOperation : 'SUM'
         };
         this.ref = React.createRef();
         // this.resetFunc.bind(this);
@@ -136,20 +138,10 @@ class ReportCreate extends React.Component{
             }));
         }
         else {
-            this.setState(prevState => {
-                if(prevState.selectedYField.indexOf(yField) === -1){
-                    return {
-                        selectedFields : [...prevState.selectedFields,yField],
-                        selectedYField : [...prevState.selectedYField,yField]
-                    }
-                }
-                else {
-                    return {
-                        selectedFields : [...prevState.selectedFields],
-                        selectedYField : [...prevState.selectedYField]
-                    }
-                }
-            });
+            this.setState(prevState => ({
+                selectedFields : [...prevState.selectedFields,yField],
+                selectedYField : yField
+            }));
         }
     };
 
@@ -159,7 +151,7 @@ class ReportCreate extends React.Component{
             reportType: '',
             selectedFields : [],
             selectedXField : '',
-            selectedYField : [],
+            selectedYField : '',
             selectedDataset :  ''});
     }
 
@@ -174,7 +166,9 @@ class ReportCreate extends React.Component{
                 'report_description' : this.state.reportDescription,
                 'options' : {
                     'X_field' : this.state.selectedXField,
-                    'Y_field' : this.state.selectedYField
+                    'Y_field' : this.state.selectedYField,
+                    'group_by' : this.state.selectedGroupBy,
+                    'measure_operation' : this.state.selectedMeasureOperation
                 }
             }),
             auth :  {
@@ -220,7 +214,8 @@ class ReportCreate extends React.Component{
                     'report_title' : this.state.reportTitle,
                     'report_description' : this.state.reportDescription,
                     'report_data' : this.state.report_data,
-                    'reported' : false
+                    'reported' : false,
+                    'initial' : true
                 }
             }),
             auth: {
@@ -233,6 +228,14 @@ class ReportCreate extends React.Component{
         }
         Axios(postData)
         .then(res => this.props.history.push('/reports/list'))
+    }
+
+    handleGroupByChange = value => {
+        this.setState({ selectedGroupBy : value });
+    }
+
+    handleMeasureOperation = op => {
+        this.setState({ selectedMeasureOperation : op });
     }
 
     render(){
@@ -303,7 +306,10 @@ class ReportCreate extends React.Component{
                     selectedDataset  ={this.state.selectedDataset}
                     selectedFields = {this.state.selectedFields}
                     selectedXField = {this.state.selectedXField}
-                    selectedYField = {this.state.selectedYField}
+                    selectedMeasureOperation = {this.state.selectedMeasureOperation}
+                    selectedGroupBy = {this.state.selectedGroupBy}
+                    handleGroupByChange = {this.handleGroupByChange }
+                    handleMeasureOperation = {this.handleMeasureOperation}
                  />
                 {report_data}
 

@@ -17,6 +17,7 @@ import Layers from '../views/Layers/Layers';
 
 const dashboardRoutes = [
   {
+    collapse : "true",
     path: "/home",
     name: "Dashboard",
     icon:Home,

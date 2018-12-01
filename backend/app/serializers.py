@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from app.models import Dataset,Field,Setting,Table,Join,Profile,Report
+import uuid
 
 class ProfileSerializer(serializers.ModelSerializer):
     
@@ -85,7 +86,7 @@ class ReportSerializer(serializers.ModelSerializer):
 
     dataset = serializers.ReadOnlyField(source = 'dataset.name')
     profile = serializers.ReadOnlyField(source = 'profile.user.username')
-    report_id = serializers.UUIDField()
+    report_id = serializers.UUIDField(default = uuid.uuid4)
 
     class Meta:
         model = Report

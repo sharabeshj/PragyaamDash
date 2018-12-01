@@ -20,63 +20,104 @@ import Chip from '@material-ui/core/Chip';
 import Button from '@material-ui/core/Button';
 import TextField from '@material-ui/core/TextField';
 import Divider from '@material-ui/core/Divider';
+import Select from '@material-ui/core/Select';
 
 import reportToolbarStyles from '../../assets/jss/frontend/components/reportToolbarStyles';
+import GridContainer from '../Grid/GridContainer';
+import GridItem from '../Grid/GridItem';
+import { FormControl, InputLabel, MenuItem } from '@material-ui/core';
+import CustomDropdown from '../CustomDropdown/CustomDropdown';
 
 function ReportToolbar(props) {
     const { classes } = props;
-    const newSelectedYOptions  = (<TextField
-        id={"select y field"}
+    const measureOperation = ['SUM',  'COUNT', 'COUNT DISTINCT', 'MAX', 'MIN', 'AVERAGE']
+    const selectYOptions  = (
+        <GridContainer>
+            <GridItem xs = {6}>
+                <FormControl
+                    fullWidth
+                    className={classes.selectFormControl}
+                >
+                    <InputLabel
+                        htmlFor="multiple-select"
+                        className={classes.selectLabel}
+                    >
+                        Select Y Field
+                    </InputLabel>
+                    <Select
+                        // multiple
+                        value={props.selectedYField}
+                        onChange = {e => props.handleFieldChange(null,e.target.value)}
+                        MenuProps = {{ className : classes.selectMenu }}
+                        classes={{ select : classes.select }}
+                        inputProps = {{
+                            name : "multipleSelect",
+                            id : "multiple-select"
+                        }}
+                    >
+                        <MenuItem
+                            disabled
+                            classes={{
+                                root : classes.selectMenuItem
+                            }}
+                        >
+                            Select Y Field
+                        </MenuItem>
+                        {props.fields && props.fields.map(field => (
+                            <MenuItem
+                                disabled={props.selectedFields.indexOf(field) !== -1}
+                                classes={{
+                                    root : classes.selectMenuItem,
+                                    selected : classes.selectMenuItemSelectedMultiple
+                                }}
+                                value={field}
+                            >
+                                {field}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+            </GridItem>
+            <GridItem xs={6}>
+                <CustomDropdown 
+                    buttonText="Measure Operation"
+                    hoverColor="info"
+                    buttonProps = {{
+                        round : true,
+                        block : true,
+                        color : "info"
+                    }}
+                    dropPlacement="bottom"
+                    dropdownList = {measureOperation.map(op =>(
+                        <div onClick = {e => props.handleMeasureOperation(op)}>{op}</div>
+                    ))}
+                />
+            </GridItem>
+        </GridContainer>
+    );
+    const groupBYOption = (<TextField
+        id= {"select group by field"}
         select
-        placeholder={"Select new Y field"}
-        value={''}
-        label={"Select Y Field"}
-        className={classes.textField}
-        onChange={(e) => props.handleFieldChange(null,e.currentTarget.value)}
-        SelectProps={{
+        placeholder={"Select Group By"}
+        value = {props.selectedGroupBy}
+        label = {"Select Group By"}
+        className = {classes.textField}
+        onChange = { e => props.handleGroupByChange(e.currentTarget.value)}
+        SelectProps = {{
             MenuProps : {
-                className : classes.menu,
+                className : classes.Menu,
             },
         }}
-        helperText={"Please select your y field"}
+        helperText = {"Please select your group by field"}
         margin = "normal"
-        variant={"outlined"}
+        variant = {"outlined"}
     >
-        {props.fields && props.fields.map(field => (
-            <option disabled={props.selectedFields.indexOf(field)!=-1} value={field} key={field}>
+        {props.fields && props.fields.map( field => (
+            <option value = {field} key = {field}>
                 {field}
             </option>
         ))}
-    </TextField>);
-    let selectedYOptions = null;
-    if(props.selectedYField && props.selectedYField.length > 0){
-        selectedYOptions = props.selectedYField.map(yField => (
-            <TextField
-                            id={"select y field"}
-                            key={yField}
-                            select
-                            label={"Select Y Field"}
-                            className={classes.textField}
-                            value={yField}
-                            onChange={(e) => props.handleFieldChange(null,e.currentTarget.value)}
-                            SelectProps={{
-                                MenuProps : {
-                                    className : classes.menu,
-                                },
-                            }}
-                            helperText={"Please select your y field"}
-                            margin = "normal"
-                            variant={"outlined"}
-                        >
-                            {props.fields && props.fields.map(field => (
-                                <option disabled={props.selectedFields.indexOf(field)!=-1} value={field} key={field}>
-                                    {field}
-                                </option>
-                            ))}
-                        </TextField>
-        ));
-        
-    }
+    </TextField>)
     
     return (
         <div className={classes.root}>
@@ -154,7 +195,7 @@ function ReportToolbar(props) {
                         </TextField>
                         <TextField
                             id={"select x field"}
-                            select
+                          Select  select
                             label={"Select X Field"}
                             className={classes.textField}
                             value={props.selectedXField}
@@ -174,10 +215,17 @@ function ReportToolbar(props) {
                                 </option>
                             ))}
                         </TextField>
-                        {selectedYOptions}
-                        {newSelectedYOptions}
+                        {/* <TextField
+                            id={""}
+                        >
+
+                        </TextField> */}
+                        {selectYOptions} 
+                        {groupBYOption}
+                        
                     </div>
                     <div className={classes.column}>
+                       
                         <TextField
                             id="outlined-multiline-flexible"
                             label="description"

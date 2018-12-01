@@ -477,24 +477,29 @@ class ReportGenerate(viewsets.ViewSet):
         if report_type == 'Bar':
             X_field = request.data['options']['X_field']
             Y_field = request.data['options']['Y_field']
+            group_by = request.data['options']['group_by']
+            measure_operation = request.data['options']['measure_operation']
             all_fields = []
-            all_fields.extend(Y_field)
-            all_fields.extend([X_field])
+            all_fields.extend([X_field,Y_field])
+            if len(group_by) > 0:
+                all_fields.extend([group_by])
             print(all_fields)
+            df_required = df.loc[:,all_fields]
             df_required = df.loc[:,df.columns.isin(all_fields)]
-            df_required = df_required.dropna()
+            # df_required = df_required.dropna()
             # plt.rcdefaults()
             # fig,ax = plt.subplots()
             # width = 1
-            nx = np.arange(len(df_required.loc[:,X_field]))
-            X = df_required.loc[:,X_field]
-            ny = len(Y_field)
+            # nx = np.arange(len(df_required.loc[:,X_field]))
+            # X = df_required.loc[:,X_field]
+            # ny = len(Y_field)
             df_num = df_required.select_dtypes(exclude = [np.number])
             all_columns = list(df_num)
             all_columns.remove(X_field)
             df_num[all_columns] = df_num[all_columns].astype('category')
             df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes)
             df_required.update(df_num)
+                    
             # print(df_required)
             # i = -(ny-1)*width/2
             # y = 0
@@ -514,25 +519,32 @@ class ReportGenerate(viewsets.ViewSet):
             # ax.set_title(request.data['report_title'], size = '20')
             # ax.legend()
 
+
             data = {
                 'labels' : np.array(df_required.loc[:,X_field]),
                 'series' : []
             }
 
             add = []
-            for y in Y_field:
-                add = [{ 'meta' : y, 'value' : i } for i in np.array(df_required.loc[:,y])]
-                data['series'].append(add)
+
+            add = [{ 'meta' : Y_field, 'value' : i } for i in np.array(df_required.loc[:,Y_field])]
+            data['series'].append(add)
             
+            if len(group_by) > 0:
+                if measure_operation == "SUM":
+                    print(df_required.groupby([group_by,X_field])[Y_field].sum())
 
             return Response({ 'data' : data}, status = status.HTTP_200_OK)
         
         if report_type == 'stacked_hor_bar':
             X_field = request.data['options']['Y_field']
             Y_field = request.data['options']['X_field']
+            group_by = request.data['options']['group_by']
             all_fields = []
             all_fields.extend([Y_field])
             all_fields.extend(X_field)
+            if len(group_by) > 0:
+                all_fields.extend(group_by)
             df_required = df.loc[:,all_fields]
             df_required = df_required.dropna()
             print(df_required)

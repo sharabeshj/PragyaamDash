@@ -7,14 +7,13 @@ import update from 'react-addons-update';
 import { withStyles } from '@material-ui/core/styles';
 import AddAlert from '@material-ui/icons/AddAlert';
 
-import GridContainer from '../../components/Grid/GridContainer';
-import GridItem from '../../components/Grid/GridItem';
-import CustomButton from '../../components/CustomButtons/Button';
-import Snackbar from '../../components/Snackbar/Snackbar';
+import GridContainer from '../../../components/Grid/GridContainer';
+import GridItem from '../../../components/Grid/GridItem';
+import CustomButton from '../../../components/CustomButtons/Button';
+import Snackbar from '../../../components/Snackbar/Snackbar';
 
-import homepageStyle from '../../assets/jss/frontend/views/homepageStyle';
 
-import {login} from '../../store/Actions/ActionCreator';
+import {login} from '../../../store/Actions/ActionCreator';
 
 
 class HomePage extends React.Component{
@@ -25,6 +24,8 @@ class HomePage extends React.Component{
             dashReportsdata : []
         };
     }
+
+    _ismounted = false;
 
     componentWillUnmount(){
         let id = window.setTimeout(null, 0);
@@ -48,14 +49,15 @@ class HomePage extends React.Component{
     }
 
     componentDidMount(){
+        this._ismounted = true;
 
-        const loginData = {
-            email : "codemycompany@gmail.com",
-            organization_id: "c479676e",
-            password : "123456"
-        };
-        console.log(loginData);
-        this.props.login(loginData);
+        // const loginData = {
+        //     email : "codemycompany@gmail.com",
+        //     organization_id: "c479676e",
+        //     password : "123456"
+        // };
+        // console.log(loginData);
+        // this.props.login(loginData);
 
         const postData = {
             method : 'GET',
@@ -65,14 +67,14 @@ class HomePage extends React.Component{
                 password : 'shara1234'
             }
         };
-
+        console.log('component did mount');
         Axios(postData)
-        .then(res => this.setState(() => {
+        .then(res => this.setState((prevState) => {
             let x_available=0,y_available=0,dashReportsdata = [];
             for(let i=0; i < res.data.length; i++){
                 if(res.data[i].reported && !res.data[i].initial){
                     x_available = x_available + res.data[i].data.pos.x + res.data[i].data.pos.width;
-                    if(x_available >= screen.width){
+                    if(x_available >= window.screen.width){
                         x_available = 0;
                         y_available = y_available + res.data[i].data.pos.y + res.data[i].data.pos.height
                     }
@@ -80,9 +82,9 @@ class HomePage extends React.Component{
             }
             console.log(x_available, y_available);
 
-            dashReportsdata = res.data.map(report => {
+            dashReportsdata = res.data.map(report => {  
 
-                if(report.reported && report.initial){
+                if(report.data.reported && report.data.initial){
 
                     return {
                         ...report,
@@ -97,14 +99,19 @@ class HomePage extends React.Component{
                         }
                     }
                 }
+                else if(report.data.reported){
+                    return {
+                        ...report
+                    }
+                }
                 else {
                     return {
                         ...report
                     }
                 }
             });
-
-            this.setState({ dashReportsdata : { ...dashReportsdata }});
+            
+            this.setState({ dashReportsdata : [...prevState.dashReportsdata, ...dashReportsdata ]});
         }))
     }
 
@@ -114,57 +121,70 @@ class HomePage extends React.Component{
         }
     }
 
+    componentWillUnmount(){
+        this._ismounted = false;
+    }
+
     render(){
         let dashReportsdata = null;
         if(this.state.dashReportsdata.length > 0){
+            console.log(this.state.dashReportsdata);
             dashReportsdata = this.state.dashReportsdata.map( (dashReport,index) => (
                 <Rnd
                     key = {index}
                     size = {{ width : dashReport.data.pos.width, height : dashReport.data.pos.height }}
                     position = {{ x : dashReport.data.pos.x, y : dashReport.data.pos.y }}
                     onDragStop = {(e,d) => {
+                        console.log(e.target.attributes['index'].value);
                         for(let i = 0; i < this.state.dashReportsdata.length; i++){
-                            if(i == e.currentTarget.key){
-                                this.setState({ dashReportsdata : update(this.state.dashReportsdata, { 
-                                    i : { 
-                                        ...this.state.dashReportsdata[i], 
-                                        data : { 
-                                            ...this.state.dashReportsdata[i].data, 
-                                            pos : {
-                                                ...this.state.dashReportsdata[i].data.pos,
-                                                x : d.x,
-                                                y : d.y
-                                            }
+                            if(i == e.target.attributes['index'].value){
+                                console.log(this.state.dashReportsdata[0]);
+                                const newDashReportsdata = {
+                                    ...this.state.dashReportsdata
+                                };
+                                newDashReportsdata[i] = { 
+                                    ...newDashReportsdata[i], 
+                                    data : { 
+                                        ...newDashReportsdata[i].data,
+                                        initial : false, 
+                                        pos : {
+                                            ...newDashReportsdata[i].data.pos,
+                                            x : d.x,
+                                            y : d.y
                                         }
                                     }
-                                })
-                            })
+                                }
+                                console.log(newDashReportsdata);
+                                if(this._ismounted)
+                                this.setState({ dashReportsdata : newDashReportsdata});
+                         
                             }
                         }
                     }}
                 onResize = {(e, direction, ref, delta, position) => {
-                    for(let i = 0; i < this.state.dashReportsdata.length; i++){
-                        if(i == e.currentTarget.key){
-                            this.setState({
-                                dashReportsdata : update(this.state.dashReportsdata, {
-                                    i : {
-                                        ...this.state.dashReportsdata[i].data,
-                                        data : {
-                                            ...this.state.dashReportsdata[i].data,
-                                            pos : {
-                                                ...this.state.dashReportsdata[i].data.pos,
-                                                width : ref.style.width,
-                                                height : ref.style.height
-                                            }
-                                        }
-                                    }
-                                })
-                            })
-                        }
-                    }
+                    console.log(ref);
+                    // for(let i = 0; i < this.state.dashReportsdata.length; i++){
+                    //     if(i == e.target.attributes['index'].value){
+                    //         this.setState({
+                    //             dashReportsdata : update(this.state.dashReportsdata, {
+                    //                 i : {
+                    //                     ...this.state.dashReportsdata[i].data,
+                    //                     data : {
+                    //                         ...this.state.dashReportsdata[i].data,
+                    //                         pos : {
+                    //                             ...this.state.dashReportsdata[i].data.pos,
+                    //                             width : ref.style.width,
+                    //                             height : ref.style.height
+                    //                         }
+                    //                     }
+                    //                 }
+                    //             })
+                    //         })
+                    //     }
+                    // }
                 }}
                 >
-                    
+                    <div index={index}>hi</div>
                 </Rnd>
             ))
         }
@@ -179,7 +199,7 @@ class HomePage extends React.Component{
                 closeNotification = { () => this.setState({ tc : false })}
                 close
             />
-
+            {dashReportsdata}
         </div>);
     }
 }
@@ -196,4 +216,10 @@ const mapDispatchToProps = dispatch => {
     }
 }
 
-export default connect(mapStateToProps,mapDispatchToProps)(HomePage);
+export default connect(mapStateToProps,mapDispatchToProps)(HomePage); // const loginData = {
+    //     email : "codemycompany@gmail.com",
+    //     organization_id: "c479676e",
+    //     password : "123456"
+    // };
+    // console.log(loginData);
+    // this.props.login(loginData);
