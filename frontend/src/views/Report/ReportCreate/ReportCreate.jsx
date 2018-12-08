@@ -2,6 +2,7 @@ import React from 'react';
 import Axios from 'axios';
 import {withStyles} from '@material-ui/core/styles';
 import ChartistGraph from 'react-chartist';
+import {connect} from 'react-redux';
 
 import BarChart from '@material-ui/icons/BarChart';
 import ShowChart from '@material-ui/icons/ShowChart';
@@ -24,6 +25,8 @@ import ReportToolbar from "../../../components/ReportToolbar/ReportToolbar";
 import Aux from '../../../hoc/aux/aux';
 import Danger from '../../../components/Typography/Danger';
 import FilterOptions from '../../../components/FilterOptions/FilterOptions';
+
+import { handleDataLoad, handleDefaultDataLoad } from '../../../store/Actions/ActionCreator'
 
 import {
     roundedLineChart,
@@ -52,7 +55,6 @@ class ReportCreate extends React.Component{
             selectedXField : '',
             selectedYField : '',
             selectedDataset :  '',
-            report_data : {},
             reportOptions : {},
             reportListeners : {},
             filterChecked : false,
@@ -110,18 +112,20 @@ class ReportCreate extends React.Component{
     getDefaultGraph = name =>  {
         switch(name){
             case 'Bar':
+                this.props.handleDefaultDataLoad(multipleBarsChart.data);
                 return {
                     reportType : name,
                     icon : (<BarChart/>),
-                    report_data : multipleBarsChart.data,
+                    report_data : this.props.reportData,
                     reportOptions : multipleBarsChart.options,
                     reportListeners : multipleBarsChart.animation
                 }
             case "Line":
+                this.props.handleDefaultDataLoad(colouredLinesChart);
                 return {
                     reportType : name,
                     icon : (<ShowChart />),
-                    report_data : colouredLinesChart.data,
+                    report_data : this.props.reportData,
                     reportOptions : colouredLinesChart.options,
                     reportListeners : colouredLinesChart.animation
                 }
@@ -157,33 +161,16 @@ class ReportCreate extends React.Component{
 
     handleLoad = () => {
         const postData = {
-            url : 'http://127.0.0.1:8000/api/report_generate/',
-            method : 'POST',
-            data : JSON.stringify({
                 'type' : this.state.reportType,
                 'dataset' : this.state.selectedDataset,
-                'report_title' : this.state.reportTitle,
-                'report_description' : this.state.reportDescription,
                 'options' : {
                     'X_field' : this.state.selectedXField,
                     'Y_field' : this.state.selectedYField,
                     'group_by' : this.state.selectedGroupBy,
                     'measure_operation' : this.state.selectedMeasureOperation
                 }
-            }),
-            auth :  {
-                username : 'sharabesh',
-                password : 'shara1234'
-            },
-            headers : { 'Content-Type' : 'application/json'}
-        };
-        Axios(postData)
-            .then(res => this.setState((prevState) => {
-                const data = res.data.data;
-                // const new_data = data.slice(1,-1);
-                return { report_data : {...data} };
-            }))
-            .catch(err => console.error(err));
+            }
+        this.props.handleDataLoad(postData);
     }
 
     handleFilterToggle = () => {
@@ -213,7 +200,6 @@ class ReportCreate extends React.Component{
                     'report_type' : this.state.reportType,
                     'report_title' : this.state.reportTitle,
                     'report_description' : this.state.reportDescription,
-                    'report_data' : this.state.report_data,
                     'reported' : false,
                     'initial' : true
                 }
@@ -241,7 +227,7 @@ class ReportCreate extends React.Component{
     render(){
         let report_data = null;
         const {classes} = this.props;
-        if(Object.keys(this.state.report_data).length !== 0 && this.state.report_data.constructor === Object){
+        if(Object.keys(this.props.report_data).length !== 0 && this.props.report_data.constructor === Object){
             report_data = (<GridContainer>
                 <GridItem xs={12} sm={12} md={6}>
                 <Card>
@@ -318,4 +304,17 @@ class ReportCreate extends React.Component{
     }
 }
 
-export default withStyles(reportCreateStyle)(ReportCreate);
+const mapStateToProps = state => {
+    return {
+        reportData : state.report.reportData
+    }
+};
+
+const mapDispatchToProps = dispatch => {
+    return {
+        handleDataLoad : data => dispatch(handleDataLoad(data)),
+        handleDefaultDataLoad : data => dispatch(handleDefaultDataLoad(data))
+    }
+}
+
+export default connect(mapStateToProps, mapDispatchToProps)(withStyles(reportCreateStyle)(ReportCreate));

@@ -82,7 +82,7 @@ const save = (name,joinData,state) => {
 const validate = loginData => {
     return dispatch => {
         const postData = {
-            url : 'http://pragyaamfrontend.mysnippt.com/api/login',
+            url : 'http://pragyaambackend.mysnippt.com/api/login',
             method : 'POST',
             data : JSON.stringify({
                 ...loginData
@@ -139,3 +139,46 @@ export const handleMiniSidebarToggle = () => {
 //         name : name
 //     }
 // }
+
+const loadSuccess = (data) => {
+    return {
+        type : ActionTypes.DATA_LOAD,
+        data : data
+    }
+}
+
+const loadError = err => {
+    return {
+        type : ActionTypes.DATA_LOAD_ERROR,
+        error : err
+    }
+}
+
+const loadData = data => {
+    return dispatch => {
+        const postData = {
+            url : 'http://127.0.0.1:8000/api/report_generate/',
+            method : 'POST',
+            data : JSON.stringify(data),
+            auth :  {
+                username : 'sharabesh',
+                password : 'shara1234'
+            },
+            headers : { 'Content-Type' : 'application/json'}
+        };
+        Axios(postData)
+            .then(res => dispatch(loadSuccess(res.data)))
+            .catch(err => dispatch(loadError(err)));
+    }
+} 
+
+export const handleDataLoad = (data) => {
+    return (dispatch,getState) => (dispatch(loadData(data)))
+}
+
+export const handleDefaultDataLoad = (data) => {
+    return {
+        type : ActionTypes.DATA_LOAD,
+        data : data
+    }
+}

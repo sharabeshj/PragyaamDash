@@ -479,6 +479,7 @@ class ReportGenerate(viewsets.ViewSet):
             Y_field = request.data['options']['Y_field']
             group_by = request.data['options']['group_by']
             measure_operation = request.data['options']['measure_operation']
+
             all_fields = []
             all_fields.extend([X_field,Y_field])
             if len(group_by) > 0:

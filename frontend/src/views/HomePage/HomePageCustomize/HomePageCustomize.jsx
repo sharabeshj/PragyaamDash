@@ -32,6 +32,8 @@ class HomePage extends React.Component{
         while(id --) {
             window.clearInterval(id);
         }
+        console.log('unmounted');
+        this._ismounted = false;
     }
 
     showNotification(place){
@@ -51,13 +53,13 @@ class HomePage extends React.Component{
     componentDidMount(){
         this._ismounted = true;
 
-        // const loginData = {
-        //     email : "codemycompany@gmail.com",
-        //     organization_id: "c479676e",
-        //     password : "123456"
-        // };
-        // console.log(loginData);
-        // this.props.login(loginData);
+        const loginData = {
+            email : "testing@gmail.com",
+            organization_id: "testorg",
+            password : "Testing123!"
+        };
+        console.log(loginData);
+        this.props.login(loginData);
 
         const postData = {
             method : 'GET',
@@ -121,10 +123,6 @@ class HomePage extends React.Component{
         }
     }
 
-    componentWillUnmount(){
-        this._ismounted = false;
-    }
-
     render(){
         let dashReportsdata = null;
         if(this.state.dashReportsdata.length > 0){
@@ -132,6 +130,7 @@ class HomePage extends React.Component{
             dashReportsdata = this.state.dashReportsdata.map( (dashReport,index) => (
                 <Rnd
                     key = {index}
+                    index={index}
                     size = {{ width : dashReport.data.pos.width, height : dashReport.data.pos.height }}
                     position = {{ x : dashReport.data.pos.x, y : dashReport.data.pos.y }}
                     onDragStop = {(e,d) => {
@@ -139,9 +138,9 @@ class HomePage extends React.Component{
                         for(let i = 0; i < this.state.dashReportsdata.length; i++){
                             if(i == e.target.attributes['index'].value){
                                 console.log(this.state.dashReportsdata[0]);
-                                const newDashReportsdata = {
+                                const newDashReportsdata = [
                                     ...this.state.dashReportsdata
-                                };
+                                ];
                                 newDashReportsdata[i] = { 
                                     ...newDashReportsdata[i], 
                                     data : { 
@@ -154,37 +153,39 @@ class HomePage extends React.Component{
                                         }
                                     }
                                 }
-                                console.log(newDashReportsdata);
-                                if(this._ismounted)
-                                this.setState({ dashReportsdata : newDashReportsdata});
+                                console.log(newDashReportsdata,this.state.dashReportsdata);
+                                if(this._ismounted){
+                                    console.log('here');    
+                                    this.setState({ dashReportsdata : newDashReportsdata});
+                                }
+                               
                          
                             }
                         }
                     }}
-                onResize = {(e, direction, ref, delta, position) => {
-                    console.log(ref);
-                    // for(let i = 0; i < this.state.dashReportsdata.length; i++){
-                    //     if(i == e.target.attributes['index'].value){
-                    //         this.setState({
-                    //             dashReportsdata : update(this.state.dashReportsdata, {
-                    //                 i : {
-                    //                     ...this.state.dashReportsdata[i].data,
-                    //                     data : {
-                    //                         ...this.state.dashReportsdata[i].data,
-                    //                         pos : {
-                    //                             ...this.state.dashReportsdata[i].data.pos,
-                    //                             width : ref.style.width,
-                    //                             height : ref.style.height
-                    //                         }
-                    //                     }
-                    //                 }
-                    //             })
-                    //         })
-                    //     }
-                    // }
+                onResizeStop = {(e, direction, ref, delta, position) => {
+                    console.log(ref.getAttribute('index'));
+                    for(let i = 0; i < this.state.dashReportsdata.length; i++){
+                        if(i == ref.getAttribute('index')){
+                            const newDashReportsdata = [
+                                ...this.state.dashReportsdata
+                            ];
+                            newDashReportsdata[i] = { 
+                                ...newDashReportsdata[i], 
+                                data : {
+                                    ...this.state.dashReportsdata[i].data,
+                                    pos : {
+                                        ...this.state.dashReportsdata[i].data.pos,
+                                        width : ref.style.width,
+                                        height : ref.style.height
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }}
                 >
-                    <div index={index}>hi</div>
+                    hi
                 </Rnd>
             ))
         }

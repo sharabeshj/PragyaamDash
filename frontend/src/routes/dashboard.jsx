@@ -29,7 +29,7 @@ const dashboardRoutes = [
         component : HomePageCustomize
       },
       {
-        path: "/home/display",
+        path: "/home",
         name: "Dashboard",
         mini: "D",
         component: HomePageDisplay
@@ -89,7 +89,7 @@ const dashboardRoutes = [
       }
     ]
   },
-  { redirect: true, path: "/", to: "/dashboard", navbarName: "Redirect" }
+  { redirect: true, path: "/", to: "/home", navbarName: "Redirect" }
 ];
 
 export default dashboardRoutes;
