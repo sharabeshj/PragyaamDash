@@ -159,7 +159,9 @@ class ReportCreate extends React.Component{
             selectedFields : [],
             selectedXField : '',
             selectedYField : '',
-            selectedDataset :  ''});
+            selectedDataset :  '',
+            selectedGroupBy : ''
+        });
     }
 
     handleLoad = () => {

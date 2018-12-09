@@ -524,35 +524,65 @@ class ReportGenerate(viewsets.ViewSet):
             # ax.legend()
 
             data = {
-                'labels' : np.array(df_required.loc[:,X_field]),
+                'labels' : np.unique(np.array(df_required.loc[:,X_field])),
                 'series' : []
             }
 
+            add = []
+            curr = []
+            op_dict = collections.defaultdict(list)
+
             if len(group_by) > 0:
                 if measure_operation == "LAST":
-                    df_required[Y_field] = df_required[Y_field].astype('str').astype('int')
-                    print(df_required[Y_field].dtype)
-                    print(df_required.groupby([group_by,X_field]).get_group((0,'sangeetha@gmail.com')))
-                    df_group = df_required.groupby([group_by, X_field]).get_group((0,'sangeetha@gmail.com'))
-                    print(df_group[Y_field])
+                    
+                    for x in df_required.groupby([group_by, X_field]).groups.keys():
+                        
+                        df_group = df_required.groupby([group_by, X_field]).get_group(x)
+                        curr.extend(np.array(df_group[[X_field,Y_field]]))
 
+
+                    for c in curr:
+                        if c[1] not in op_dict[c[0]]:
+                            op_dict[c[0]].append(c[1])
                 if measure_operation == "SUM":
                     print(df_required.group_by([group_by, X_field, Y_field])[Y_field].sum())
+
+                
             else:
                 if measure_operation == "LAST":
-                    print(df_required.groupby([ X_field, Y_field])[Y_field].last())
+
+                    for x in df_required.groupby([X_field]).groups.keys():
+                        
+                        df_group = df_required.groupby([X_field]).get_group(x)
+                        # print(df_group[[X_field,Y_field]])
+                        curr.extend(np.array(df_group[[X_field,Y_field]]))
+
+                    for c in curr:
+                        if c[1] not in op_dict[c[0]]:
+                            op_dict[c[0]].append(c[1])
+
                 if measure_operation == "SUM":
                     print(df_required.group_by([X_field, Y_field])[Y_field].sum())
-
-
-            
-
-            add = []
-
-            add = [{ 'meta' : Y_field, 'value' : i } for i in np.array(df_required.loc[:,Y_field])]
-            data['series'].append(add)
             
             
+            k = 0
+            total_length = 0
+
+            for d in data['labels']:
+                if len(op_dict[d]) > total_length:
+                    total_length += len(op_dict[d])
+                
+
+            while k < total_length:
+                new_add = []
+                for d in data['labels']:
+                    if k < len(op_dict[d]):
+                        new_add.append(op_dict[d][k])
+                    else:
+                        new_add.append(None)
+                data['series'].append([{ 'meta' : Y_field, 'value' : i} for i in new_add])
+            
+                k += 1
 
             return Response({ 'data' : data}, status = status.HTTP_200_OK)
         
