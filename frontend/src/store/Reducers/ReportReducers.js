@@ -1,7 +1,7 @@
 import * as ActionTypes from '../Actions/Actions';
 
 const ReportHandler = (state = { reportData : {}, report_id : '' }, action) => {
-    switch(action.types){
+    switch(action.type){
         case ActionTypes.DATA_LOAD:
             return {
                 ...state,
@@ -10,7 +10,7 @@ const ReportHandler = (state = { reportData : {}, report_id : '' }, action) => {
         case ActionTypes.DATA_LOAD_ERROR:
             return {
                 ...state,
-                reportData : { error : action.error }
+                reportData : {}
             }
         default:
             return state;

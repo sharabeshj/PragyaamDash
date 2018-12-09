@@ -167,7 +167,7 @@ const loadData = data => {
             headers : { 'Content-Type' : 'application/json'}
         };
         Axios(postData)
-            .then(res => dispatch(loadSuccess(res.data)))
+            .then(res => dispatch(loadSuccess(res.data.data)))
             .catch(err => dispatch(loadError(err)));
     }
 } 
@@ -179,6 +179,12 @@ export const handleDataLoad = (data) => {
 export const handleDefaultDataLoad = (data) => {
     return {
         type : ActionTypes.DATA_LOAD,
-        data : data
+        data : data.data
+    }
+}
+
+export const handleClearReportData = () => {
+    return { 
+        type : ActionTypes.DATA_LOAD_ERROR
     }
 }

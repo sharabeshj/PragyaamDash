@@ -461,9 +461,6 @@ const multipleBarsChart = {
     axisX: {
       showGrid: false
     },
-    axisY:{
-      onlyInteger: true
-    },
     plugins: [
       tooltip(),
       ctAxisTitle({

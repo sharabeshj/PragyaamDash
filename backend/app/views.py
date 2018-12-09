@@ -494,6 +494,9 @@ class ReportGenerate(viewsets.ViewSet):
             # nx = np.arange(len(df_required.loc[:,X_field]))
             # X = df_required.loc[:,X_field]
             # ny = len(Y_field)
+
+            
+
             df_num = df_required.select_dtypes(exclude = [np.number])
             all_columns = list(df_num)
             all_columns.remove(X_field)
@@ -520,20 +523,36 @@ class ReportGenerate(viewsets.ViewSet):
             # ax.set_title(request.data['report_title'], size = '20')
             # ax.legend()
 
-
             data = {
                 'labels' : np.array(df_required.loc[:,X_field]),
                 'series' : []
             }
+
+            if len(group_by) > 0:
+                if measure_operation == "LAST":
+                    df_required[Y_field] = df_required[Y_field].astype('str').astype('int')
+                    print(df_required[Y_field].dtype)
+                    print(df_required.groupby([group_by,X_field]).get_group((0,'sangeetha@gmail.com')))
+                    df_group = df_required.groupby([group_by, X_field]).get_group((0,'sangeetha@gmail.com'))
+                    print(df_group[Y_field])
+
+                if measure_operation == "SUM":
+                    print(df_required.group_by([group_by, X_field, Y_field])[Y_field].sum())
+            else:
+                if measure_operation == "LAST":
+                    print(df_required.groupby([ X_field, Y_field])[Y_field].last())
+                if measure_operation == "SUM":
+                    print(df_required.group_by([X_field, Y_field])[Y_field].sum())
+
+
+            
 
             add = []
 
             add = [{ 'meta' : Y_field, 'value' : i } for i in np.array(df_required.loc[:,Y_field])]
             data['series'].append(add)
             
-            if len(group_by) > 0:
-                if measure_operation == "SUM":
-                    print(df_required.groupby([group_by,X_field])[Y_field].sum())
+            
 
             return Response({ 'data' : data}, status = status.HTTP_200_OK)
         

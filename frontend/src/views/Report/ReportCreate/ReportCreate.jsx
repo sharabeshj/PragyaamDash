@@ -26,7 +26,7 @@ import Aux from '../../../hoc/aux/aux';
 import Danger from '../../../components/Typography/Danger';
 import FilterOptions from '../../../components/FilterOptions/FilterOptions';
 
-import { handleDataLoad, handleDefaultDataLoad } from '../../../store/Actions/ActionCreator'
+import { handleDataLoad, handleDefaultDataLoad, handleClearReportData } from '../../../store/Actions/ActionCreator'
 
 import {
     roundedLineChart,
@@ -60,7 +60,7 @@ class ReportCreate extends React.Component{
             filterChecked : false,
             selectedOperation : '',
             selectedGroupBy : '',
-            selectedMeasureOperation : 'SUM'
+            selectedMeasureOperation : 'LAST'
         };
         this.ref = React.createRef();
         // this.resetFunc.bind(this);
@@ -78,6 +78,10 @@ class ReportCreate extends React.Component{
             this.setState({ datasets : [...res.data]})
         }); 
     };
+
+    componentWillUnmount(){
+        this.props.handleClearReportData();
+    }
 
     handleDatasetChange = (e) => {
         console.log(e.currentTarget, typeof(e.target.value));
@@ -112,11 +116,10 @@ class ReportCreate extends React.Component{
     getDefaultGraph = name =>  {
         switch(name){
             case 'Bar':
-                this.props.handleDefaultDataLoad(multipleBarsChart.data);
+                this.props.handleDefaultDataLoad(multipleBarsChart);
                 return {
                     reportType : name,
                     icon : (<BarChart/>),
-                    report_data : this.props.reportData,
                     reportOptions : multipleBarsChart.options,
                     reportListeners : multipleBarsChart.animation
                 }
@@ -125,7 +128,6 @@ class ReportCreate extends React.Component{
                 return {
                     reportType : name,
                     icon : (<ShowChart />),
-                    report_data : this.props.reportData,
                     reportOptions : colouredLinesChart.options,
                     reportListeners : colouredLinesChart.animation
                 }
@@ -150,6 +152,7 @@ class ReportCreate extends React.Component{
     };
 
     handleCancel = () => {
+        this.props.handleClearReportData();
         this.setState({ fields : [],
             reportTitle : '',
             reportType: '',
@@ -224,10 +227,12 @@ class ReportCreate extends React.Component{
         this.setState({ selectedMeasureOperation : op });
     }
 
+
+
     render(){
         let report_data = null;
         const {classes} = this.props;
-        if(Object.keys(this.props.report_data).length !== 0 && this.props.report_data.constructor === Object){
+        if(Object.keys(this.props.reportData).length !== 0 && this.props.reportData.constructor === Object){
             report_data = (<GridContainer>
                 <GridItem xs={12} sm={12} md={6}>
                 <Card>
@@ -241,7 +246,7 @@ class ReportCreate extends React.Component{
                     </CardHeader>
                     <CardBody>
                         <ChartistGraph 
-                            data={this.state.report_data}
+                            data={this.props.reportData}
                             type={this.state.reportType}
                             options={this.state.reportOptions}
                             listener={this.state.reportListeners}
@@ -264,8 +269,8 @@ class ReportCreate extends React.Component{
                 </GridItem>
                 <GridItem xs={12} sm={12} md={6}>
                     <FilterOptions 
-                        yLen={this.state.report_data.series[0].length}
-                        xLen={this.state.report_data.labels.length}
+                        yLen={this.props.reportData.series[0].length}
+                        xLen={this.props.reportData.labels.length}
                         filterChecked = {this.state.filterChecked}
                         handleFilterToggle={this.handleFilterToggle}
                         handleFilterOptions={this.handleFilterOptions}
@@ -313,7 +318,8 @@ const mapStateToProps = state => {
 const mapDispatchToProps = dispatch => {
     return {
         handleDataLoad : data => dispatch(handleDataLoad(data)),
-        handleDefaultDataLoad : data => dispatch(handleDefaultDataLoad(data))
+        handleDefaultDataLoad : data => dispatch(handleDefaultDataLoad(data)),
+        handleClearReportData : () => dispatch(handleClearReportData())
     }
 }
 

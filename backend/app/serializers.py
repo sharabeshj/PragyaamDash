@@ -15,7 +15,7 @@ class DatasetSeraializer(serializers.ModelSerializer):
 
     profile = serializers.ReadOnlyField(source = 'profile.user.username')
     fields = serializers.SlugRelatedField(many = True, slug_field='name',read_only = True)
-    dataset_id = serializers.UUIDField()
+    dataset_id = serializers.UUIDField(default = uuid.uuid4)
 
     class Meta:
         model = Dataset
