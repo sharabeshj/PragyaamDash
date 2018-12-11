@@ -501,7 +501,7 @@ class ReportGenerate(viewsets.ViewSet):
             all_columns = list(df_num)
             all_columns.remove(X_field)
             df_num[all_columns] = df_num[all_columns].astype('category')
-            df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes)
+            df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes+1)
             df_required.update(df_num)
                     
             # print(df_required)
@@ -534,19 +534,65 @@ class ReportGenerate(viewsets.ViewSet):
 
             if len(group_by) > 0:
                 if measure_operation == "LAST":
+
                     
-                    for x in df_required.groupby([group_by, X_field]).groups.keys():
+                    for x in df_required.groupby([group_by]).groups.keys():
                         
-                        df_group = df_required.groupby([group_by, X_field]).get_group(x)
-                        curr.extend(np.array(df_group[[X_field,Y_field]]))
+                        df_group = df_required.groupby([group_by]).get_group(x)
+                        curr.append(np.array(df_group[[X_field,Y_field]]))
+
+                        for d in np.array(df_group.loc[:,X_field]):
+                            if d not in op_dict.keys():
+                                op_dict[d] = []
 
 
-                    for c in curr:
-                        if c[1] not in op_dict[c[0]]:
-                            op_dict[c[0]].append(c[1])
+                    
+                    print(curr)
+
+                    for x in curr:
+                        
+                        for c in x:
+                        
+                            if c[1] not in op_dict[c[0]]:
+                                
+                                op_dict[c[0]].append(c[1])
+                        
+                            tl = 0
+
+                            for d in data['labels']:
+                                if len(op_dict[d]) > tl:
+                                    tl = len(op_dict[d])
+
+                            for key,value in op_dict.items():
+                                print(tl)
+                                if len(value) < tl:
+                                    t = len(value) - 1
+                                    while t < tl:
+                                        op_dict[key].append(None)
+                                        t += 1
+                        
+                        k = 0
+                
+                        total_length = 0
+
+                        for d in data['labels']:
+                            if len(op_dict[d]) > total_length:
+                                total_length = len(op_dict[d])-1
+                            
+
+                        while k < total_length:
+                            print(total_length)
+                            new_add = []
+                            for d in data['labels']:
+                                new_add.append(op_dict[d][k])
+                            data['series'].append([{ 'meta' : Y_field, 'value' : i} for i in new_add])
+                        
+                            k += 1
+                        
                 if measure_operation == "SUM":
                     print(df_required.group_by([group_by, X_field, Y_field])[Y_field].sum())
 
+                
                 
             else:
                 if measure_operation == "LAST":
@@ -565,24 +611,7 @@ class ReportGenerate(viewsets.ViewSet):
                     print(df_required.group_by([X_field, Y_field])[Y_field].sum())
             
             
-            k = 0
-            total_length = 0
-
-            for d in data['labels']:
-                if len(op_dict[d]) > total_length:
-                    total_length += len(op_dict[d])
-                
-
-            while k < total_length:
-                new_add = []
-                for d in data['labels']:
-                    if k < len(op_dict[d]):
-                        new_add.append(op_dict[d][k])
-                    else:
-                        new_add.append(None)
-                data['series'].append([{ 'meta' : Y_field, 'value' : i} for i in new_add])
             
-                k += 1
 
             return Response({ 'data' : data}, status = status.HTTP_200_OK)
         

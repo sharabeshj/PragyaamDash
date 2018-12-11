@@ -138,16 +138,22 @@ class ReportCreate extends React.Component{
 
     handleFieldChange  = (xField,yField) => {
         if(yField === null) {
-            this.setState(prevState => ({
-                selectedFields : [...prevState.selectedFields,xField],
+            this.setState(prevState => {
+                const newSelectedFields = [...prevState.selectedFields];
+                newSelectedFields[0] = xField;
+                return{
+                selectedFields : newSelectedFields,
                 selectedXField : xField
-            }));
+            }});
         }
         else {
-            this.setState(prevState => ({
-                selectedFields : [...prevState.selectedFields,yField],
+            this.setState(prevState => {
+                const newSelectedFields = [...prevState.selectedFields];
+                newSelectedFields[1] = yField
+                return {
+                selectedFields : newSelectedFields,
                 selectedYField : yField
-            }));
+            }});
         }
     };
 
