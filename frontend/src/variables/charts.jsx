@@ -619,7 +619,10 @@ const colouredLinesChart = {
     // low: 0,
     // high: 1000,
     showPoint: true,
-    height: "300px"
+    height: "300px",
+    lineSmooth: Chartist.Interpolation.cardinal({
+      fillHoles: true,
+    })
   },
   animation: {
     draw: function(data) {
@@ -733,6 +736,76 @@ const pieChart = {
   }
 };
 
+//stacked bar chart
+
+const stackedBarChart = {
+  data : {
+    labels: ['Q1', 'Q2', 'Q3', 'Q4'],
+    series: [
+      [800, 1200, 1400, 1300],
+      [200, 400, 500, 300],
+      [100, 200, 400, 600]
+    ]
+  },
+  options: {
+    stackBars: true,
+    seriesBarDistance: 10,
+    axisX: {
+      showGrid: false
+    },
+    plugins: [
+      tooltip(),
+      ctAxisTitle({
+        axisX: {
+          axisTitle: 'months',
+          axisClass: 'ct-axis-title',
+          offset: {
+            x: 0,
+            y: 30
+          },
+          textAnchor: 'middle'
+        },
+        axisY: {
+          axisTitle: 'value',
+          axisClass: 'ct-axis-title',
+          offset: {
+            x: 0,
+            y: 0
+          },
+          textAnchor: 'middle',
+          flipTitle: false
+        }
+      }),
+      zoom({
+        onZoom : function(chart, reset) { resetFunc = reset;}
+      })
+    ],
+    height: "300px"
+  },
+  responsiveOptions: [
+    [
+      "screen and (max-width: 640px)",
+      {
+        seriesBarDistance: 5,
+        axisX: {
+          labelInterpolationFnc: function(value) {
+            return value[0];
+          }
+        }
+      }
+    ]
+  ],
+  animation : {
+    draw : function(data){
+      if(data.type === 'bar') {
+        data.element.attr({
+          style: 'stroke-width: 30px'
+        });
+      }
+    }
+  }
+}
+
 module.exports = {
   // Charts used in Dahsboard view
   dailySalesChart,
@@ -747,5 +820,6 @@ module.exports = {
   multipleBarsChartReport,
   colouredLinesChart,
   colouredLinesChartReport,
-  pieChart
+  pieChart,
+  stackedBarChart
 };

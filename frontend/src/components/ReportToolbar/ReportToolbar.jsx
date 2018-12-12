@@ -148,7 +148,7 @@ function ReportToolbar(props) {
                         <Button variant={"fab"} aria-label={"stacked_hor_bar"} className={classes.HorBarButton} value='stacked_hor_bar' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
                             <ViewList />
                         </Button>
-                        <Button variant={"fab"} aria-label={"stacked_bar_graph"} className={classes.HorBarButton} value='stacked_bar_graph' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
+                        <Button variant={"fab"} aria-label={"stacked_bar_graph"} className={classes.HorBarButton} value='StackedBar' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
                             <ViewModule/>
                         </Button>
                         <Button variant={"fab"} aria-label={"pie_graph"} className={classes.HorBarButton} value='pie_graph' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
