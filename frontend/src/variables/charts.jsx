@@ -728,12 +728,32 @@ const colouredLinesChartReport = {
 
 const pieChart = {
   data: {
-    labels: ["62%", "32%", "6%"],
-    series: [62, 32, 6]
+    labels: ['Bananas', 'Apples', 'Grapes'],
+    series: [20, 15, 40]
   },
   options: {
-    height: "230px"
-  }
+    plugins: [
+      tooltip(),
+      zoom({
+        onZoom : function(chart, reset) { resetFunc = reset;}
+      })
+    ],
+    height: "300px"
+  },
+  responsiveOptions:  [
+    ['screen and (min-width: 640px)', {
+      chartPadding: 30,
+      labelOffset: 100,
+      labelDirection: 'explode',
+      labelInterpolationFnc: function(value) {
+        return value;
+      }
+    }],
+    ['screen and (min-width: 1024px)', {
+      labelOffset: 80,
+      chartPadding: 20
+    }]
+  ]
 };
 
 //stacked bar chart
@@ -804,6 +824,65 @@ const stackedBarChart = {
       }
     }
   }
+};
+
+const stackedHorBarChart = {
+  data : {
+    labels: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+    series: [
+      [5, 4, 3, 7, 5, 10, 3],
+      [3, 2, 9, 5, 4, 6, 4]
+    ]
+  },
+  options : {
+    seriesBarDistance: 10,
+    reverseData: true,
+    horizontalBars: true,
+    axisY: {
+      offset: 70
+    },
+    plugins: [
+      tooltip(),
+      ctAxisTitle({
+        axisX: {
+          axisTitle: 'months',
+          axisClass: 'ct-axis-title',
+          offset: {
+            x: 0,
+            y: 30
+          },
+          textAnchor: 'middle'
+        },
+        axisY: {
+          axisTitle: 'value',
+          axisClass: 'ct-axis-title',
+          offset: {
+            x: 0,
+            y: 0
+          },
+          textAnchor: 'middle',
+          flipTitle: false
+        }
+      }),
+      zoom({
+        onZoom : function(chart, reset) { resetFunc = reset;}
+      })
+    ],
+    height: "300px"
+  },
+  responsiveOptions: [
+    [
+      "screen and (max-width: 640px)",
+      {
+        seriesBarDistance: 5,
+        axisX: {
+          labelInterpolationFnc: function(value) {
+            return value[0];
+          }
+        }
+      }
+    ]
+  ],
 }
 
 module.exports = {
@@ -821,5 +900,6 @@ module.exports = {
   colouredLinesChart,
   colouredLinesChartReport,
   pieChart,
-  stackedBarChart
+  stackedBarChart,
+  stackedHorBarChart
 };

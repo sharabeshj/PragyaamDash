@@ -145,13 +145,13 @@ function ReportToolbar(props) {
                         <Button variant={"fab"} aria-label={"bar_graph"} className={classes.HorBarButton} value = 'Bar' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}>
                             <BarChart/>
                         </Button>
-                        <Button variant={"fab"} aria-label={"stacked_hor_bar"} className={classes.HorBarButton} value='stacked_hor_bar' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
+                        <Button variant={"fab"} aria-label={"stacked_hor_bar"} className={classes.HorBarButton} value='StackedHorBar' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
                             <ViewList />
                         </Button>
                         <Button variant={"fab"} aria-label={"stacked_bar_graph"} className={classes.HorBarButton} value='StackedBar' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
                             <ViewModule/>
                         </Button>
-                        <Button variant={"fab"} aria-label={"pie_graph"} className={classes.HorBarButton} value='pie_graph' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
+                        <Button variant={"fab"} aria-label={"pie_graph"} className={classes.HorBarButton} value='Pie' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
                             <PieChart/>
                         </Button>
                         <Button variant={"fab"} aria-label={"donut_graph"} className={classes.HorBarButton} value='donut_graph' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 

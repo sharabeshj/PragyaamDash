@@ -36,7 +36,8 @@ import {
     multipleBarsChart,
     colouredLinesChart,
     pieChart,
-    stackedBarChart
+    stackedBarChart,
+    stackedHorBarChart
   } from "variables/charts.jsx";
 
 import reportCreateStyle from '../../../assets/jss/frontend/views/reportCreateStyle';
@@ -139,6 +140,21 @@ class ReportCreate extends React.Component{
                     icon : (<ViewModule/>),
                     reportOptions : stackedBarChart.options,
                     reportListeners : stackedBarChart.animation
+                }
+            case "StackedHorBar":
+                this.props.handleDefaultDataLoad(stackedHorBarChart);
+                return {
+                    reportType : "Bar",
+                    icon : (<ViewList />),
+                    reportOptions : stackedHorBarChart.options,
+                    reportListeners : stackedHorBarChart.animation
+                }
+            case "Pie":
+                this.props.handleDefaultDataLoad(pieChart);
+                return {
+                    reportType : name,
+                    icon : (<PieChart/>),
+                    reportOptions : pieChart.options
                 }
             default:
                 return {}

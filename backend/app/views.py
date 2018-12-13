@@ -757,38 +757,168 @@ class ReportGenerate(viewsets.ViewSet):
             return Response({ 'data' : data }, status = status.HTTP_200_OK)
         
         if report_type == 'stacked_hor_bar':
-            X_field = request.data['options']['Y_field']
-            Y_field = request.data['options']['X_field']
+            X_field = request.data['options']['X_field']
+            Y_field = request.data['options']['Y_field']
             group_by = request.data['options']['group_by']
+            measure_operation = request.data['options']['measure_operation']
+
             all_fields = []
-            all_fields.extend([Y_field])
-            all_fields.extend(X_field)
+            all_fields.extend([X_field,Y_field])
             if len(group_by) > 0:
-                all_fields.extend(group_by)
-            df_required = df.loc[:,all_fields]
-            df_required = df_required.dropna()
-            print(df_required)
-            plt.rcdefaults()
-            fig,ax = plt.subplots()
-            width = 0.35
-            y_pos = np.arange(len(np.unique(df_required.loc[:,Y_field])))
-            nx = len(X_field)
-            x = 0
-            while x<nx:
-                ax.barh(y_pos,df_required.loc[:,X_field[x]],width,align='center',color = 'green',label = X_field[x])
-                x = x + 1
+                all_fields.extend([group_by])
+          
+            df_required = df.loc[:,df.columns.isin(all_fields)]
+            # df_required = df.loc[:,all_fields]
+            # df_required = df_required.dropna()
+            # print(df_required)
+            # plt.rcdefaults()
+            # fig,ax = plt.subplots()
+            # width = 0.35
+            # y_pos = np.arange(len(np.unique(df_required.loc[:,Y_field])))
+            # nx = len(X_field)
+            # x = 0
+            # while x<nx:
+            #     ax.barh(y_pos,df_required.loc[:,X_field[x]],width,align='center',color = 'green',label = X_field[x])
+            #     x = x + 1
             
-            ax.invert_yaxis()
-            label = 'fields-'
-            ax.set_ylabel(Y_field)
-            for x in X_field:
-                label = label + x
-            ax.set_xlabel(label)
-            ax.legend()
+            # ax.invert_yaxis()
+            # label = 'fields-'
+            # ax.set_ylabel(Y_field)
+            # for x in X_field:
+            #     label = label + x
+            # ax.set_xlabel(label)
+            # ax.legend()
             # plt.show()
 
-            return Response({'data' : mpld3.fig_to_dict(fig)}, status = status.HTTP_200_OK)
+            df_num = df_required.select_dtypes(exclude = [np.number])
+            all_columns = list(df_num)
+            all_columns.remove(X_field)
+            df_num[all_columns] = df_num[all_columns].astype('category')
+            df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes+1)
+            df_required.update(df_num)
 
+            data = {
+                'labels' : np.unique(np.array(df_required.loc[:,X_field])),
+                'series' : []
+            }
+
+            add = []
+            curr = []
+            op_dict = collections.defaultdict(list)
+
+            if len(group_by) > 0:
+                if measure_operation == "LAST":
+
+                    
+                    for x in df_required.groupby([group_by]).groups.keys():
+                        
+                        df_group = df_required.groupby([group_by]).get_group(x)
+                        curr.append(np.array(df_group[[X_field,Y_field]]))
+
+                        for d in np.array(df_group.loc[:,X_field]):
+                            if d not in op_dict.keys():
+                                op_dict[d] = []
+
+
+                    for x in curr:
+                        
+                        for l in data['labels']:
+                            op_dict[l] = []
+
+                        for c in x:
+                            
+                            print(c)
+
+                            if c[1] not in op_dict[c[0]]:
+                                
+                                op_dict[c[0]].append(c[1])
+
+                        tl = 0        
+                        
+                        for d in data['labels']:
+                            if len(op_dict[d]) > tl:
+                                tl = len(op_dict[d])
+
+                        for key,value in op_dict.items():
+                            if len(value) < tl:
+                                t = len(value)
+                                while t < tl:
+                                    op_dict[key].append(None)
+                                    t += 1
+                        
+                        k = 0
+                
+                        total_length = 0
+
+                        for d in data['labels']:
+                            if len(op_dict[d]) > total_length:
+                                total_length = len(op_dict[d])
+                            
+                        print(op_dict)
+                        while k < total_length:
+                            
+                            new_add = []
+                            for d in data['labels']:
+                                new_add.append(op_dict[d][k])
+                            data['series'].append([{ 'meta' : Y_field, 'value' : i} for i in new_add])
+                            k += 1
+                            
+                    
+                        
+                if measure_operation == "SUM":
+                    print(df_required.group_by([group_by, X_field, Y_field])[Y_field].sum())
+
+                
+                
+            else:
+                if measure_operation == "LAST":
+
+                    curr = []
+
+                    curr.extend(df_required.loc[:,[X_field,Y_field]].values)
+                    print(curr)
+                    for c in curr:
+                        if c[1] not in op_dict[c[0]]:
+                            op_dict[c[0]].append(c[1])
+                
+                    tl = 0        
+                        
+                    for d in data['labels']:
+                        if len(op_dict[d]) > tl:
+                            tl = len(op_dict[d])
+
+                    for key,value in op_dict.items():
+                        if len(value) < tl:
+                            t = len(value)
+                            while t < tl:
+                                op_dict[key].append(None)
+                                t += 1
+                        
+                    k = 0
+            
+                    total_length = 0
+
+                    for d in data['labels']:
+                        if len(op_dict[d]) > total_length:
+                            total_length = len(op_dict[d])
+                            
+                    print(op_dict)
+                    while k < total_length:
+                        
+                        new_add = []
+                        for d in data['labels']:
+                            new_add.append(op_dict[d][k])
+                        data['series'].append([{ 'meta' : Y_field, 'value' : i} for i in new_add])
+                        k += 1
+                    
+
+                if measure_operation == "SUM":
+                    print(df_required.group_by([X_field, Y_field])[Y_field].sum())
+            
+            
+            
+
+            return Response({ 'data' : data}, status = status.HTTP_200_OK)
         if report_type == 'StackedBar':
             X_field = request.data['options']['X_field']
             Y_field = request.data['options']['Y_field']
@@ -954,28 +1084,72 @@ class ReportGenerate(viewsets.ViewSet):
 
             # return Response({ 'data' : mpld3.fig_to_dict(fig)}, status = status.HTTP_200_OK)
 
-        if report_type == 'pie_graph':
+        if report_type == 'Pie':
             X_field = request.data['options']['X_field']
-            all_fields = []
-            all_fields.extend([X_field])
-            print(all_fields)
-            df_required = df.loc[:,df.columns.isin(all_fields)]
-            df_required = df_required.dropna()
-            print(df_required)
-            df_num = df_required.select_dtypes(exclude = [np.number])
-            all_columns = list(df_num)
-            df_num[all_columns] = df_num[all_columns].astype('category')
-            df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes)
-            print(df_num.dtypes)
-            df_required.update(df_num)
-            print(df_required)
-            plt.rcdefaults()
-            fig,ax = plt.subplots()
-            wedges, texts  = ax.pie(df_required.loc[:,X_field],textprops = dict(color = 'w'))
-            ax.legend(wedges, df_required.loc[:,X_field], title = X_field)
-            ax.set_title(request.data['report_title'])
+            Y_field = request.data['options']['Y_field']
+            group_by = request.data['options']['group_by']
+            measure_operation = request.data['options']['measure_operation']
 
-            return Response({ 'data' : mpld3.fig_to_dict(fig)}, status = status.HTTP_200_OK)
+            all_fields = []
+            all_fields.extend([X_field,Y_field])
+            if len(group_by) > 0:
+                all_fields.extend([group_by])
+          
+            df_required = df.loc[:,df.columns.isin(all_fields)]
+            # X_field = request.data['options']['X_field']
+            # all_fields = []
+            # all_fields.extend([X_field])
+            # print(all_fields)
+            # df_required = df.loc[:,df.columns.isin(all_fields)]
+            # df_required = df_required.dropna()
+            # print(df_required)
+            # df_num = df_required.select_dtypes(exclude = [np.number])
+            # all_columns = list(df_num)
+            # df_num[all_columns] = df_num[all_columns].astype('category')
+            # df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes)
+            # print(df_num.dtypes)
+            # df_required.update(df_num)
+            # print(df_required)
+            # plt.rcdefaults()
+            # fig,ax = plt.subplots()
+            # wedges, texts  = ax.pie(df_required.loc[:,X_field],textprops = dict(color = 'w'))
+            # ax.legend(wedges, df_required.loc[:,X_field], title = X_field)
+            # ax.set_title(request.data['report_title'])
+
+
+            data = {
+                'labels' : [],
+                'series' : []
+            }
+
+            add = []
+            curr = []
+            op_dict = collections.defaultdict(list)
+
+            if len(group_by) > 0:
+                pass
+            
+            else:
+                if measure_operation == 'LAST':
+                    
+                    curr.extend(df_required.loc[:,[X_field,Y_field]].values)
+                    total = len(curr)
+
+                    for c in curr:
+                        op_dict[c[0]].append(c[1])
+
+                    print(op_dict)
+                    for key,value in op_dict.items():
+                        print(key)
+                        count = collections.Counter(value).values()
+                        print(count)
+                        for c in  count:
+                            data['labels'].append(key)
+                            data['series'].append(c*100/total)
+                
+
+            return Response({ 'data' : data }, status = status.HTTP_200_OK)
+            # return Response({ 'data' : mpld3.fig_to_dict(fig)}, status = status.HTTP_200_OK)
 
         if report_type == 'donut_graph':
             X_field = request.data['options']['X_field']
