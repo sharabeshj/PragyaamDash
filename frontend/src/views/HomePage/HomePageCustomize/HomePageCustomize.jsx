@@ -88,7 +88,10 @@ class HomePage extends React.Component{
             }
             console.log(x_available, y_available);
 
-            dashReportsdata = res.data.map(report => {  
+            dashReportsdata = res.data.filter(x => {
+                if(!x.data.reported) return false;
+                return true;
+            }).map(report => {  
                 
                 if(report.data.reported && report.data.initial){
                     this.props.handleFetchData(report.data, report.report_id);
@@ -127,20 +130,29 @@ class HomePage extends React.Component{
 
     render(){
         let dashReportsdata = null;
+        const style = {
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: "solid 1px #ddd",
+            background: "#fff",
+            borderRadius : "5px"
+          };
         if(this.state.dashReportsdata.length > 0 && this.props.dashReportCustomize.length === this.state.dashReportsdata.length){
             console.log(this.state.dashReportsdata);
             dashReportsdata = this.state.dashReportsdata.map( (dashReport,index) => {
                 const report_data = this.props.dashReportCustomize.find(x => (x.id === dashReport.report_id));
-
+                console.log(dashReport.report_id);
                 return (<Rnd
+                    style={style}
                     key = {index}
-                    index={dashReport.report_id}
                     size = {{ width : dashReport.data.pos.width, height : dashReport.data.pos.height }}
                     position = {{ x : dashReport.data.pos.x, y : dashReport.data.pos.y }}
                     onDragStop = {(e,d) => {
-                        console.log(e.target.attributes['index'].value);
+                        if( typeof e.target.attributes['index'] !== "undefined"){
+                        console.log(e.target.attributes);
                         for(let i = 0; i < this.state.dashReportsdata.length; i++){
-                            if(i == e.target.attributes['index'].value){
+                            if(this.state.dashReportsdata[i].report_id == e.target.attributes['index'].value){
                                 console.log(this.state.dashReportsdata[0]);
                                 const newDashReportsdata = [
                                     ...this.state.dashReportsdata
@@ -166,11 +178,12 @@ class HomePage extends React.Component{
                          
                             }
                         }
+                    }
                     }}
-                onResizeStop = {(e, direction, ref, delta, position) => {
+                onResize = {(e, direction, ref, delta, position) => {
                     console.log(ref.getAttribute('index'));
                     for(let i = 0; i < this.state.dashReportsdata.length; i++){
-                        if(i == ref.getAttribute('index')){
+                        if(this.state.dashReportsdata[i].report_id == ref.getAttribute('index')){
                             const newDashReportsdata = [
                                 ...this.state.dashReportsdata
                             ];
@@ -181,7 +194,8 @@ class HomePage extends React.Component{
                                     pos : {
                                         ...this.state.dashReportsdata[i].data.pos,
                                         width : ref.style.width,
-                                        height : ref.style.height
+                                        height : ref.style.height,
+                                        
                                     }
                                 }
                             };
@@ -189,17 +203,17 @@ class HomePage extends React.Component{
                         }
                     }
                 }}
+                index={dashReport.report_id}
                 >
-                    <Card>
-                        <CardBody>
+                        <div style= {{ width : '100%' }}>
                             <ChartistGraph 
-                                data = {report_data}
+                            index={dashReport.report_id}
+                                data = {report_data.data}
                                 type = {dashReport.data.report_type}
                                 options = {dashReport.data.reportOptions}
                                 listeners = {dashReport.data.reportListeners}
                             />
-                        </CardBody>
-                    </Card>
+                        </div>
                 </Rnd>);
             })
         }
