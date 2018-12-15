@@ -37,7 +37,8 @@ import {
     colouredLinesChart,
     pieChart,
     stackedBarChart,
-    stackedHorBarChart
+    stackedHorBarChart,
+    donutChart
   } from "variables/charts.jsx";
 
 import reportCreateStyle from '../../../assets/jss/frontend/views/reportCreateStyle';
@@ -118,7 +119,7 @@ class ReportCreate extends React.Component{
     getDefaultGraph = name =>  {
         switch(name){
             case 'Bar':
-                this.props.handleDefaultDataLoad(multipleBarsChart);
+                this.props.handleDefaultDataLoad(multipleBarsChart, name);
                 return {
                     reportType : name,
                     icon : (<BarChart/>),
@@ -126,7 +127,7 @@ class ReportCreate extends React.Component{
                     reportListeners : multipleBarsChart.animation
                 }
             case "Line":
-                this.props.handleDefaultDataLoad(colouredLinesChart);
+                this.props.handleDefaultDataLoad(colouredLinesChart, name);
                 return {
                     reportType : name,
                     icon : (<ShowChart />),
@@ -134,7 +135,7 @@ class ReportCreate extends React.Component{
                     reportListeners : colouredLinesChart.animation
                 }
             case "StackedBar":
-                this.props.handleDefaultDataLoad(stackedBarChart);
+                this.props.handleDefaultDataLoad(stackedBarChart, "Bar");
                 return {
                     reportType : "Bar",
                     icon : (<ViewModule/>),
@@ -142,7 +143,7 @@ class ReportCreate extends React.Component{
                     reportListeners : stackedBarChart.animation
                 }
             case "StackedHorBar":
-                this.props.handleDefaultDataLoad(stackedHorBarChart);
+                this.props.handleDefaultDataLoad(stackedHorBarChart, "Bar");
                 return {
                     reportType : "Bar",
                     icon : (<ViewList />),
@@ -150,12 +151,20 @@ class ReportCreate extends React.Component{
                     reportListeners : stackedHorBarChart.animation
                 }
             case "Pie":
-                this.props.handleDefaultDataLoad(pieChart);
+                this.props.handleDefaultDataLoad(pieChart, name);
                 return {
                     reportType : name,
                     icon : (<PieChart/>),
                     reportOptions : pieChart.options
                 }
+            case "Donut":
+                this.props.handleDefaultDataLoad(donutChart, "Pie");
+                return {
+                    reportType : "Pie",
+                    icon : (<DonutLarge/>),
+                    reportOptions : donutChart.options,
+                    reportListeners : donutChart.animation
+                }    
             default:
                 return {}
         }
@@ -237,7 +246,8 @@ class ReportCreate extends React.Component{
                     'report_title' : this.state.reportTitle,
                     'report_description' : this.state.reportDescription,
                     'reported' : false,
-                    'initial' : true
+                    'initial' : true,
+                    'report_options' : this.props.options
                 }
             }),
             auth: {
@@ -280,9 +290,9 @@ class ReportCreate extends React.Component{
                     <CardBody>
                         <ChartistGraph 
                             data={this.props.reportData}
-                            type={this.state.reportType}
-                            options={this.state.reportOptions}
-                            listener={this.state.reportListeners}
+                            type={this.props.options.type}
+                            options={this.props.options.reportOptions}
+                            listener={this.props.options.reportListeners}
                         />
                     </CardBody>
                     <CardFooter stats>
@@ -344,14 +354,15 @@ class ReportCreate extends React.Component{
 
 const mapStateToProps = state => {
     return {
-        reportData : state.report.reportData
+        reportData : state.report.reportData,
+        options : state.report.options
     }
 };
 
 const mapDispatchToProps = dispatch => {
     return {
         handleDataLoad : data => dispatch(handleDataLoad(data)),
-        handleDefaultDataLoad : data => dispatch(handleDefaultDataLoad(data)),
+        handleDefaultDataLoad : (data,type) => dispatch(handleDefaultDataLoad(data, type)),
         handleClearReportData : () => dispatch(handleClearReportData())
     }
 }

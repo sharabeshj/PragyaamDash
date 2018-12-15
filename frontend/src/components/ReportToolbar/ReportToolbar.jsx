@@ -154,7 +154,7 @@ function ReportToolbar(props) {
                         <Button variant={"fab"} aria-label={"pie_graph"} className={classes.HorBarButton} value='Pie' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
                             <PieChart/>
                         </Button>
-                        <Button variant={"fab"} aria-label={"donut_graph"} className={classes.HorBarButton} value='donut_graph' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
+                        <Button variant={"fab"} aria-label={"donut_graph"} className={classes.HorBarButton} value='Donut' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
                             <DonutLarge/>
                         </Button>
                         <Button variant={"fab"} aria-label={"scatter_graph"} className={classes.HorBarButton} value='scatter_graph' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 

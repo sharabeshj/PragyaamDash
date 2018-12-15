@@ -140,10 +140,11 @@ export const handleMiniSidebarToggle = () => {
 //     }
 // }
 
-const loadSuccess = (data) => {
+const loadSuccess = (data, options) => {
     return {
         type : ActionTypes.DATA_LOAD,
-        data : data
+        data : data,
+        options : options
     }
 }
 
@@ -167,7 +168,7 @@ const loadData = data => {
             headers : { 'Content-Type' : 'application/json'}
         };
         Axios(postData)
-            .then(res => dispatch(loadSuccess(res.data.data)))
+            .then(res => dispatch(loadSuccess(res.data.data, data)))
             .catch(err => dispatch(loadError(err)));
     }
 } 
@@ -176,10 +177,15 @@ export const handleDataLoad = (data) => {
     return (dispatch,getState) => (dispatch(loadData(data)))
 }
 
-export const handleDefaultDataLoad = (data) => {
+export const handleDefaultDataLoad = (data,type) => {
     return {
         type : ActionTypes.DATA_LOAD,
-        data : data.data
+        data : data.data,
+        options : {
+            type: type,
+            reportOptions : data.options,
+            reportListeners : data.animation
+        }
     }
 }
 
@@ -187,4 +193,34 @@ export const handleClearReportData = () => {
     return { 
         type : ActionTypes.DATA_LOAD_ERROR
     }
+}
+
+const dashLoadSuccess = (data, id) => {
+    return {
+        type : ActionTypes.DASH_LOAD_DATA,
+        data : data,
+        id : id
+    }
+}
+
+const dashLoadData = (data, id) => {
+    return dispatch => {
+        const postData = {
+            url : 'http://127.0.0.1:8000/api/report_generate/',
+            method : 'POST',
+            data : JSON.stringify(data.report_options),
+            auth :  {
+                username : 'sharabesh',
+                password : 'shara1234'
+            },
+            headers : { 'Content-Type' : 'application/json'}
+        };
+        Axios(postData)
+            .then(res => dispatch(dashLoadSuccess(res.data.data, id)))
+            .catch(err => dispatch(loadError(err)));
+    }
+}
+
+export const handleFetchData = (data, id) => {
+    return (dispatch,getState) => (dispatch(dashLoadData(data, id)));
 }

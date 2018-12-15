@@ -1145,7 +1145,7 @@ class ReportGenerate(viewsets.ViewSet):
                         print(count)
                         for c in  count:
                             data['labels'].append(key)
-                            data['series'].append(c*100/total)
+                            data['series'].append(c)
                 
 
             return Response({ 'data' : data }, status = status.HTTP_200_OK)

@@ -883,6 +883,63 @@ const stackedHorBarChart = {
       }
     ]
   ],
+};
+
+const donutChart = {
+  data : {
+    series: [10, 20, 50, 20, 5, 50, 15],
+    labels: [1, 2, 3, 4, 5, 6, 7]
+  },
+  options : {
+    donut: true,
+    showLabel: true,
+    plugins: [
+      tooltip(),
+      zoom({
+        onZoom : function(chart, reset) { resetFunc = reset;}
+      })
+    ],
+    height: "300px"
+  },
+  animation : {
+    draw : function(data){
+      if(data.type === 'slice') {
+        var pathLength = data.element._node.getTotalLength();
+    
+        data.element.attr({
+          'stroke-dasharray': pathLength + 'px ' + pathLength + 'px'
+        });
+    
+        var animationDefinition = {
+          'stroke-dashoffset': {
+            id: 'anim' + data.index,
+            dur: 500,
+            from: -pathLength + 'px',
+            to:  '0px',
+            easing: Chartist.Svg.Easing.easeOutQuint,
+            fill: 'freeze'
+          }
+        };
+    
+        if(data.index !== 0) {
+          animationDefinition['stroke-dashoffset'].begin = 'anim' + (data.index - 1) + '.end';
+        }
+    
+        data.element.attr({
+          'stroke-dashoffset': -pathLength + 'px'
+        });
+    
+        data.element.animate(animationDefinition, false);
+      }
+    }
+    // created : function(chart) {
+    //   if(window.__anim21278907124) {
+    //     clearTimeout(window.__anim21278907124);
+    //     window.__anim21278907124 = null;
+    //   }
+    //   window.__anim21278907124 = setTimeout(chart.update.bind(chart), 5000);
+    // }
+  }
 }
 
 module.exports = {
@@ -901,5 +958,6 @@ module.exports = {
   colouredLinesChartReport,
   pieChart,
   stackedBarChart,
-  stackedHorBarChart
+  stackedHorBarChart,
+  donutChart
 };

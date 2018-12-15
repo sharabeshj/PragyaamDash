@@ -3,6 +3,8 @@ import { connect } from 'react-redux';
 import Axios from 'axios';
 import { Rnd } from 'react-rnd';
 import update from 'react-addons-update';
+import ChartistGraph from 'react-chartist';
+
 
 import { withStyles } from '@material-ui/core/styles';
 import AddAlert from '@material-ui/icons/AddAlert';
@@ -11,9 +13,11 @@ import GridContainer from '../../../components/Grid/GridContainer';
 import GridItem from '../../../components/Grid/GridItem';
 import CustomButton from '../../../components/CustomButtons/Button';
 import Snackbar from '../../../components/Snackbar/Snackbar';
+import Card from '../../../components/Card/Card';
+import CardBody from '../../../components/Card/CardBody';
 
 
-import {login} from '../../../store/Actions/ActionCreator';
+import {login, handleFetchData} from '../../../store/Actions/ActionCreator';
 
 
 class HomePage extends React.Component{
@@ -85,9 +89,9 @@ class HomePage extends React.Component{
             console.log(x_available, y_available);
 
             dashReportsdata = res.data.map(report => {  
-
+                
                 if(report.data.reported && report.data.initial){
-
+                    this.props.handleFetchData(report.data, report.report_id);
                     return {
                         ...report,
                         data : {
@@ -101,18 +105,16 @@ class HomePage extends React.Component{
                         }
                     }
                 }
-                else if(report.data.reported){
+                else if(report.data.reported && !report.data.initial){
+                    this.props.handleFetchData(report.data, report.report_id);
                     return {
                         ...report
                     }
                 }
-                else {
-                    return {
-                        ...report
-                    }
-                }
+
             });
-            
+
+
             this.setState({ dashReportsdata : [...prevState.dashReportsdata, ...dashReportsdata ]});
         }))
     }
@@ -125,12 +127,14 @@ class HomePage extends React.Component{
 
     render(){
         let dashReportsdata = null;
-        if(this.state.dashReportsdata.length > 0){
+        if(this.state.dashReportsdata.length > 0 && this.props.dashReportCustomize.length === this.state.dashReportsdata.length){
             console.log(this.state.dashReportsdata);
-            dashReportsdata = this.state.dashReportsdata.map( (dashReport,index) => (
-                <Rnd
+            dashReportsdata = this.state.dashReportsdata.map( (dashReport,index) => {
+                const report_data = this.props.dashReportCustomize.find(x => (x.id === dashReport.report_id));
+
+                return (<Rnd
                     key = {index}
-                    index={index}
+                    index={dashReport.report_id}
                     size = {{ width : dashReport.data.pos.width, height : dashReport.data.pos.height }}
                     position = {{ x : dashReport.data.pos.x, y : dashReport.data.pos.y }}
                     onDragStop = {(e,d) => {
@@ -180,14 +184,24 @@ class HomePage extends React.Component{
                                         height : ref.style.height
                                     }
                                 }
-                            }
+                            };
+                            this.setState({ dashReportsdata : newDashReportsdata });
                         }
                     }
                 }}
                 >
-                    hi
-                </Rnd>
-            ))
+                    <Card>
+                        <CardBody>
+                            <ChartistGraph 
+                                data = {report_data}
+                                type = {dashReport.data.report_type}
+                                options = {dashReport.data.reportOptions}
+                                listeners = {dashReport.data.reportListeners}
+                            />
+                        </CardBody>
+                    </Card>
+                </Rnd>);
+            })
         }
 
         return (<div>
@@ -207,20 +221,16 @@ class HomePage extends React.Component{
 
 const mapStateToProps = state => {
     return {
-        loginState : state.login
+        loginState : state.login,
+        dashReportCustomize : state.dashboard.dashReportCustomize
     }
 }
 
 const mapDispatchToProps = dispatch => {
     return {
-        login : loginData => dispatch(login(loginData))
+        login : loginData => dispatch(login(loginData)),
+        handleFetchData : (data,id) => dispatch(handleFetchData(data, id))
     }
 }
 
-export default connect(mapStateToProps,mapDispatchToProps)(HomePage); // const loginData = {
-    //     email : "codemycompany@gmail.com",
-    //     organization_id: "c479676e",
-    //     password : "123456"
-    // };
-    // console.log(loginData);
-    // this.props.login(loginData);
+export default connect(mapStateToProps,mapDispatchToProps)(HomePage); 
