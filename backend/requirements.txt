@@ -1,9 +1,11 @@
+aioredis==1.2.0
 asgiref==2.3.2
 async-timeout==3.0.1
 attrs==18.2.0
 autobahn==18.10.1
 Automat==0.7.0
 channels==2.1.5
+channels-redis==2.3.1
 constantly==15.1.0
 cycler==0.10.0
 daphne==2.2.2
@@ -12,6 +14,7 @@ django-cors-headers==2.4.0
 django-pandas==0.5.1
 django-redshift-backend==0.9.1
 djangorestframework==3.9.0
+hiredis==0.2.0
 hyperlink==18.0.0
 idna==2.7
 incremental==17.5.0
@@ -20,6 +23,7 @@ kiwisolver==1.0.1
 MarkupSafe==1.0
 matplotlib==3.0.1
 mpld3==0.3
+msgpack==0.5.6
 numpy==1.15.4
 pandas==0.23.4
 psycopg2==2.7.5

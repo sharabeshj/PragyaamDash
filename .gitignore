@@ -1,4 +1,8 @@
-.vscode
+.vscode/
 
 migrations/
 *.pyc
+
+env/
+
+.idea/

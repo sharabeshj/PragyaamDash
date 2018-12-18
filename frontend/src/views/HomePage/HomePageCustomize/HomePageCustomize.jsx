@@ -138,6 +138,7 @@ class HomePage extends React.Component{
             background: "#fff",
             borderRadius : "5px"
           };
+
         if(this.state.dashReportsdata.length > 0 && this.props.dashReportCustomize.length === this.state.dashReportsdata.length){
             console.log(this.state.dashReportsdata);
             dashReportsdata = this.state.dashReportsdata.map( (dashReport,index) => {
@@ -171,7 +172,6 @@ class HomePage extends React.Component{
                                 }
                                 console.log(newDashReportsdata,this.state.dashReportsdata);
                                 if(this._ismounted){
-                                    console.log('here');    
                                     this.setState({ dashReportsdata : newDashReportsdata});
                                 }
                                
@@ -194,8 +194,7 @@ class HomePage extends React.Component{
                                     pos : {
                                         ...this.state.dashReportsdata[i].data.pos,
                                         width : ref.style.width,
-                                        height : ref.style.height,
-                                        
+                                        height : ref.style.height                                        
                                     }
                                 }
                             };
@@ -205,7 +204,7 @@ class HomePage extends React.Component{
                 }}
                 index={dashReport.report_id}
                 >
-                        <div style= {{ width : '100%' }}>
+                        <div style= {{ width : `${dashReport.data.pos.width}`}}>
                             <ChartistGraph 
                             index={dashReport.report_id}
                                 data = {report_data.data}
