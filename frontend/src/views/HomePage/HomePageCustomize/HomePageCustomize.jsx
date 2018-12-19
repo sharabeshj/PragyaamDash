@@ -88,14 +88,35 @@ class HomePage extends React.Component{
             }
             console.log(x_available, y_available);
 
+            if(res.data.length > 0){
+                const parsedData = res.data.map(report => ({ 'id' : report.report_id , 'reportOptions' : this.parseFunctionInJson(JSON.stringify(report.data.report_options.reportOptions)), 'reportListeners' : this.parseFunctionInJson(JSON.stringify(report.data.report_options.reportListeners) )}));
+
             dashReportsdata = res.data.filter(x => {
                 if(!x.data.reported) return false;
                 return true;
-            }).map(report => {  
+            }).map(report => {
+                
+                let checkReport = { ...report };
+
+                for(let i =0 ; i < parsedData.length ; i++){
+                    if(parsedData[i].id === report.report_id){
+                        checkReport = {
+                            ...report,
+                            data : {
+                                ...report.data,
+                                report_options : {
+                                    ...report.data.report_options,
+                                    reportOptions : parsedData[i].reportOptions,
+                                    reportListeners : parsedData[i].reportListeners
+                                }
+                            }
+                        }
+                    }
+                }
                 
                 if(report.data.reported && report.data.initial){
                     this.props.handleFetchData(report.data, report.report_id);
-                    return {
+                    checkReport =  {
                         ...report,
                         data : {
                             ...report.data,
@@ -110,12 +131,14 @@ class HomePage extends React.Component{
                 }
                 else if(report.data.reported && !report.data.initial){
                     this.props.handleFetchData(report.data, report.report_id);
-                    return {
+                    checkReport = {
                         ...report
                     }
                 }
 
-            });
+                return checkReport;
+
+            });}
 
 
             this.setState({ dashReportsdata : [...prevState.dashReportsdata, ...dashReportsdata ]});
@@ -126,6 +149,54 @@ class HomePage extends React.Component{
         if(this.props.loginState.token !== '' && this.props.loginState.token !== prevProps.loginState.token){
             this.showNotification('tc');
         }
+    }
+
+    parseFunctionInJson = json => {
+        return JSON.parse(json, (key,value) => {
+            console.log(value);
+            if(value.constructor === Array){
+                let newValue = [];
+                for(let i =0; i < value.length; i++){
+                    if(this.checFunctionInJson(value[i]))
+                    newValue.push(this.makeFunctionFromJson(value[i]));
+                    else newValue.push(value[i]);
+                }
+                return newValue
+            }
+            else if(value.constructor === Object){
+                let newObject = {};
+                Object.keys(value).forEach(k => {
+                    if(this.checFunctionInJson(value[k]))
+                    newObject = {
+                        ...value,
+                        k : this.makeFunctionFromJson(value[k])
+                    };
+                    else newObject = { ...value };
+                });
+                return newObject;
+            }
+            else if(this.checFunctionInJson(value)){
+                return this.makeFunctionFromJson(value);
+            }
+            else {
+                return value;
+            }
+        });
+    }
+
+    checFunctionInJson = value => {
+        return /^function.*?\(.*?\)\s*\{.*\}$/.test(value);
+    }
+    
+    makeFunctionFromJson = value => {
+        let args = value
+            .replace(/\/\/.*$|\/\*[\s\S]*?\*\//mg, '') //strip comments
+            .match(/\(.*?\)/m)[0]                      //find argument list
+            .replace(/^\(|\)$/, '')                    //remove parens
+            .match(/[^\s(),]+/g) || [],                //find arguments
+            body = value.match(/\{(.*)\}/)[1];          //extract body between curlies
+
+        return Function.apply(0, args.concat(body));
     }
 
     render(){

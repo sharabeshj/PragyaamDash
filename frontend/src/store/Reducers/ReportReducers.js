@@ -7,6 +7,7 @@ const ReportHandler = (state = { reportData : {}, report_id : '', options : {} }
                 ...state,
                 reportData : {...action.data},
                 options : {
+                    ...state.options,
                     ...action.options
                 }
 

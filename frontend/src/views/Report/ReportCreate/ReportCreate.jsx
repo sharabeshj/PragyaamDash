@@ -239,7 +239,7 @@ class ReportCreate extends React.Component{
         const postData = {
             url : 'http://127.0.0.1:8000/api/reports/',
             method: 'POST',
-            data: JSON.stringify({
+            data: this.convert_func_in_json({
                 'dataset_id' : this.state.selectedDataset,
                 'data' : {
                     'report_type' : this.state.reportType,
@@ -247,7 +247,9 @@ class ReportCreate extends React.Component{
                     'report_description' : this.state.reportDescription,
                     'reported' : false,
                     'initial' : true,
-                    'report_options' : this.props.options
+                    'report_options' : {
+                        ...this.props.options
+                    }
                 }
             }),
             auth: {
@@ -270,7 +272,11 @@ class ReportCreate extends React.Component{
         this.setState({ selectedMeasureOperation : op });
     }
 
-
+    convert_func_in_json = obj => {
+        return JSON.stringify(obj, (key, value) => {
+            return typeof value === "function" ? value.toString() : value;
+        });
+    }
 
     render(){
         let report_data = null;
