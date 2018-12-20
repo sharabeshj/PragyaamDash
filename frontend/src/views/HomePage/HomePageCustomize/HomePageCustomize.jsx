@@ -89,7 +89,13 @@ class HomePage extends React.Component{
             console.log(x_available, y_available);
 
             if(res.data.length > 0){
-                const parsedData = res.data.map(report => ({ 'id' : report.report_id , 'reportOptions' : this.parseFunctionInJson(JSON.stringify(report.data.report_options.reportOptions)), 'reportListeners' : this.parseFunctionInJson(JSON.stringify(report.data.report_options.reportListeners) )}));
+                const parsedData = res.data.map(report => ({ 
+                    'id' : report.report_id , 
+                    'reportOptions' : this.parseFunctionInJson(JSON.stringify(report.data.report_options.reportOptions)), 
+                    'reportListeners' : this.parseFunctionInJson(JSON.stringify(report.data.report_options.reportListeners) )
+                }));
+                console.log("here");
+                console.log(parsedData);
 
             dashReportsdata = res.data.filter(x => {
                 if(!x.data.reported) return false;
@@ -152,13 +158,16 @@ class HomePage extends React.Component{
     }
 
     parseFunctionInJson = json => {
+
         return JSON.parse(json, (key,value) => {
-            console.log(value);
             if(value.constructor === Array){
                 let newValue = [];
                 for(let i =0; i < value.length; i++){
-                    if(this.checFunctionInJson(value[i]))
-                    newValue.push(this.makeFunctionFromJson(value[i]));
+                    console.log(value[i].replace(/\/\/.*$|\/\*[\s\S]*?\*\//mg, '').replace(/\s+/g, ' ').trim());
+                    if(this.checFunctionInJson(value[i].replace(/\/\/.*$|\/\*[\s\S]*?\*\//mg, '').replace(/\s+/g, ' ').trim())){
+                        console.log("yes");
+                        newValue.push(this.makeFunctionFromJson(value[i].replace(/\/\/.*$|\/\*[\s\S]*?\*\//mg, '').replace(/\s+/g, ' ').trim()));
+                    }
                     else newValue.push(value[i]);
                 }
                 return newValue
@@ -189,14 +198,8 @@ class HomePage extends React.Component{
     }
     
     makeFunctionFromJson = value => {
-        let args = value
-            .replace(/\/\/.*$|\/\*[\s\S]*?\*\//mg, '') //strip comments
-            .match(/\(.*?\)/m)[0]                      //find argument list
-            .replace(/^\(|\)$/, '')                    //remove parens
-            .match(/[^\s(),]+/g) || [],                //find arguments
-            body = value.match(/\{(.*)\}/)[1];          //extract body between curlies
-
-        return Function.apply(0, args.concat(body));
+        value = value.replace (/(^")|("$)/g, '')
+        eval(value);
     }
 
     render(){
@@ -280,8 +283,8 @@ class HomePage extends React.Component{
                             index={dashReport.report_id}
                                 data = {report_data.data}
                                 type = {dashReport.data.report_type}
-                                options = {dashReport.data.reportOptions}
-                                listeners = {dashReport.data.reportListeners}
+                                options = {dashReport.data.report_options.reportOptions}
+                                listeners = {dashReport.data.report_options.reportListeners}
                             />
                         </div>
                 </Rnd>);
