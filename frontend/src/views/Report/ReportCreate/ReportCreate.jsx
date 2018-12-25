@@ -25,6 +25,7 @@ import ReportToolbar from "../../../components/ReportToolbar/ReportToolbar";
 import Aux from '../../../hoc/aux/aux';
 import Danger from '../../../components/Typography/Danger';
 import FilterOptions from '../../../components/FilterOptions/FilterOptions';
+import Graph from '../../../components/Graph/Graph';
 
 import { handleDataLoad, handleDefaultDataLoad, handleClearReportData } from '../../../store/Actions/ActionCreator'
 
@@ -40,6 +41,23 @@ import {
     stackedHorBarChart,
     donutChart
   } from "variables/charts.jsx";
+
+import {
+    barChartDemo,
+    lineChartDemo,
+    pieChartDemo,
+    radarChartDemo,
+    polarChartDemo,
+    bubbleChartDemo,
+    mixedChartdemo,
+    donutChartDemo,
+    horBarChartDemo
+} from '../../../variables/graphs';
+
+import radar from '../../../assets/img/radar.png';
+import chartPie from '../../../assets/img/chart-pie.png';
+import chartBubble from '../../../assets/img/chart-bubble.png';
+import chartMultiline from '../../../assets/img/chart-multiline.png';
 
 import reportCreateStyle from '../../../assets/jss/frontend/views/reportCreateStyle';
 
@@ -110,7 +128,6 @@ class ReportCreate extends React.Component{
 
     handleGraphChange = e => {
         const defaultData = this.getDefaultGraph(e.currentTarget.value);
-        console.log(defaultData);
         this.setState({
             ...defaultData
         });
@@ -118,21 +135,19 @@ class ReportCreate extends React.Component{
 
     getDefaultGraph = name =>  {
         switch(name){
-            case 'Bar':
-                this.props.handleDefaultDataLoad(multipleBarsChart, name);
+            case 'bar':
+                this.props.handleDefaultDataLoad(barChartDemo, name);
                 return {
                     reportType : name,
                     icon : (<BarChart/>),
-                    reportOptions : multipleBarsChart.options,
-                    reportListeners : multipleBarsChart.animation
+                    reportOptions : barChartDemo.options,
                 }
-            case "Line":
-                this.props.handleDefaultDataLoad(colouredLinesChart, name);
+            case "line":
+                this.props.handleDefaultDataLoad(lineChartDemo, name);
                 return {
                     reportType : name,
                     icon : (<ShowChart />),
-                    reportOptions : colouredLinesChart.options,
-                    reportListeners : colouredLinesChart.animation
+                    reportOptions : lineChartDemo.options,
                 }
             case "StackedBar":
                 this.props.handleDefaultDataLoad(stackedBarChart, "Bar");
@@ -150,21 +165,55 @@ class ReportCreate extends React.Component{
                     reportOptions : stackedHorBarChart.options,
                     reportListeners : stackedHorBarChart.animation
                 }
-            case "Pie":
-                this.props.handleDefaultDataLoad(pieChart, name);
+            case "pie":
+                this.props.handleDefaultDataLoad(pieChartDemo, name);
                 return {
                     reportType : name,
                     icon : (<PieChart/>),
-                    reportOptions : pieChart.options
+                    reportOptions : pieChartDemo.options
                 }
-            case "Donut":
-                this.props.handleDefaultDataLoad(donutChart, "Pie");
+            case "doughnut":
+                this.props.handleDefaultDataLoad(donutChartDemo, name);
                 return {
-                    reportType : "Pie",
+                    reportType : name,
                     icon : (<DonutLarge/>),
-                    reportOptions : donutChart.options,
-                    reportListeners : donutChart.animation
-                }    
+                    reportOptions : donutChartDemo.options
+                }
+            case 'radar':
+                this.props.handleDefaultDataLoad(radarChartDemo, name);
+                return {
+                    reportType : name,
+                    icon : (<img src = {radar} alt={"radar-graph"}/>),
+                    reportOptions : radarChartDemo.options
+                }
+            case 'polarArea':
+                this.props.handleDefaultDataLoad(polarChartDemo, name);
+                return {
+                    reportType : name,
+                    icon : (<img src = {chartPie} alt={"polar-graph"}/>),
+                    reportOptions : polarChartDemo.options
+                }
+            case 'horizontalBar':
+                this.props.handleDefaultDataLoad(horBarChartDemo, name);
+                return {
+                    reportType : name,
+                    icon : (<Sort />),
+                    reportOptions : horBarChartDemo.options
+                }
+            case 'bubble':
+                this.props.handleDefaultDataLoad(bubbleChartDemo, name);
+                return {
+                    reportType : name,
+                    icon : (<img src = {chartBubble} alt={"bubble-graph"}/>),
+                    reportOptions : bubbleChartDemo.options
+                }
+            case 'bar_mix':
+                this.props.handleDefaultDataLoad(mixedChartdemo, "bar");
+                return {
+                    reportType : name,
+                    icon : (<img src = {chartMultiline} alt={"mixed-graph"}/>),
+                    reportOptions : mixedChartdemo.options
+                }
             default:
                 return {}
         }
@@ -213,8 +262,9 @@ class ReportCreate extends React.Component{
                     'Y_field' : this.state.selectedYField,
                     'group_by' : this.state.selectedGroupBy,
                     'measure_operation' : this.state.selectedMeasureOperation
-                }
-            }
+                },
+                'reportDescription' : this.state.reportDescription
+        }
         this.props.handleDataLoad(postData);
     }
 
@@ -242,7 +292,7 @@ class ReportCreate extends React.Component{
             data: this.convert_func_in_json({
                 'dataset_id' : this.state.selectedDataset,
                 'data' : {
-                    'report_type' : this.state.reportType,
+                    'report_type' : this.props.options.type,
                     'report_title' : this.state.reportTitle,
                     'report_description' : this.state.reportDescription,
                     'reported' : false,
@@ -293,32 +343,18 @@ class ReportCreate extends React.Component{
                             {this.state.reportTitle}
                         </h4>
                     </CardHeader>
-                    <CardBody>
-                        <ChartistGraph 
-                            data={this.props.reportData}
-                            type={this.props.options.type}
-                            options={this.props.options.reportOptions}
-                            listener={this.props.options.reportListeners}
-                        />
-                    </CardBody>
-                    <CardFooter stats>
-                        <div className={classes.stats}>
-                        <Danger>
-                            <ZoomOutMap />
-                        </Danger>
-                        <a href="#pablo" onClick={e => {
-                            console.log(resetFunc);
-                            resetFunc && resetFunc();
-                            }}>
-                            Zoom
-                        </a>
-                        </div>
-                    </CardFooter>
+                    <Graph
+                        data={this.props.reportData}
+                        type={this.props.options.type}
+                        options={this.props.options.reportOptions}
+                        width = {500}
+                        height = {500}
+                    />
                 </Card>
                 </GridItem>
                 <GridItem xs={12} sm={12} md={6}>
                     <FilterOptions 
-                        yLen={this.props.reportData.series[0].length}
+                        yLen={this.props.reportData.datasets.length}
                         xLen={this.props.reportData.labels.length}
                         filterChecked = {this.state.filterChecked}
                         handleFilterToggle={this.handleFilterToggle}

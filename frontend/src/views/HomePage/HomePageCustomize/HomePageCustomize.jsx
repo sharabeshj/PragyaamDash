@@ -15,9 +15,10 @@ import CustomButton from '../../../components/CustomButtons/Button';
 import Snackbar from '../../../components/Snackbar/Snackbar';
 import Card from '../../../components/Card/Card';
 import CardBody from '../../../components/Card/CardBody';
+import Graph from '../../../components/Graph/Graph';
 
 
-import {login, handleFetchData} from '../../../store/Actions/ActionCreator';
+import {login, handleDashCustomizeFetchData, clearDashCustomizeData} from '../../../store/Actions/ActionCreator';
 
 
 class HomePage extends React.Component{
@@ -38,6 +39,7 @@ class HomePage extends React.Component{
         }
         console.log('unmounted');
         this._ismounted = false;
+        this.props.clearDashCustomizeData();
     }
 
     showNotification(place){
@@ -91,8 +93,7 @@ class HomePage extends React.Component{
             if(res.data.length > 0){
                 const parsedData = res.data.map(report => ({ 
                     'id' : report.report_id , 
-                    'reportOptions' : this.parseFunctionInJson(JSON.stringify(report.data.report_options.reportOptions)), 
-                    'reportListeners' : this.parseFunctionInJson(JSON.stringify(report.data.report_options.reportListeners) )
+                    'reportOptions' : this.parseFunctionInJson(JSON.stringify(report.data.report_options.reportOptions)) 
                 }));
                 console.log("here");
                 console.log(parsedData);
@@ -121,7 +122,7 @@ class HomePage extends React.Component{
                 }
                 
                 if(report.data.reported && report.data.initial){
-                    this.props.handleFetchData(report.data, report.report_id);
+                    this.props.handleDashCustomizeFetchData(report.data, report.report_id);
                     checkReport =  {
                         ...report,
                         data : {
@@ -136,7 +137,7 @@ class HomePage extends React.Component{
                     }
                 }
                 else if(report.data.reported && !report.data.initial){
-                    this.props.handleFetchData(report.data, report.report_id);
+                    this.props.handleDashCustomizeFetchData(report.data, report.report_id);
                     checkReport = {
                         ...report
                     }
@@ -147,7 +148,7 @@ class HomePage extends React.Component{
             });}
 
 
-            this.setState({ dashReportsdata : [...prevState.dashReportsdata, ...dashReportsdata ]});
+            return { dashReportsdata : [...prevState.dashReportsdata, ...dashReportsdata ]};
         }))
     }
 
@@ -269,6 +270,14 @@ class HomePage extends React.Component{
                                         ...this.state.dashReportsdata[i].data.pos,
                                         width : ref.style.width,
                                         height : ref.style.height                                        
+                                    },
+                                    report_options : {
+                                        ...this.state.dashReportsdata[i].data.report_options,
+                                        reportOptions : {
+                                            ...this.state.dashReportsdata[i].data.report_options.reportOptions,
+                                            responsive: true, 
+                                            maintainAspectRatio: false
+                                        }
                                     }
                                 }
                             };
@@ -278,15 +287,16 @@ class HomePage extends React.Component{
                 }}
                 index={dashReport.report_id}
                 >
-                        <div style= {{ width : `${dashReport.data.pos.width}`}}>
-                            <ChartistGraph 
-                            index={dashReport.report_id}
-                                data = {report_data.data}
-                                type = {dashReport.data.report_type}
-                                options = {dashReport.data.report_options.reportOptions}
-                                listeners = {dashReport.data.report_options.reportListeners}
-                            />
-                        </div>
+
+                    <Graph 
+                        index={dashReport.report_id}
+                        data = {report_data.data}
+                        type = {dashReport.data.report_type}
+                        options = {dashReport.data.report_options.reportOptions}
+                        listeners = {dashReport.data.report_options.reportListeners}
+                        width = {dashReport.data.pos.width}
+                        height = {dashReport.data.pos.height}
+                        />
                 </Rnd>);
             })
         }
@@ -316,7 +326,8 @@ const mapStateToProps = state => {
 const mapDispatchToProps = dispatch => {
     return {
         login : loginData => dispatch(login(loginData)),
-        handleFetchData : (data,id) => dispatch(handleFetchData(data, id))
+        handleDashCustomizeFetchData : (data,id) => dispatch(handleDashCustomizeFetchData(data, id)),
+        clearDashCustomizeData : () => dispatch(clearDashCustomizeData())
     }
 }
 

@@ -136,30 +136,44 @@ function ReportToolbar(props) {
                 </ExpansionPanelSummary>
                 <ExpansionPanelDetails className={classes.details}>
                     <div className={classes.column}>
-                        <Button variant={"fab"} aria-label={"Hor_bar"} className={classes.HorBarButton} value = 'hor_bar' onClick = {props.handleGraphChange} disabled = {props.reportType === '' ? false : true}>
-                            <Sort/>
+                        <Button variant={"fab"} aria-label={"Hor_bar"} className={classes.HorBarButton} value = 'horizontalBar' onClick = {props.handleGraphChange} disabled = {props.reportType === '' ? false : true}>
+                            <img src="http://tobiasahlin.com/static/graph-icons/horizontal.png" alt="Horizontal bar chart" width="30" height="30" />
                         </Button>
-                        <Button variant={"fab"} aria-label={"Line_graph"} className={classes.HorBarButton} value = 'Line' onClick = {props.handleGraphChange} disabled = {props.reportType === '' ? false : true}>
-                            <ShowChart/>
+                        <Button variant={"fab"} aria-label={"Line_graph"} className={classes.HorBarButton} value = 'line' onClick = {props.handleGraphChange} disabled = {props.reportType === '' ? false : true}>
+                            <img src="http://tobiasahlin.com/static/graph-icons/line.png" alt="Line chart" width="30" height="30" />
                         </Button>
-                        <Button variant={"fab"} aria-label={"bar_graph"} className={classes.HorBarButton} value = 'Bar' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}>
-                            <BarChart/>
+                        <Button variant={"fab"} aria-label={"bar_graph"} className={classes.HorBarButton} value = 'bar' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}>
+                            <img src="http://tobiasahlin.com/static/graph-icons/bars.png" alt="Bar chart" width="30" height="30" />
                         </Button>
-                        <Button variant={"fab"} aria-label={"stacked_hor_bar"} className={classes.HorBarButton} value='StackedHorBar' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
+                        <Button variant={"fab"} aria-label={"stacked_hor_bar"} className={classes.HorBarButton} value='StackedHorBar' onClick={props.handleGraphChange} disabled = { true}> 
                             <ViewList />
                         </Button>
-                        <Button variant={"fab"} aria-label={"stacked_bar_graph"} className={classes.HorBarButton} value='StackedBar' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
+                        <Button variant={"fab"} aria-label={"stacked_bar_graph"} className={classes.HorBarButton} value='StackedBar' onClick={props.handleGraphChange} disabled = { true}> 
                             <ViewModule/>
                         </Button>
-                        <Button variant={"fab"} aria-label={"pie_graph"} className={classes.HorBarButton} value='Pie' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
-                            <PieChart/>
+                        <Button variant={"fab"} aria-label={"pie_graph"} className={classes.HorBarButton} value='pie' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
+                            <img src="http://tobiasahlin.com/static/graph-icons/pie.png" alt="Pie chart" width="45" height="30" />
                         </Button>
-                        <Button variant={"fab"} aria-label={"donut_graph"} className={classes.HorBarButton} value='Donut' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
-                            <DonutLarge/>
+                        <Button variant={"fab"} aria-label={"donut_graph"} className={classes.HorBarButton} value='doughnut' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
+                            <img src="http://tobiasahlin.com/static/graph-icons/doughnut.png" alt="Doughnut chart" width="50" height="30" />
                         </Button>
-                        <Button variant={"fab"} aria-label={"scatter_graph"} className={classes.HorBarButton} value='scatter_graph' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
+                        <Button variant={"fab"} aria-label={"scatter_graph"} className={classes.HorBarButton} value='scatter_graph' onClick={props.handleGraphChange} disabled = {true}> 
                             <ScatterPlot/>
                         </Button>
+                        <Button variant={"fab"} aria-label={"radar_graph"} className={classes.HorBarButton} value='radar' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
+                            <img src="http://tobiasahlin.com/static/graph-icons/radar.png" alt="Radar chart" width="40" height="30" />
+                        </Button>
+                        <Button variant={"fab"} aria-label={"polar_graph"} className={classes.HorBarButton} value='polarArea' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
+                            <img src="http://tobiasahlin.com/static/graph-icons/polar.png" alt="Polar area chart" width="40" height="25" />
+                        </Button>
+                        <Button variant={"fab"} aria-label={"bubble_graph"} className={classes.HorBarButton} value='bubble' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
+                            <img src="http://tobiasahlin.com/static/graph-icons/bubbles.png" alt="Bubble chart" width="40" height="30" />
+                        </Button>
+                        <Button variant={"fab"} aria-label={"bubble_graph"} className={classes.HorBarButton} value='bar_mix' onClick={props.handleGraphChange} disabled = {props.reportType === '' ? false : true}> 
+                        <img src="http://tobiasahlin.com/static/graph-icons/mixed.png" alt="Mixed chart" width="30" height="30" />
+                        </Button>
+                        
+                        
                     </div>
                     <div className={classes.column}>
                         <TextField

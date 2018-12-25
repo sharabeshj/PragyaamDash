@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 import classNames from 'classnames';
 import {Link} from 'react-router-dom';
 import ChartistGraph from 'react-chartist';
+import { connect } from 'react-redux';
 
 import Button from '@material-ui/core/Button';
 import CssBaseline from '@material-ui/core/CssBaseline';
@@ -22,29 +23,33 @@ import Card from '../../../components/Card/Card';
 import CardHeader from '../../../components/Card/CardHeader';
 import CardBody from '../../../components/Card/CardBody';
 import CardFooter from '../../../components/Card/CardFooter';
-import aux from '../../../hoc/aux/aux';
+import Aux from '../../../hoc/aux/aux';
+import Graph from '../../../components/Graph/Graph';
 
 import reportListStyles from '../../../assets/jss/frontend/views/ReportList';
 import { Tooltip } from '@material-ui/core';
 
-import {
-    roundedLineChart,
-    straightLinesChart,
-    simpleBarChart,
-    colouredLineChart,
-    multipleBarsChart,
-    multipleBarsChartReport,
-    colouredLinesChart,
-    colouredLinesChartReport,
-    pieChart
-  } from "variables/charts.jsx";
+import {handleReportFetchData, clearReportDataList} from '../../../store/Actions/ActionCreator';
+
+// import {
+//     roundedLineChart,
+//     straightLinesChart,
+//     simpleBarChart,
+//     colouredLineChart,
+//     multipleBarsChart,
+//     multipleBarsChartReport,
+//     colouredLinesChart,
+//     colouredLinesChartReport,
+//     pieChart
+//   } from "variables/charts.jsx";
 
 
 class ReportList extends React.Component{
     constructor(props){
         super(props);
         this.state = {
-            reportDataList : []
+            reportDataList : [],
+
         };
     }
 
@@ -59,7 +64,12 @@ class ReportList extends React.Component{
         };
         Axios(data)
         .then(res => {
-            this.setState({ reportDataList : res.data });
+                for(let i = 0; i < res.data.length; i++){
+                    this.props.handleReportFetchData(res.data[i].data, res.data[i].report_id)
+                }
+            this.setState((prevState) => {
+                return { reportDataList : [...prevState.reportDataList,...res.data]}
+            });
             // this.loadReportdata();
         })
         .catch(e => console.error(e));
@@ -92,12 +102,97 @@ class ReportList extends React.Component{
     //     });
     // }
 
+    componentWillUnmount(){
+        this.props.clearReportDataList();
+    }
+
     render(){
         const { classes } = this.props;
         const colorChoices =  ['success','warning','danger','info'];
+        let reports = null;
+        if(this.state.reportDataList.length > 0 && this.props.reportDataList.length === this.state.reportDataList.length){
+            reports = this.state.reportDataList.map((report) => {
+
+                // let reportOptions = {}, reportListeners = {}, reportResponsive={};
+    
+                // switch(report.data.report_type){
+                //     case 'Bar':
+                //         reportOptions=multipleBarsChartReport.options;
+                //         reportListeners = multipleBarsChartReport.animation;
+                //         reportResponsive = multipleBarsChartReport.responsiveOptions;
+                //         break;
+                //     case 'Line':
+                //         reportOptions = colouredLinesChartReport.options;
+                //         reportListeners = colouredLinesChartReport.animation;
+                //     default:
+                //         break;
+                // }
+                
+                const color = colorChoices[Math.floor(Math.random()*colorChoices.length)];
+                let reportData = {};
+                for(let i =0 ; i < this.props.reportDataList.length; i++){
+                    if(this.props.reportDataList[i].id === report.report_id){
+                        reportData = {...this.props.reportDataList[i].data};
+                        break;
+                    }
+                }
+    
+                return (
+                <GridItem key = {report.report_id} xs={12} sm={12} md={4}>
+                    <Card color = {"default"} chart className={classes.cardHover}>
+                        <CardHeader 
+                        className={classes.cardHeaderHover}>
+                            <Graph
+                                data = {reportData} 
+                                type={report.data.report_type}
+                                options={report.data.report_options.reportOptions}
+                            />
+                        </CardHeader>
+                        <CardBody>
+                            <div className={classes.cardHoverUnder}>
+                                <Tooltip
+                                    id="tooltip-top"
+                                    title="Refresh"
+                                    placement="bottom"
+                                    classes={{ tooltip: classes.tooltip }}
+                                >
+                                    <CustomButton simple color="info" justIcon>
+                                        <Refresh className={classes.underChartIcons} />
+                                    </CustomButton>
+                                </Tooltip>
+                                <Tooltip
+                                    id="tooltip-top"
+                                    title="Edit"
+                                    placement="bottom"
+                                    classes={{ tooltip : classes.tooltip }}
+                                >
+                                    <CustomButton color="transparent" simple justIcon>
+                                        <Edit className={classes.underChartIcons}/>
+                                    </CustomButton>
+                                </Tooltip>
+                                </div>
+                                <h4 className={classes.cardTitle}>{report.data.report_title}</h4>
+                                <p className={classes.cardCategory}>
+                                    {report.data.report_description}
+                                </p>
+                            
+                        </CardBody>
+                        <CardFooter chart>
+                            <div className={classes.stats}>
+                                <AccessTime /> Updated 2 days ago
+                                <CustomButton size="sm" color = {color} onClick={() => this.moveToDashbaord(report)} disabled={true ? report.data.reported : false}>
+                                    {report.data.reported?"Reported":"Report To Dash"}
+                                </CustomButton>
+                            </div>
+                        </CardFooter>
+                    </Card>
+                </GridItem>
+            );
+        })
+        }
         
         return (
-                <aux>
+                <Aux>
                 <div className={classes.heroUnit}>
                             <div className={classes.heroContent}>
                                 <Typography component="h1" variant="h2" align="center" color = "textPrimary" gutterBottom>
@@ -159,83 +254,9 @@ class ReportList extends React.Component{
                     <h3>Reports</h3>
                     <br />
                     <GridContainer>
-                        {this.state.reportDataList.map((report) => {
-
-                            let reportOptions = {}, reportListeners = {}, reportResponsive={};
-
-                            switch(report.data.report_type){
-                                case 'Bar':
-                                    reportOptions=multipleBarsChartReport.options;
-                                    reportListeners = multipleBarsChartReport.animation;
-                                    reportResponsive = multipleBarsChartReport.responsiveOptions;
-                                    break;
-                                case 'Line':
-                                    reportOptions = colouredLinesChartReport.options;
-                                    reportListeners = colouredLinesChartReport.animation;
-                                default:
-                                    break;
-                            }
-                            
-                            const color = colorChoices[Math.floor(Math.random()*colorChoices.length)];
-
-                            return (
-                            <GridItem key = {report.report_id} xs={12} sm={12} md={4}>
-                                <Card chart className={classes.cardHover}>
-                                    <CardHeader 
-                                    color = {color}
-                                    className={classes.cardHeaderHover}>
-                                        <ChartistGraph 
-                                            className="ct-chart-white-colors"
-                                            data={report.data.report_data}
-                                            type={report.data.report_type}
-                                            options={reportOptions}
-                                            // responsiveOptions = {reportResponsive}
-                                            listener={reportListeners}
-                                        /> 
-                                    </CardHeader>
-                                    <CardBody>
-                                        <div className={classes.cardHoverUnder}>
-                                            <Tooltip
-                                                id="tooltip-top"
-                                                title="Refresh"
-                                                placement="bottom"
-                                                classes={{ tooltip: classes.tooltip }}
-                                            >
-                                                <CustomButton simple color="info" justIcon>
-                                                    <Refresh className={classes.underChartIcons} />
-                                                </CustomButton>
-                                            </Tooltip>
-                                            <Tooltip
-                                                id="tooltip-top"
-                                                title="Edit"
-                                                placement="bottom"
-                                                classes={{ tooltip : classes.tooltip }}
-                                            >
-                                                <CustomButton color="transparent" simple justIcon>
-                                                    <Edit className={classes.underChartIcons}/>
-                                                </CustomButton>
-                                            </Tooltip>
-                                            </div>
-                                            <h4 className={classes.cardTitle}>{report.data.report_title}</h4>
-                                            <p className={classes.cardCategory}>
-                                                {report.data.report_description}
-                                            </p>
-                                        
-                                    </CardBody>
-                                    <CardFooter chart>
-                                        <div className={classes.stats}>
-                                            <AccessTime /> Updated 2 days ago
-                                            <CustomButton size="sm" color = {color} onClick={() => this.moveToDashbaord(report)} disabled={true ? report.data.reported : false}>
-                                                {report.data.reported?"Reported":"Report To Dash"}
-                                            </CustomButton>
-                                        </div>
-                                    </CardFooter>
-                                </Card>
-                            </GridItem>
-                        );
-                    })}
+                        {reports}
                     </GridContainer>
-                </aux>
+                </Aux>
                     
         );
     }
@@ -245,4 +266,17 @@ ReportList.propTypes = {
     classes : PropTypes.object.isRequired,
 };
 
-export default withStyles(reportListStyles)(ReportList);
+const mapStateToProps = state => {
+    return {
+        reportDataList : state.report.reportDataList
+    }
+}
+
+const mapDispatchToProps = dispatch => {
+    return {
+        handleReportFetchData : (data,id) => dispatch(handleReportFetchData(data,id)),
+        clearReportDataList : () => dispatch(clearReportDataList())
+    }
+}
+
+export default connect(mapStateToProps, mapDispatchToProps)(withStyles(reportListStyles)(ReportList));

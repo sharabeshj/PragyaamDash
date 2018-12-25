@@ -141,6 +141,7 @@ export const handleMiniSidebarToggle = () => {
 // }
 
 const loadSuccess = (data, options) => {
+    delete options.type;
     return {
         type : ActionTypes.DATA_LOAD,
         data : data,
@@ -179,12 +180,11 @@ export const handleDataLoad = (data) => {
 
 export const handleDefaultDataLoad = (data,type) => {
     return {
-        type : ActionTypes.DATA_LOAD,
+        type : ActionTypes.DEFAULT_DATA_LOAD,
         data : data.data,
         options : {
             type: type,
-            reportOptions : data.options,
-            reportListeners : data.animation
+            reportOptions : data.options
         }
     }
 }
@@ -203,6 +203,28 @@ const dashLoadSuccess = (data, id) => {
     }
 }
 
+const dashLoadError = (err) => {
+    return {
+        type : ActionTypes.DASH_LOAD_ERROR,
+        error : err
+    }
+}
+
+const reportLoadSuccess = (data, id) => {
+    return {
+        type : ActionTypes.REPORT_LOAD_DATA,
+        data : data,
+        id : id
+    }
+}
+
+const reportLoadError = (err) => {
+    return {
+        type : ActionTypes.REPORT_LOAD_ERROR,
+        errror : err
+    }
+}
+
 const dashLoadData = (data, id) => {
     return dispatch => {
         const postData = {
@@ -217,10 +239,44 @@ const dashLoadData = (data, id) => {
         };
         Axios(postData)
             .then(res => dispatch(dashLoadSuccess(res.data.data, id)))
-            .catch(err => dispatch(loadError(err)));
+            .catch(err => dispatch(dashLoadError(err)));
     }
 }
 
-export const handleFetchData = (data, id) => {
+const reportLoadData = (data,id) => {
+    return dispatch => {
+        const postData = {
+            url : 'http://127.0.0.1:8000/api/report_generate/',
+            method : 'POST',
+            data : JSON.stringify(data.report_options),
+            auth :  {
+                username : 'sharabesh',
+                password : 'shara1234'
+            },
+            headers : { 'Content-Type' : 'application/json'}
+        };
+        Axios(postData)
+            .then(res => dispatch(reportLoadSuccess(res.data.data, id)))
+            .catch(err => dispatch(reportLoadError(err)));
+    }
+}
+
+export const handleDashCustomizeFetchData = (data, id) => {
     return (dispatch,getState) => (dispatch(dashLoadData(data, id)));
+}
+
+export const clearDashCustomizeData = () => {
+    return {
+        type : ActionTypes.DASH_LOAD_ERROR
+    }
+}
+
+export const handleReportFetchData = (data,id) => {
+    return (dispatch,getState) => (dispatch(reportLoadData(data, id)));
+}
+
+export const clearReportDataList = () => {
+    return {
+        type : ActionTypes.REPORT_LOAD_ERROR
+    }
 }
