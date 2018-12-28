@@ -9,6 +9,10 @@ class Graph extends React.Component{
     constructor(props){
         super(props);
         this.chart = null;
+        this.state = {
+            width : props.width,
+            height : props.height
+        }
     }
 
     componentDidMount(){
@@ -35,7 +39,7 @@ class Graph extends React.Component{
     }
 
     render() {
-        return(<CardBody index = {this.props.index ? this.props.index : "none"}><canvas index = {this.props.index ? this.props.index : "none"} ref={"chart"} width = {this.props.width} height = {this.props.height}></canvas></CardBody>)
+        return(<CardBody index = {this.props.index ? this.props.index : "none"}><canvas index = {this.props.index ? this.props.index : "none"} ref={"chart"} width = {this.state.width} height = {this.state.height}></canvas></CardBody>)
     }
 
 }

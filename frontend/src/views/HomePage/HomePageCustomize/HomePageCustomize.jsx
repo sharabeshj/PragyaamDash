@@ -28,6 +28,7 @@ class HomePage extends React.Component{
             tc : false,
             dashReportsdata : []
         };
+        this.ref = React.createRef();
     }
 
     _ismounted = false;
@@ -203,6 +204,34 @@ class HomePage extends React.Component{
         eval(value);
     }
 
+    handleSaveToDashboard = (report_id) => {
+        const report = this.state.dashReportsdata.find(x => (x.report_id === report_id));
+        console.log("data");
+        console.log(report);    
+        const postData = {
+            url : 'http://127.0.0.1:8000/api/reports/',
+            method: 'PUT',
+            data: this.convert_func_in_json({
+                ...report
+            }),
+            auth: {
+                username : 'sharabesh',
+                password : 'shara1234'
+            },
+            headers : {
+                'Content-Type' : 'application/json'
+            }
+        }
+        Axios(postData)
+        .then(res => console.log("success"))
+    }
+
+    convert_func_in_json = obj => {
+        return JSON.stringify(obj, (key, value) => {
+            return typeof value === "function" ? value.toString() : value;
+        });
+    }
+
     render(){
         let dashReportsdata = null;
         const style = {
@@ -247,10 +276,10 @@ class HomePage extends React.Component{
                                 }
                                 console.log(newDashReportsdata,this.state.dashReportsdata);
                                 if(this._ismounted){
-                                    this.setState({ dashReportsdata : newDashReportsdata});
+                                    this.setState({ dashReportsdata : newDashReportsdata},() =>  this.handleSaveToDashboard(this.state.dashReportsdata[i].report_id));
                                 }
                                
-                         
+                                break;
                             }
                         }
                     }
@@ -266,6 +295,7 @@ class HomePage extends React.Component{
                                 ...newDashReportsdata[i], 
                                 data : {
                                     ...this.state.dashReportsdata[i].data,
+                                    initial : false,
                                     pos : {
                                         ...this.state.dashReportsdata[i].data.pos,
                                         width : ref.style.width,
@@ -281,7 +311,19 @@ class HomePage extends React.Component{
                                     }
                                 }
                             };
+                           
+                            this.refs[this.state.dashReportsdata[i].report_id].state.width = ref.style.width;
+                            this.refs[this.state.dashReportsdata[i].report_id].state.height = ref.style.height;
                             this.setState({ dashReportsdata : newDashReportsdata });
+                            break;
+                        }
+                    }
+                }}
+                onResizeStop = {(e, direction, ref, delta, position) => {
+                    console.log(ref.getAttribute('index'));
+                    for(let i = 0; i < this.state.dashReportsdata.length; i++){
+                        if(this.state.dashReportsdata[i].report_id == ref.getAttribute('index')){
+                            this.handleSaveToDashboard(this.state.dashReportsdata[i].report_id);
                         }
                     }
                 }}
@@ -296,6 +338,7 @@ class HomePage extends React.Component{
                         listeners = {dashReport.data.report_options.reportListeners}
                         width = {dashReport.data.pos.width}
                         height = {dashReport.data.pos.height}
+                        ref = {dashReport.report_id}
                         />
                 </Rnd>);
             })
