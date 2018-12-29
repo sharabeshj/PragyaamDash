@@ -244,10 +244,40 @@ class DatasetDetail(APIView):
                         # print(join_model_data)     
                         continue
                     if join.type == 'Outer-Join':
-                        for x in model_data:
-                            for c in x['data']:
+                        for d in model_data:
+                            if d['name'] == join.worksheet_1:
+                                
+                                for x in d['data']:
+                                    check = []
+                                    for a in model_data:
+                                        if a['name'] == join.worksheet_2:
+                                            X = dict(x)
+                                            for c in a['data']:
+                                                C = dict(c)
+                                                if C[join.field] == X[join.field]:
+                                                    check.append(C)
+                                            
+                                            for z in check:
+                                                id_count += 1
+                                                join_model_data.append({**X,**z, 'id' : id_count})
+                                            break
+                            break
+                                
 
-                                join_model_data.append({**dict(c)})
+                        for d in model_data:
+                     
+                            for x in d['data']:
+                                check = []
+                                X = dict(x)
+                                f = 0
+                                for c in join_model_data:
+                                    C = dict(c)
+                                    if C[join.field] == X[join.field]:
+                                        f = 1
+                                if f == 0:
+                                    id_count+=1
+                                    join_model_data.append({**X, 'id' : id_count})
+
                         continue
 
 
