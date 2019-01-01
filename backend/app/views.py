@@ -22,8 +22,8 @@ from django.core.management.commands import sqlmigrate
 import collections
 import json
 from django_pandas.io import read_frame
-import matplotlib.pyplot as plt
-import mpld3
+# import matplotlib.pyplot as plt
+# import mpld3
 import numpy as np
 import random
 

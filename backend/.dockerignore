@@ -16,3 +16,6 @@ coverage.xml
 *.log
 .git
 /migrations
+.dockerignore
+Dockerfile-dev
+Dockerfile-prod

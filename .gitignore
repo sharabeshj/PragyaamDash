@@ -3,6 +3,7 @@
 migrations/
 *.pyc
 
+__pycache__
 env/
 
 .idea/
