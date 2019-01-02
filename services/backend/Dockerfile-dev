@@ -1,0 +1,26 @@
+#base image
+FROM python:3.6.8
+
+# install dependencies
+RUN apt-get update && \
+    apt-get -y install gcc python-dev musl-dev && \
+    apt-get -y install postgresql-server-dev-all && \
+    apt-get -y install netcat-openbsd
+
+#set working directory
+RUN mkdir -p /usr/src/app
+WORKDIR /usr/src/app
+
+#add and install requirements
+COPY ./requirements.txt /usr/src/app/requirements.txt
+RUN pip install -r requirements.txt
+
+# add entrypoint.sh
+COPY ./entrypoint.sh /usr/src/app/entrypoint.sh
+RUN chmod +x /usr/src/app/entrypoint.sh
+
+#add app
+COPY . /usr/src/app
+
+#run server
+ENTRYPOINT ["sh","./entrypoint.sh"]

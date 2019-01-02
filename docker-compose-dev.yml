@@ -1,14 +1,36 @@
 version: '3.6'
 
 services:
-
+  nginx:
+    container_name: nginx
+    build:
+      context: ./services/nginx
+      dockerfile: Dockerfile-dev
+    restart: always
+    ports:
+      - 8000:8000
+      - 80:80
+    volumes:
+      - ./services/backend/static:/usr/share/nginx/html/static
+    depends_on:
+      - backend
+    command: nginx -g 'daemon off';
   backend:
     build:
-      context: ./backend
+      context: ./services/backend
       dockerfile: Dockerfile-dev
     volumes:
       - './backend:/usr/src/app'
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     environment:
       - ENVIRONMENT=DEVELOPMENT
+    depends_on:
+      - db
+  
+  db:
+    build:
+      context: ./services/backend/backend/db
+      dockerfile: Dockerfile
+    ports:
+      - 5432:5432
