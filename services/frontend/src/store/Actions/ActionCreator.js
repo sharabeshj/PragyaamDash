@@ -312,7 +312,11 @@ const generateSql = (state) => {
             });
             if(!flag){
                 console.log(table);
-                queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(table.name).toString();
+                queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(table.name);
+                state().dataset.fields.filter(item => item.key === table.name).forEach( field => {
+                    queryGenerate = queryGenerate.field(field.name);
+                });
+                queryGenerate = queryGenerate.toString();
                 count += 1;
             
             console.log(queryGenerate)
@@ -329,23 +333,26 @@ const generateSql = (state) => {
             let queryGenerate = '';
             switch(join.type){
                 case "Inner-Join":
-                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).join(join.worksheet_2, null, `${join.worksheet_1}.${join.field} = ${join.worksheet_2}.${join.field}`).toString();
+                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).join(join.worksheet_2, null, `${join.worksheet_1}.${join.field} = ${join.worksheet_2}.${join.field}`);
                     count += 1;
                     break;
                 case "Right-Join":
-                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).right_join(join.worksheet_2, null, `${join.worksheet_1}.${join.field} = ${join.worksheet_2}.${join.field}`).toString();
+                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).right_join(join.worksheet_2, null, `${join.worksheet_1}.${join.field} = ${join.worksheet_2}.${join.field}`);
                     count += 1;
                     break;
                 case "Left-Join":
-                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).left_join(join.worksheet_2, null, `${join.worksheet_1}.${join.field} = ${join.worksheet_2}.${join.field}`).toString();
+                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).left_join(join.worksheet_2, null, `${join.worksheet_1}.${join.field} = ${join.worksheet_2}.${join.field}`);
                     count += 1;
                     break;
                 case "Outer-Join":
-                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).outer_join(join.worksheet_2, null, `${join.worksheet_1}.${join.field} = ${join.worksheet_2}.${join.field}`).toString();
+                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).outer_join(join.worksheet_2, null, `${join.worksheet_1}.${join.field} = ${join.worksheet_2}.${join.field}`);
                     count += 1;
                     break;
             };
-
+            state().dataset.fields.filter(item => item.key === join.worksheet_1 || item.key === join.worksheet_2).forEach( field => {
+                queryGenerate = queryGenerate.field(field.name);
+            });
+            queryGenerate = queryGenerate.toString();
             if(count > 1){
                 console.log(count);
                 queryResult = queryResult.slice(0,-1);
