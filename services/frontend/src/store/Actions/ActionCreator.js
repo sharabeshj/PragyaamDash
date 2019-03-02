@@ -1,6 +1,8 @@
 import * as ActionTypes from './Actions';
 import Axios from 'axios';
 
+const squel = require('squel');
+
 export const workspaceAdd = (workspaceName) => {
     return {
         type : ActionTypes.WORKSPACE_ADD,
@@ -12,6 +14,13 @@ export const fieldAdd = fields => {
     return {
         type : ActionTypes.FIELD_ADD,
         fields : fields
+    }
+}
+
+export const joinDataAdd = joinData => {
+    return {
+        type : ActionTypes.JOIN_DATA_ADD,
+        joinData : joinData,
     }
 }
 
@@ -29,7 +38,7 @@ export const tableAdd = table => {
 //     }
 // }
 
-const saved = (name,data) => {
+const saved = (name) => {
     return {
         type : ActionTypes.SAVED
     }
@@ -58,7 +67,7 @@ const loginError = error => {
     }
 }
 
-const save = (name,joinData,state) => {
+const save = (name,state) => {
     return dispatch => {
         const postData = {
             url : 'http://127.0.0.1:8000/api/datasets/',
@@ -67,7 +76,7 @@ const save = (name,joinData,state) => {
                 name : name,
                 fields : state().dataset.fields,
                 tables : state().dataset.tables,
-                joins : joinData
+                joins : state().dataset.joins,
             }),
             auth :  {
                 username : 'sharabesh',
@@ -75,7 +84,7 @@ const save = (name,joinData,state) => {
             },
             headers : { 'Content-Type' : 'application/json'}
         };
-        return Axios(postData).then((res) => dispatch(saved(name,joinData))).catch(e => dispatch(saveError(e)));
+        return Axios(postData).then((res) => dispatch(saved(name))).catch(e => dispatch(saveError(e)));
     }
 }
 
@@ -93,8 +102,8 @@ const validate = loginData => {
     }
 }
 
-export const saveDataset = (name,joinData) => {
-    return (dispatch,getState) => dispatch(save(name,joinData,getState))
+export const saveDataset = (name) => {
+    return (dispatch,getState) => dispatch(save(name,getState))
 }
 
 export const login = (loginData) => {
@@ -278,5 +287,85 @@ export const handleReportFetchData = (data,id) => {
 export const clearReportDataList = () => {
     return {
         type : ActionTypes.REPORT_LOAD_ERROR
+    }
+}
+
+const saveSql = (sql) => {
+    return {
+        type : ActionTypes.SAVE_SQL,
+        sql : sql, 
+    }
+}
+
+const generateSql = (state) => {
+    return dispatch => {
+        let queryResult = '';
+        let count = 0;
+        let flag = 0;
+        state().dataset.tables.forEach(table => {
+            flag = 0;
+            let queryGenerate = '';
+            state().dataset.joins.forEach(join => {
+                if(table.name === join.worksheet_1 || table.name === join.worksheet_2){
+                    flag = 1;
+                }
+            });
+            if(!flag){
+                console.log(table);
+                queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(table.name).toString();
+                count += 1;
+            
+            console.log(queryGenerate)
+            if(count > 1){
+                queryResult = queryResult.slice(0,-1);
+                queryResult = queryResult.concat(" UNION ALL ", queryGenerate, ";");
+            }
+            else {
+                queryResult = queryResult.concat(queryGenerate, ";");
+            }
+        }
+        });
+        state().dataset.joins.forEach( join => {
+            let queryGenerate = '';
+            switch(join.type){
+                case "Inner-Join":
+                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).join(join.worksheet_2, null, `${join.worksheet_1}.${join.field} = ${join.worksheet_2}.${join.field}`).toString();
+                    count += 1;
+                    break;
+                case "Right-Join":
+                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).right_join(join.worksheet_2, null, `${join.worksheet_1}.${join.field} = ${join.worksheet_2}.${join.field}`).toString();
+                    count += 1;
+                    break;
+                case "Left-Join":
+                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).left_join(join.worksheet_2, null, `${join.worksheet_1}.${join.field} = ${join.worksheet_2}.${join.field}`).toString();
+                    count += 1;
+                    break;
+                case "Outer-Join":
+                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).outer_join(join.worksheet_2, null, `${join.worksheet_1}.${join.field} = ${join.worksheet_2}.${join.field}`).toString();
+                    count += 1;
+                    break;
+            };
+
+            if(count > 1){
+                console.log(count);
+                queryResult = queryResult.slice(0,-1);
+                queryResult = queryResult.concat(" UNION ALL ", queryGenerate, ";")
+            }
+            else {
+                queryResult = queryResult.concat(queryGenerate, ";");
+            }
+        })
+        return dispatch(saveSql(queryResult));
+    }
+}
+
+export const getCurrentSql = () => {
+    return (dispatch, getState) => dispatch(generateSql(getState))
+    
+}
+
+export const changeCurrentMode = () => {
+    return {
+        type : ActionTypes.CHANGE_SQL_EDIT_MODE,
     }
 }

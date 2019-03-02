@@ -1,0 +1,19 @@
+[0;1;32m●[0m docker.service - Docker Application Container Engine
+   Loaded: loaded (/lib/systemd/system/docker.service; enabled; vendor preset: enabled)
+   Active: [0;1;32mactive (running)[0m since Mon 2019-02-04 05:56:54 EST; 8min ago
+     Docs: https://docs.docker.com
+ Main PID: 19565 (dockerd)
+    Tasks: 18
+   CGroup: /system.slice/docker.service
+           └─19565 /usr/bin/dockerd -H fd://
+
+Feb 04 05:56:51 sharabesh-Inspiron-5559 dockerd[19565]: time="2019-02-04T05:56:51.841500656-05:00" level=warning msg="Your kernel does not support cgroup rt period"
+Feb 04 05:56:51 sharabesh-Inspiron-5559 dockerd[19565]: time="2019-02-04T05:56:51.841600230-05:00" level=warning msg="Your kernel does not support cgroup rt runtime"
+Feb 04 05:56:51 sharabesh-Inspiron-5559 dockerd[19565]: time="2019-02-04T05:56:51.843311698-05:00" level=info msg="Loading containers: start."
+Feb 04 05:56:52 sharabesh-Inspiron-5559 dockerd[19565]: time="2019-02-04T05:56:52.233323707-05:00" level=info msg="Default bridge (docker0) is assigned with an IP address 172.17.0.0/16. Daemon option --bip can be used to set a preferred IP address"
+Feb 04 05:56:52 sharabesh-Inspiron-5559 dockerd[19565]: time="2019-02-04T05:56:52.438725409-05:00" level=info msg="Loading containers: done."
+Feb 04 05:56:54 sharabesh-Inspiron-5559 dockerd[19565]: time="2019-02-04T05:56:54.430841141-05:00" level=info msg="Docker daemon" commit=4c52b90 graphdriver(s)=overlay2 version=18.09.1
+Feb 04 05:56:54 sharabesh-Inspiron-5559 dockerd[19565]: time="2019-02-04T05:56:54.431459611-05:00" level=info msg="Daemon has completed initialization"
+Feb 04 05:56:54 sharabesh-Inspiron-5559 dockerd[19565]: time="2019-02-04T05:56:54.941594690-05:00" level=info msg="API listen on /var/run/docker.sock"
+Feb 04 05:56:54 sharabesh-Inspiron-5559 systemd[1]: Started Docker Application Container Engine.
+Feb 04 06:04:15 sharabesh-Inspiron-5559 dockerd[19565]: time="2019-02-04T06:04:15.426517187-05:00" level=info msg="ignoring event" module=libcontainerd namespace=moby topic=/tasks/delete type="*events.TaskDelete"

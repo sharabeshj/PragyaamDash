@@ -431,7 +431,7 @@ class ReportGenerate(viewsets.ViewSet):
         dataset_detail = self.get_object(dataset,request.user)
         model = dataset_detail.get_django_model()
         data = model.objects.all()
-        print(data)
+        # print(data)
         df = read_frame(data)
 
         if report_type == 'horizontalBar':
@@ -814,7 +814,8 @@ class ReportGenerate(viewsets.ViewSet):
             # ax.set_ylabel(label)
             # ax.set_title(request.data['report_title'], size = '20')
             # ax.legend()
-
+            print(X_field
+            )
             data = {
                 'labels' : np.unique(np.array(df_required.loc[:,X_field])),
                 'datasets' : []
@@ -1319,7 +1320,7 @@ class ReportGenerate(viewsets.ViewSet):
             curr = []
             op_dict = collections.defaultdict(list)
 
-            df_non_num = df_required.select_dtypes(exclude = [np.number])
+            df_non_num = df_required.select_dtypes(exclude=[np.number])
             non_num_columns = list(df_non_num)
 
             background_color = random.sample(set(self.color_choices), len(np.unique(np.array(df_required.loc[:,X_field]))))
@@ -1546,20 +1547,20 @@ class ReportGenerate(viewsets.ViewSet):
 
             # return Response({ 'data' : mpld3.fig_to_dict(fig)}, status = status.HTTP_200_OK)
         
-        if report_type == 'scatter_graph':
-            X_field = request.data['options']['X_field']
-            Y_field = request.data['options']['Y_field']
-            group_by = request.data['options']['group_by']
-            measure_operation = request.data['options']['measure_operation']
-
-            all_fields = []
-            all_fields.extend([X_field,Y_field])
-            if len(group_by) > 0:
-                all_fields.extend([group_by])
-          
-            df_required = df.loc[:,df.columns.isin(all_fields)]
-        
-            df_required = df_required.dropna()
+        # if report_type == 'scatter_graph':
+        #     X_field = request.data['options']['X_field']
+        #     Y_field = request.data['options']['Y_field']
+        #     group_by = request.data['options']['group_by']
+        #     measure_operation = request.data['options']['measure_operation']
+        #
+        #     all_fields = []
+        #     all_fields.extend([X_field,Y_field])
+        #     if len(group_by) > 0:
+        #         all_fields.extend([group_by])
+        #
+        #     df_required = df.loc[:,df.columns.isin(all_fields)]
+        #
+        #     df_required = df_required.dropna()
             # plt.rcdefaults()
             # fig,ax = plt.subplots()
             # nx = np.arange(len(df_required.loc[:,X_field]))
@@ -1574,8 +1575,8 @@ class ReportGenerate(viewsets.ViewSet):
             # ax.set_title(request.data['report_title'])
 
             
-
-            return Response({ 'data' : mpld3.fig_to_dict(fig)}, status = status.HTTP_200_OK)
+            #
+            # return Response({ 'data' : mpld3.fig_to_dict(fig)}, status = status.HTTP_200_OK)
 
         if report_type == "radar":
             X_field = request.data['options']['X_field']

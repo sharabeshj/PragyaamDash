@@ -11,4 +11,4 @@ echo "PostgresSQL started"
 python manage.py collectstatic --no-input
 python manage.py makemigrations app
 python manage.py migrate
-gunicorn  -b 0.0.0.0:8000 backend.wsgi
+gunicorn -b 0.0.0.0:8000 usr.src.app.backend.wsgi
