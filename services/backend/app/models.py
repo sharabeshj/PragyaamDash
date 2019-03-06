@@ -25,10 +25,17 @@ def save_user_profile(sender,instance,**kwargs):
 
 
 class Dataset(models.Model):
+
+    mode_choices = (
+        ('VIZ', 'VIZ'),
+        ('SQL', 'SQL'),
+    )
      
     profile = models.ForeignKey(Profile,related_name='datasets',on_delete = models.CASCADE)
     name = models.CharField(max_length = 50)
     dataset_id = models.UUIDField(primary_key = True, default = uuid.uuid4, editable = False)
+    sql = models.TextField(null=True)
+    mode = models.CharField(max_length = 3, choices = mode_choices, default = 'VIZ')
 
     def __str__(self):
          return self.name

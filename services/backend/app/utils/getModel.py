@@ -24,6 +24,7 @@ def get_model(table_name,app_name,cursor):
     
     return create_model(table_name,attrs,app_label=app_name,module='',options={'db_table' : table_name,'managed' : False})
 
+
 def getColumns(name,cursor):
 
     #for redshift
@@ -36,3 +37,13 @@ def getColumns(name,cursor):
     for item in info:
         fields[item[0]] = {'type' : item[1],'length' : item[2]}
     return fields
+
+def getColumnList(table_name, cursor):
+
+    fields = getColumns(table_name, cursor)
+    field_list = []
+
+    for x,y in fields.items():
+        field_list.append(x)
+    
+    return field_list
