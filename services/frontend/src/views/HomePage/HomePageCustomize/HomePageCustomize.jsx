@@ -60,9 +60,9 @@ class HomePage extends React.Component{
         this._ismounted = true;
 
         const loginData = {
-            email : "testing@gmail.com",
-            organization_id: "testorg",
-            password : "Testing123!"
+            email : "shreyanshkitu.10@gmail.com",
+            organization_id: "pragyaamtesting2",
+            password : "Pragyaam@12345"
         };
         console.log(loginData);
         this.props.login(loginData);

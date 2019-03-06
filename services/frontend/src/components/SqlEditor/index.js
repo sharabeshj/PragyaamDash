@@ -7,11 +7,12 @@ import 'brace/mode/pgsql';
 import 'brace/theme/xcode';
 import Card from '../Card/Card';
 import CardBody from '../Card/CardBody';
+import CardHeader from '../Card/CardHeader';
+import CustomButton from '../CustomButtons/Button';
 import Accordion from "../Accordion/Accordion";
 import sqlEditorStyles from '../../assets/jss/frontend/components/sqlEditor.jsx';
 
 import { changeCurrentMode } from '../../store/Actions/ActionCreator';
-import { CardHeader, Button } from '@material-ui/core';
 
 class SqlEditor extends React.Component {
     constructor(props){
@@ -58,9 +59,9 @@ class SqlEditor extends React.Component {
             }}
         />);
         return(
-            <Card>
-                <CardHeader><Button onClick={changeCurrentMode}>EDIT</Button></CardHeader>
-                <CardBody className={classes.cardBody}>
+            <Card className={classes.cardBody}>
+                <CardHeader><CustomButton onClick={changeCurrentMode}>EDIT</CustomButton></CardHeader>
+                <CardBody >
                     <Accordion
                         active={0}
                         collapses={
@@ -86,7 +87,7 @@ const mapStateToProps = state => {
 
 const mapDispatchToProps = dispatch => {
     return {
-        changeCurrentMode : dispatch(changeCurrentMode()),
+        changeCurrentMode : () => dispatch(changeCurrentMode()),
     }
 }
 

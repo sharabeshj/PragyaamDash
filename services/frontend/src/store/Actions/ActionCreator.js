@@ -77,6 +77,8 @@ const save = (name,state) => {
                 fields : state().dataset.fields,
                 tables : state().dataset.tables,
                 joins : state().dataset.joins,
+                mode : state().dataset.sqlMode,
+                sql : state().dataset.sql,
             }),
             auth :  {
                 username : 'sharabesh',
@@ -333,24 +335,40 @@ const generateSql = (state) => {
             let queryGenerate = '';
             switch(join.type){
                 case "Inner-Join":
-                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).join(join.worksheet_2, null, `${join.worksheet_1}.${join.field} = ${join.worksheet_2}.${join.field}`);
+                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).join(join.worksheet_2, null, `"${join.worksheet_1}"."${join.field}" = "${join.worksheet_2}"."${join.field}"`);
                     count += 1;
                     break;
                 case "Right-Join":
-                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).right_join(join.worksheet_2, null, `${join.worksheet_1}.${join.field} = ${join.worksheet_2}.${join.field}`);
+                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).right_join(join.worksheet_2, null, `"${join.worksheet_1}"."${join.field}" = "${join.worksheet_2}"."${join.field}"`);
                     count += 1;
                     break;
                 case "Left-Join":
-                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).left_join(join.worksheet_2, null, `${join.worksheet_1}.${join.field} = ${join.worksheet_2}.${join.field}`);
+                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).left_join(join.worksheet_2, null, `"${join.worksheet_1}"."${join.field}" = "${join.worksheet_2}"."${join.field}"`);
                     count += 1;
                     break;
                 case "Outer-Join":
-                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).outer_join(join.worksheet_2, null, `${join.worksheet_1}.${join.field} = ${join.worksheet_2}.${join.field}`);
+                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).outer_join(join.worksheet_2, null, `"${join.worksheet_1}"."${join.field}" = "${join.worksheet_2}"."${join.field}"`);
                     count += 1;
                     break;
             };
             state().dataset.fields.filter(item => item.key === join.worksheet_1 || item.key === join.worksheet_2).forEach( field => {
-                queryGenerate = queryGenerate.field(field.name);
+                if(join.field !== field.name) queryGenerate = queryGenerate.field(`${field.key}.${field.name}`);
+                else {
+                    switch(join.type){
+                        case "Inner-Join":
+                            queryGenerate = queryGenerate.field(`${join.worksheet_1}.${field.name}`);
+                            break;
+                        case "Right-Join":
+                            queryGenerate = queryGenerate.field(`${join.worksheet_2}.${field.name}`);
+                            break;
+                        case "Left-Join":
+                            queryGenerate = queryGenerate.field(`${join.worksheet_1}.${field.name}`);
+                            break;
+                        case "Outer-Join":
+                            queryGenerate = queryGenerate.field(`${join.worksheet_1}.${field.name}`);
+                            break;
+                    }
+                }
             });
             queryGenerate = queryGenerate.toString();
             if(count > 1){

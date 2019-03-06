@@ -19,7 +19,7 @@ class DatasetSeraializer(serializers.ModelSerializer):
 
     class Meta:
         model = Dataset
-        fields = ('dataset_id','name','fields','profile')
+        fields = ('dataset_id','name','fields','profile', 'sql', 'mode')
 
 class FieldSerializer(serializers.ModelSerializer):
 

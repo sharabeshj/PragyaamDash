@@ -1,6 +1,6 @@
 import * as ActionTypes from '../Actions/Actions';
 
-const DatasetHandler = (state = { name : '', fields : [], joins : [], tables : [], sql: `/* SQL query of the Dataset */`, sqlMode: 'WATCH'}, action) => {
+const DatasetHandler = (state = { name : '', fields : [], joins : [], tables : [], sql: `/* SQL query of the Dataset */`, sqlMode: 'VIZ'}, action) => {
     switch(action.type){
         case ActionTypes.WORKSPACE_ADD:
             return {
@@ -43,7 +43,7 @@ const DatasetHandler = (state = { name : '', fields : [], joins : [], tables : [
         case ActionTypes.CHANGE_SQL_EDIT_MODE:
             return {
                 ...state,
-                sqlMode : 'EDIT'
+                sqlMode : 'SQL'
             }
         case ActionTypes.SAVE_SQL:
             return {
