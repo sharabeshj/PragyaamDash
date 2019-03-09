@@ -34,7 +34,7 @@ class DatasetList extends React.Component{
     }
 
     getDatasets = () => {
-        axios.get('http://127.0.0.1:8000/api/datasets')
+        axios.get(`${process.env.REACT_APP_API_URL}/datasets`)
             .then(res => this.setState({ datasets : res.data }))
             .catch( e => console.error(e));
     }
@@ -43,7 +43,7 @@ class DatasetList extends React.Component{
 
     handleView = (dataset_id, name) => {
         const postData = {
-            url : 'http://127.0.0.1:8000/api/dataset_detail/',
+            url : `${process.env.API_URL}/dataset_detail/`,
             method : 'POST',
             data : JSON.stringify({
                 dataset_id : dataset_id,
@@ -64,7 +64,7 @@ class DatasetList extends React.Component{
 
     handleAdd = (dataset_id,name) => {
         const postData = {
-            url : 'http://127.0.0.1:8000/api/dataset_detail/',
+            url : `${process.env.API_URL}/dataset_detail/`,
             method : 'POST',
             data : JSON.stringify({
                 dataset_id : dataset_id,

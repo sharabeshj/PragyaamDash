@@ -1,14 +1,18 @@
 #!/bin/sh
 
-echo "Waiting for postgres..."
+# echo "Waiting for postgres..."
+# echo $SQL_HOST $SQL_PORT
 
-while ! nc -z db 5432; do
+while ! nc -z $RDS_HOST 3306; do
     sleep 0.1
 done
 
-echo "PostgresSQL started"
+echo "Remote DB connected"
+
 
 python manage.py collectstatic --no-input
+python manage.py flush --no-input
 python manage.py makemigrations app
-python manage.py migrate
-gunicorn -b 0.0.0.0:8000 usr.src.app.backend.wsgi
+python manage.py migrate --database=default
+gunicorn -b 0.0.0.0:8000 backend.wsgi:application
+exec "$@"

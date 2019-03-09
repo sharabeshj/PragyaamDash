@@ -94,7 +94,7 @@ class ReportCreate extends React.Component{
     }
 
     getDatasets = () => {
-        Axios.get('http://127.0.0.1:8000/api/datasets/')
+        Axios.get(`${process.env.REACT_APP_API_URL}/datasets/`)
         .then(res => {
             this.setState({ datasets : [...res.data]})
         }); 
@@ -287,7 +287,7 @@ class ReportCreate extends React.Component{
 
     handleSave = () => {
         const postData = {
-            url : 'http://127.0.0.1:8000/api/reports/',
+            url : `${process.env.REACT_APP_API_URL}/reports/`,
             method: 'POST',
             data: this.convert_func_in_json({
                 'dataset_id' : this.state.selectedDataset,

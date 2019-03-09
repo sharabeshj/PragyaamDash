@@ -13,7 +13,7 @@ class HomePageDisplay extends React.Component{
     componentDidMount(){
         const postData = {
             method : 'GET',
-            url : 'http://127.0.0.1:8000/api/dashbaordDisplay/',
+            url : `${process.env.REACT_APP_API_URL}/dashbaordDisplay/`,
             auth : {
                 username : 'sharabesh',
                 password : 'shara1234'

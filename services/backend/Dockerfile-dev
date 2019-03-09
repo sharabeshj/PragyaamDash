@@ -3,8 +3,10 @@ FROM python:3.6.8
 
 # install dependencies
 RUN apt-get update && \
+    apt-get -y install default-libmysqlclient-dev && \
     apt-get -y install gcc python-dev musl-dev && \
     apt-get -y install postgresql-server-dev-all && \
+    apt-get -y install telnet && \
     apt-get -y install netcat-openbsd
 
 #set working directory
@@ -23,4 +25,4 @@ RUN chmod +x /usr/src/app/entrypoint.sh
 COPY . /usr/src/app
 
 #run server
-CMD ["/usr/src/app/entrypoint.sh"]
+CMD ["/bin/bash","/usr/src/app/entrypoint.sh"]

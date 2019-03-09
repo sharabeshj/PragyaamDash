@@ -70,7 +70,7 @@ const loginError = error => {
 const save = (name,state) => {
     return dispatch => {
         const postData = {
-            url : 'http://127.0.0.1:8000/api/datasets/',
+            url : `${process.env.REACT_APP_API_URL}/datasets/`,
             method : 'POST',
             data : JSON.stringify({
                 name : name,
@@ -170,7 +170,7 @@ const loadError = err => {
 const loadData = data => {
     return dispatch => {
         const postData = {
-            url : 'http://127.0.0.1:8000/api/report_generate/',
+            url : `${process.env.REACT_APP_API_URL}/report_generate/`,
             method : 'POST',
             data : JSON.stringify(data),
             auth :  {
@@ -239,7 +239,7 @@ const reportLoadError = (err) => {
 const dashLoadData = (data, id) => {
     return dispatch => {
         const postData = {
-            url : 'http://127.0.0.1:8000/api/report_generate/',
+            url : `${process.env.REACT_APP_API_URL}/report_generate/`,
             method : 'POST',
             data : JSON.stringify(data.report_options),
             auth :  {
@@ -257,7 +257,7 @@ const dashLoadData = (data, id) => {
 const reportLoadData = (data,id) => {
     return dispatch => {
         const postData = {
-            url : 'http://127.0.0.1:8000/api/report_generate/',
+            url : `${process.env.REACT_APP_API_URL}/report_generate/`,
             method : 'POST',
             data : JSON.stringify(data.report_options),
             auth :  {

@@ -90,12 +90,23 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default' : {
         'ENGINE' : 'django.db.backends.postgresql_psycopg2',
-        'NAME' : 'pragyaam_dev',
-        'USER' : 'postgres',
-        'PASSWORD' : 'postgres',
-        'HOST' : '127.0.0.1',
-        'PORT' : '5432'
+        'NAME' : os.environ['SQL_DATABASE'],
+        'USER' : os.environ['SQL_USER'],
+        'PASSWORD' : os.environ['SQL_PASSWORD'],
+        'HOST' : os.environ['SQL_HOST'],
+        'PORT' : os.environ['SQL_PORT'],
     },
+    'rds' : {
+        'ENGINE' : 'django.db.backends.mysql',
+        'NAME' : os.environ['RDS_DB_NAME'],
+        'USER' : os.environ['RDS_USERNAME'],
+        'PASSWORD' : os.environ['RDS_PASSWORD'],
+        'HOST' : os.environ['RDS_HOST'],
+        'PORT' : 3306,
+        # 'OPTIONS' : {
+        #     'skip-ssl',
+        # }
+    }
     # 'redshift': {
     #     'ENGINE': 'django_redshift_backend',
     #     'NAME' : 'testdb',
@@ -146,6 +157,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/2.0/howto/static-files/
 
 STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 CORS_ORIGIN_ALLOW_ALL = True
 

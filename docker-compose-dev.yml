@@ -1,4 +1,4 @@
-version: '3.6'
+version: '3.7'
 
 services:
   nginx:
@@ -8,24 +8,27 @@ services:
       dockerfile: Dockerfile-dev
     restart: always
     ports:
-      - 8000:8000
-      - 80:80
-    volumes:
-      - ./services/backend/static:/usr/share/nginx/html/static
+      - 1337:80
     depends_on:
       - backend
-    command: nginx -g 'daemon off';
+      # - frontend
   backend:
     build:
       context: ./services/backend
       dockerfile: Dockerfile-dev
     volumes:
-      - './backend:/usr/src/app'
+      - ./services/backend/:/usr/src/app/
+      - static_volume:/usr/src/app/static
     expose:
-      - "8000"
+      - 8000
     environment:
       - ENVIRONMENT=DEVELOPMENT
+      - PYTHONPATH=/usr/src/app
+    env_file:
+      - env_variables.env
     depends_on:
+      - db
+    links:
       - db
   frontend:
     build:
@@ -38,7 +41,8 @@ services:
       - 3000:3000
     environment:
       - NODE_ENV=development
-      - API_URL=${API_URL}
+    env_file:
+      - env_variables.env
     depends_on:
       - backend
   db:
@@ -46,4 +50,10 @@ services:
       context: ./services/backend/backend/db
       dockerfile: Dockerfile
     ports:
-      - 5433:5433
+      - 5433:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+
+volumes:
+  postgres_data:
+  static_volume:

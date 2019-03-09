@@ -26,6 +26,7 @@ from django_pandas.io import read_frame
 # import mpld3
 import numpy as np
 import random
+import os
 
 # Create your views here.
 
@@ -102,7 +103,7 @@ class DatasetList(APIView):
             try:
                 with connections['default'].cursor() as cursor:
                     sql = data['sql'][:-1]
-                    createSql = 'CREATE TABLE {} AS ({});'.format(data['name'], sql.replace('`','"'))
+                    createSql = "CREATE TABLE {} AS (select * from dblink('dbname={}', {}));".format(data['name'], os.environ['RDS_DB_NAME'], sql.replace('`','"'))
                     cursor.execute(createSql)
             except Exception as e:
                 print(e)
@@ -153,7 +154,7 @@ class DatasetDetail(APIView):
                         return Response(data,status=status.HTTP_200_OK)
                     else:
                         cursor.execute('DELETE FROM {}'.format(dataset.name))
-                        cursor.execute('INSERT INTO {} {}'.format(dataset.name, dataset.sql))
+                        cursor.execute("INSERT INTO {} select * from dblink('dbname={}' , {})".format(dataset.name, os.environ['RDS_DB_NAME'], dataset.sql))
                         data_subset = dataset_model.objects.only(*fields)
                         query = data_subset.query.__str__().replace('"{}"."id", '.format(dataset.name),"")
                         print(query)
@@ -185,7 +186,7 @@ class DatasetDetail(APIView):
                 model.objects.all().delete()
 
                 for t in tables:
-                    with connections['default'].cursor() as cursor:
+                    with connections['rds'].cursor() as cursor:
                         cursor.execute('select * from "%s"'%(t.name))
                         table_data = dictfetchall(cursor)
                         # print(table_data)
