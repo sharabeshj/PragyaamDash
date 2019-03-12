@@ -20,7 +20,7 @@ services:
       - ./services/backend/:/usr/src/app/
       - static_volume:/usr/src/app/static
     expose:
-      - 8000
+      - 8001
     environment:
       - ENVIRONMENT=DEVELOPMENT
       - PYTHONPATH=/usr/src/app
@@ -38,7 +38,7 @@ services:
       - './services/frontend:/usr/src/app'
       - '/usr/src/app/node_modules'
     ports:
-      - 3000:3000
+      - 3001:3000
     environment:
       - NODE_ENV=development
     env_file:

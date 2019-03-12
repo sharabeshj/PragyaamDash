@@ -14,5 +14,5 @@ python manage.py collectstatic --no-input
 python manage.py flush --no-input
 python manage.py makemigrations app
 python manage.py migrate --database=default
-gunicorn -b 0.0.0.0:8000 backend.wsgi:application
+gunicorn -b 0.0.0.0:8001 backend.wsgi:application
 exec "$@"

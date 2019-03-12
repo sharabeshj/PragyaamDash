@@ -43,7 +43,7 @@ class DatasetList extends React.Component{
 
     handleView = (dataset_id, name) => {
         const postData = {
-            url : `${process.env.API_URL}/dataset_detail/`,
+            url : `${process.env.REACT_APP_API_URL}/dataset_detail/`,
             method : 'POST',
             data : JSON.stringify({
                 dataset_id : dataset_id,
@@ -64,7 +64,7 @@ class DatasetList extends React.Component{
 
     handleAdd = (dataset_id,name) => {
         const postData = {
-            url : `${process.env.API_URL}/dataset_detail/`,
+            url : `${process.env.REACT_APP_API_URL}/dataset_detail/`,
             method : 'POST',
             data : JSON.stringify({
                 dataset_id : dataset_id,

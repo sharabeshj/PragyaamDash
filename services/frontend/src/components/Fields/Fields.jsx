@@ -70,11 +70,8 @@ class Fields extends React.Component{
                 case 'date':
                     data = {
                         ...data,
-                        type : 'CharField',
-                        settings : [{
-                            name : 'max_length',
-                            value : 256
-                        }]
+                        type : 'DateField',
+                        settings : []
                     };
                     break;
                 case 'image':

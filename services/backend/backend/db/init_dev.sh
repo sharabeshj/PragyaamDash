@@ -2,6 +2,8 @@
 set -e 
 
 psql -v ON_ERROR_STOP=1 --username "postgres" --dbname "pragyaam_dev" <<-EOSQL
+    CREATE EXTENSION dblink;
+
     CREATE TABLE "WpZl7jb" (
       id int NOT NULL,
       userid varchar(500) DEFAULT NULL,
@@ -54,7 +56,7 @@ psql -v ON_ERROR_STOP=1 --username "postgres" --dbname "pragyaam_dev" <<-EOSQL
     (2, 'Testing Product', '2018-12-06 11:30:20', 'Snagethaa', 'Sangeetha', 'Sangeetha', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
     (3, 'Testing Product', '2018-12-06 11:37:05', 'Sangeetha', 'Sangeetha', '', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
     (4, 'Testing Product', '2018-12-06 12:47:42', '', 'Check', '', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-    (5, 'Testing Product', '2018-12-06 12:49:18', NULL, 'Check', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+    (5, 'Testing Product', '2018-12-06 12:49:18', NULL, 'Check', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),EOSQLEOSQL
     (6, 'Testing Product', '2018-12-06 12:50:06', NULL, 'Check', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
     (7, 'Testing Product', '2018-12-06 12:51:33', NULL, 'aqs', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
     (8, 'Testing Product', '2018-12-06 12:51:39', NULL, 'aqs', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),

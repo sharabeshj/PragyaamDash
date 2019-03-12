@@ -18,6 +18,7 @@ from django.db import connections
 from django.core.cache import caches
 from django.db.migrations.recorder import MigrationRecorder
 from django.core.management.commands import sqlmigrate
+from django.urls import resolve
 
 import collections
 import json
@@ -87,7 +88,7 @@ class DatasetList(APIView):
                 model = dataset.get_django_model()
                 admin.site.register(model)
                 call_command('makemigrations')
-                call_command('migrate',fake = True)
+                call_command('migrate', database = 'default',fake = True)
                 last_migration = MigrationRecorder.Migration.objects.latest('id')
                 last_migration_object = sqlmigrate.Command()
                 last_migration_sql = last_migration_object.handle(app_label = last_migration.app, migration_name = last_migration.name,database = 'default', backwards = False)
@@ -101,10 +102,24 @@ class DatasetList(APIView):
         else:
             data = request.data
             try:
-                with connections['default'].cursor() as cursor:
-                    sql = data['sql'][:-1]
-                    createSql = "CREATE TABLE {} AS (select * from dblink('dbname={}', {}));".format(data['name'], os.environ['RDS_DB_NAME'], sql.replace('`','"'))
-                    cursor.execute(createSql)
+                with connections['rds'].cursor() as cursor:
+                    # sql = data['sql'][:-1]
+                    # createSql = 'CREATE TABLE "{}" AS select * from dblink({}dbname={}{}, {}{}{});'.format(data['name'], "'",os.environ['RDS_DB_NAME'], "'","'",sql.replace('`','"'),"'")
+                    # cursor.execute(data['sql'][:-1])
+                    # print(resolve(request.path).app_name)
+                    dataset_model = get_model(data['name'],Dataset._meta.app_label,cursor, 'CREATE', data['sql'][:-1])
+                    admin.site.register(dataset_model)
+                    call_command('makemigrations')
+                    call_command('migrate', database='default', fake=True)
+                    last_migration = MigrationRecorder.Migration.objects.latest('id')
+                    last_migration_object = sqlmigrate.Command()
+                    last_migration_sql = last_migration_object.handle(app_label = last_migration.app, migration_name = last_migration.name, database = 'default', backwards = False)
+                    print(last_migration_sql)
+                    for item in last_migration_sql.split('\n'):
+                        if item.split(' ')[0] == 'CREATE':
+                            with connections['default'].cursor() as cur:
+                                print('query')
+                                cur.execute(item)
             except Exception as e:
                 print(e)
                 return Response("error", status = status.HTTP_400_BAD_REQUEST)
@@ -138,30 +153,39 @@ class DatasetDetail(APIView):
         if dataset.mode == 'SQL':
             try:
                 with connections['default'].cursor() as cursor:
-                    cursor.execute('select * from {}'.format(dataset.name))
+                    cursor.execute('select * from "{}"'.format(dataset.name))
                     print(Dataset._meta.app_label)
-                    dataset_model = get_model(dataset.name, Dataset._meta.app_label, cursor)
-                    fields = getColumnList(dataset.name, cursor)
+                    dataset_model = get_model(dataset.name, Dataset._meta.app_label, cursor, 'READ_POSTGRES')
 
                     if request.data['view_mode'] == 'view':
-                        data_subset = dataset_model.objects.only(*fields)  
+                        data_subset = dataset_model.objects.all() 
                         query = data_subset.query.__str__().replace('"{}"."id", '.format(dataset.name),"")
                         print(query)
                         cursor.execute(query)
                         data = dictfetchall(cursor)
                         call_command('makemigrations')
-                        call_command('migrate',fake = True)
+                        call_command('migrate',database = 'default', fake = True)
                         return Response(data,status=status.HTTP_200_OK)
                     else:
-                        cursor.execute('DELETE FROM {}'.format(dataset.name))
-                        cursor.execute("INSERT INTO {} select * from dblink('dbname={}' , {})".format(dataset.name, os.environ['RDS_DB_NAME'], dataset.sql))
-                        data_subset = dataset_model.objects.only(*fields)
+                        cursor.execute('DELETE FROM "{}"'.format(dataset.name))
+                        # cursor.execute("INSERT INTO {} select * from dblink('dbname={}' , {})".format(dataset.name, os.environ['RDS_DB_NAME'], dataset.sql))
+                        with connections['rds'].cursor() as cur:
+                            cur.execute(dataset.sql.replace('"', '`'))
+                            dataset_data = dictfetchall(cur)
+                            print(dataset_data)
+                            serializer = GeneralSerializer(data = dataset_data, many = True)
+                        GeneralSerializer.Meta.model = dataset_model
+                        if serializer.is_valid(raise_exception = True):
+                            serializer.save()
+                        else:
+                            return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+                        data_subset = dataset_model.objects.all()
                         query = data_subset.query.__str__().replace('"{}"."id", '.format(dataset.name),"")
                         print(query)
                         cursor.execute(query)
                         data = dictfetchall(cursor)
                         call_command('makemigrations')
-                        call_command('migrate',fake = True)
+                        call_command('migrate', database = 'default',fake = True)
                         return Response(data,status=status.HTTP_200_OK)
             except Exception as e:
                 print(e)
@@ -187,11 +211,11 @@ class DatasetDetail(APIView):
 
                 for t in tables:
                     with connections['rds'].cursor() as cursor:
-                        cursor.execute('select * from "%s"'%(t.name))
+                        cursor.execute('select * from `%s`'%(t.name))
                         table_data = dictfetchall(cursor)
                         # print(table_data)
 
-                        table_model = get_model(t.name,model._meta.app_label,cursor)
+                        table_model = get_model(t.name,model._meta.app_label,cursor, 'READ')
                         DynamicFieldsModelSerializer.Meta.model = table_model
                         
                         context = {
@@ -202,7 +226,7 @@ class DatasetDetail(APIView):
                         # print(dynamic_serializer.data)
                         model_data.append({ 'name' : t.name,'data' : dynamic_serializer.data})
                         call_command('makemigrations')
-                        call_command('migrate',fake = True)
+                        call_command('migrate', database = 'default',fake = True)
                         # del table_model
                         # try:
                         #     del caches[model._meta.app_label][t.name]

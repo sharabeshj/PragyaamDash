@@ -335,7 +335,7 @@ const generateSql = (state) => {
             let queryGenerate = '';
             switch(join.type){
                 case "Inner-Join":
-                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).join(join.worksheet_2, null, `"${join.worksheet_1}"."${join.field}" = "${join.worksheet_2}"."${join.field}"`);
+                    queryGenerate = squel.useFlavour('postgres').select({ autoQuoteTableNames: true, autoQuoteFieldNames: true }).from(join.worksheet_1).join(join.worksheet_2, null, `${"`"}${join.worksheet_1}${"`"}.${"`"}${join.field}${"`"} = ${"`"}${join.worksheet_2}${"`"}.${"`"}${join.field}${"`"}`);
                     count += 1;
                     break;
                 case "Right-Join":
