@@ -8,7 +8,7 @@ services:
       dockerfile: Dockerfile-dev
     restart: always
     ports:
-      - 1337:80
+      - 80:80
     depends_on:
       - backend
       # - frontend
@@ -20,7 +20,7 @@ services:
       - ./services/backend/:/usr/src/app/
       - static_volume:/usr/src/app/static
     expose:
-      - 8001
+      - 8000
     environment:
       - ENVIRONMENT=DEVELOPMENT
       - PYTHONPATH=/usr/src/app
@@ -33,12 +33,12 @@ services:
   frontend:
     build:
       context: ./services/frontend
-      dockerfile: Dockerfile-dev
+      dockerfile: Dockerfile-prod
     volumes:
       - './services/frontend:/usr/src/app'
       - '/usr/src/app/node_modules'
     ports:
-      - 3001:3000
+      - 3000:3000
     environment:
       - NODE_ENV=development
     env_file:
