@@ -37,7 +37,7 @@ class SqlEditor extends React.Component {
 
     render() {
         const { editorOptions } = this.state;
-        const { changeCurrentMode ,classes, currentSQL } = this.props;
+        const { changeCurrentMode ,classes, currentSQL, updateSql } = this.props;
 
         const editor = (<AceEditor
             mode={editorOptions.mode}
@@ -60,7 +60,10 @@ class SqlEditor extends React.Component {
         />);
         return(
             <Card className={classes.cardBody}>
-                <CardHeader><CustomButton onClick={changeCurrentMode}>EDIT</CustomButton></CardHeader>
+                <CardHeader>
+                    <CustomButton onClick={changeCurrentMode}>EDIT</CustomButton>
+                    <CustomButton onClick={updateSql}>REFRESH</CustomButton>
+                    </CardHeader>
                 <CardBody >
                     <Accordion
                         active={0}

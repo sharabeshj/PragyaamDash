@@ -386,7 +386,7 @@ class CreateDataset extends Component {
                     </div>
                 </div>
                 </div>
-                <SqlEditor/>
+                <SqlEditor updateSql = {this.props.updateJoinData}/>
             </div>
         );
     }
