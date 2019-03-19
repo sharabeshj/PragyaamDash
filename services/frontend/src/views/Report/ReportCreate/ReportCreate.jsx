@@ -108,16 +108,15 @@ class ReportCreate extends React.Component{
         console.log(e.currentTarget, typeof(e.target.value));
         e.persist();
         this.setState(prevState => {
-            var i;
             let newFields = [];
-            for(i=0; i < prevState.datasets.length; i++){
+            for(let i=0; i < prevState.datasets.length; i++){
                 console.log(e.target.value);
                 if(prevState.datasets[i].dataset_id == e.target.value){
                     newFields = prevState.datasets[i].fields;
                     break;
                 }
             }
-            return { selectedDataset : e.target.value, fields : [...prevState.fields, ...newFields]}
+            return { selectedDataset : e.target.value, fields : newFields}
         });
     };
 

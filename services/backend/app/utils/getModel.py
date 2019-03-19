@@ -124,7 +124,7 @@ def getColumnsCreate(name, cursor, sql):
 
 def getColumnList(table_name, cursor):
 
-    fields = getColumnsRead(table_name, cursor)
+    fields = getColumns(table_name, cursor)
     field_list = []
 
     for x,y in fields.items():

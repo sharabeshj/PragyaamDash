@@ -9,10 +9,16 @@ done
 
 echo "Remote DB connected"
 
+while ! nc -z $SQL_HOST $SQL_PORT; do
+    sleep 0.1
+done
+
+echo "Postgres DB connected"
+
 
 python manage.py collectstatic --no-input
 python manage.py flush --no-input
 python manage.py makemigrations app
 python manage.py migrate --database=default
-gunicorn -b 0.0.0.0:8001 backend.wsgi:application
+gunicorn -b 0.0.0.0:8000 backend.wsgi:application
 exec "$@"

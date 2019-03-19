@@ -55,6 +55,11 @@ class DatasetList(APIView):
         
         datasets = Dataset.objects.all()
         serializer = DatasetSeraializer(datasets, many = True)
+        for x in serializer.data:
+            print(x)
+            if x['mode'] == 'SQL':
+                with connections['default'].cursor() as cursor:
+                    x['fields'] = getColumnList(x['name'],cursor)
 
         return Response(serializer.data,status = status.HTTP_200_OK)
 

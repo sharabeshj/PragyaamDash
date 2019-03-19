@@ -165,11 +165,17 @@ class CreateDataset extends Component {
     }
 
     handleSubmit = (event) =>  {
+        this.updateJoinData();
         Object.entries(this.engine.getDiagramModel().getNodes()).forEach(
             ([key,value]) => {
                 this.engine.getDiagramModel().removeNode(key);
             }
         );
+        Object.entries(this.engine.getDiagramModel().getLinks()).forEach(
+            ([key,value]) => {
+                this.engine.getDiagramModel().removeLink(value.id);
+            }
+        )
         this.props.saveDataset(this.state.name);
     }
 
