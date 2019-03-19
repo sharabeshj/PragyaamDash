@@ -12,21 +12,25 @@ import {
 
 const headerStyle = theme => ({
   appBar: {
-    backgroundColor: "transparent",
+    backgroundColor: "#FAFAFA",
     boxShadow: "none",
     borderBottom: "0",
     marginBottom: "0",
     position: "absolute",
+    float:"right",
     width: "100%",
-    paddingTop: "10px",
+    paddingTop: "0",
     zIndex: "1029",
     color: "#555555",
     border: "0",
-    borderRadius: "3px",
-    padding: "10px 0",
+    borderRadius: "0",
+    padding: "0",
+    margin:"0",
     transition: "all 150ms ease 0s",
-    minHeight: "50px",
-    display: "block"
+    minHeight: "30px",
+    display: "block",
+    boxShadow:"0px 3px 5px 0px #A8A8A8",
+    clear:"right"
   },
   container: {
     ...containerFluid,

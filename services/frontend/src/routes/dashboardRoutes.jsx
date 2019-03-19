@@ -17,7 +17,7 @@ import Layers from '../views/Layers/Layers';
 
 const dashboardRoutes = [
   {
-    collapse : "true",
+    collapse : true,
     path: "/home",
     name: "Dashboard",
     icon:Home,
@@ -51,7 +51,7 @@ const dashboardRoutes = [
     views: [
       {
         path: "/datasets/create",
-        name: "Create Dataset",
+        name: "Dataset Creation",
         mini: "CD",
         component: CreateDataset
       },
@@ -60,7 +60,7 @@ const dashboardRoutes = [
         name: "Dataset List",
         mini: "DL",
         component: DatasetList
-      }
+      } 
     ]
   },
   {

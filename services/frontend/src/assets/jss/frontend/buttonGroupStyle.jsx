@@ -30,7 +30,7 @@ const buttonGroupStyle = {
     borderBottomLeftRadius: "0",
     margin: "0",
     "&:hover": {
-      zIndex: "2"
+      zIndex: "2" 
     }
   }
 };

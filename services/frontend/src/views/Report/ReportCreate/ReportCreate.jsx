@@ -94,7 +94,7 @@ class ReportCreate extends React.Component{
     }
 
     getDatasets = () => {
-        Axios.get(`${process.env.REACT_APP_API_URL}/datasets/`)
+        Axios.get('http://127.0.0.1:8000/api/datasets/')
         .then(res => {
             this.setState({ datasets : [...res.data]})
         }); 
@@ -108,15 +108,16 @@ class ReportCreate extends React.Component{
         console.log(e.currentTarget, typeof(e.target.value));
         e.persist();
         this.setState(prevState => {
+            var i;
             let newFields = [];
-            for(let i=0; i < prevState.datasets.length; i++){
+            for(i=0; i < prevState.datasets.length; i++){
                 console.log(e.target.value);
                 if(prevState.datasets[i].dataset_id == e.target.value){
                     newFields = prevState.datasets[i].fields;
                     break;
                 }
             }
-            return { selectedDataset : e.target.value, fields : newFields}
+            return { selectedDataset : e.target.value, fields : [...prevState.fields, ...newFields]}
         });
     };
 
@@ -286,7 +287,7 @@ class ReportCreate extends React.Component{
 
     handleSave = () => {
         const postData = {
-            url : `${process.env.REACT_APP_API_URL}/reports/`,
+            url : 'http://127.0.0.1:8000/api/reports/',
             method: 'POST',
             data: this.convert_func_in_json({
                 'dataset_id' : this.state.selectedDataset,

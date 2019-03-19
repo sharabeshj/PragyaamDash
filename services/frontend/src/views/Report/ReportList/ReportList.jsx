@@ -55,7 +55,7 @@ class ReportList extends React.Component{
 
     componentDidMount(){
         const data = {
-            url : `${process.env.REACT_APP_API_URL}/reports/`,
+            url : 'http://127.0.0.1:8000/api/reports/',
             method : 'GET',
             auth : {
                 username : 'sharabesh',
@@ -77,7 +77,7 @@ class ReportList extends React.Component{
 
     moveToDashbaord = (report) => {
         const postData = {
-            url : `${process.env.REACT_APP_API_URL}/reports/`,
+            url : 'http://127.0.0.1:8000/api/reports/',
             method : 'PUT',
             data : JSON.stringify({
                 ...report,

@@ -13,7 +13,7 @@ import { withStyles } from '@material-ui/core/styles';
 import Header from '../../components/Header/Header';
 import Sidebar from '../../components/Sidebar/Sidebar';
 
-import dashboardRoutes from "routes/dashboard.jsx";
+import dashboardRoutes from "routes/dashboardRoutes.jsx";
 
 import dashboardStyle from "../../assets/jss/frontend/layouts/dashboardStyle";
 
@@ -77,7 +77,7 @@ class App extends React.Component {
   }
   render() {
     const { classes, ...rest } = this.props;
-    const mainPanel =
+    const mainPanel = 
       classes.mainPanel +
       " " +
       cx({

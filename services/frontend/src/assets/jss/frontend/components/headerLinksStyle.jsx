@@ -2,11 +2,12 @@
 
 import {
   defaultFont,
-  dangerColor
+  dangerColor,
+  boxShadow
 } from "../../frontend";
 
 import customDropdownStyle from "./customDropdownStyle";
-
+ 
 const headerLinksStyle = theme => ({
   ...customDropdownStyle(theme),
   search: {
@@ -69,7 +70,7 @@ const headerLinksStyle = theme => ({
     }
   },
   top: {
-    zIndex: "4"
+    zIndex: "4",
   },
   searchIcon: {
     width: "17px",

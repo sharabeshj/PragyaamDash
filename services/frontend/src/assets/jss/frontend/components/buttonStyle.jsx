@@ -12,7 +12,7 @@ import {
 const buttonStyle = {
   button: {
     minHeight: "auto",
-    minWidth: "auto",
+    minWidth: "100%",
     backgroundColor: grayColor,
     color: "#FFFFFF",
     boxShadow:

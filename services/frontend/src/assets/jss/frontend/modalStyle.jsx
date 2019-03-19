@@ -13,7 +13,7 @@ const modalStyle = theme => ({
     borderRadius: "6px",
     marginTop: "100px !important",
     overflow: "visible",
-    maxHeight: "unset",
+    maxHeight: "unset", 
     position: "relative",
     height: "fit-content"
   },

@@ -56,7 +56,7 @@ class HomePage extends React.Component{
 
         const postData = {
             method : 'GET',
-            url : `${process.env.REACT_APP_API_URL}/reports/`,
+            url : 'http://127.0.0.1:8000/api/reports/',
             auth : {
                 username : 'sharabesh',
                 password : 'shara1234'

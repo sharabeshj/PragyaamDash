@@ -4,7 +4,7 @@ import PropTypes from 'prop-types';
 
 import { withStyles } from '@material-ui/core/styles';
 import AppBar from '@material-ui/core/AppBar';
-import Toolbar from '@material-ui/core/Toolbar';
+import Toolbar from '@material-ui/core/Toolbar'; 
 import Hidden from '@material-ui/core/Hidden';
 
 import Menu from '@material-ui/icons/Menu';

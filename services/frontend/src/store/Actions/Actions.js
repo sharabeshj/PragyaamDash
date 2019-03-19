@@ -2,7 +2,6 @@ export const DATASET='DATASET';
 export const WORKSPACE_ADD = 'WORKSPACE_ADD';
 export const TABLE_ADD = 'TABLE_ADD';
 export const FIELD_ADD = 'FIELD_ADD';
-export const JOIN_DATA_ADD = 'JOIN_DATA_ADD';
 export const WORSHEET_FIELDS = 'WORKSHEET_FIELDS';
 export const SAVE_DATASET = 'SAVE_DATASET';
 export const SAVED = 'SAVED';
@@ -20,11 +19,3 @@ export const DASH_LOAD_DATA = 'DASH_LOAD_DATA';
 export const DASH_LOAD_ERROR = 'DASH_LOAD_ERROR';
 export const REPORT_LOAD_DATA = 'REPORT_LOAD_DATA';
 export const REPORT_LOAD_ERROR = 'REPORT_LOAD_ERROR';
-export const GET_SQL_QUERY = 'GET_SQL_QUERY';
-export const CHANGE_SQL_EDIT_MODE = 'CHANGE_SQL_EDIT_MODE';
-export const SAVE_SQL = 'SAVE_SQL';
-
-export const SQL_MODE = {
-    WATCH : 'WATCH',
-    EDIT : 'EDIT'
-};

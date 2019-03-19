@@ -10,6 +10,7 @@ import {
 } from 'storm-react-diagrams';
 import { connect } from 'react-redux';
 
+import CssBaseline from "@material-ui/core/CssBaseline";
 
 import { withStyles } from '@material-ui/core/styles';
 import Drawer from '@material-ui/core/Drawer';
@@ -18,7 +19,9 @@ import ListItem from '@material-ui/core/ListItem';
 import ListItemText from '@material-ui/core/ListItemText';
 import ListItemSecondaryAction from '@material-ui/core/ListItemSecondaryAction';
 import { Divider, Radio } from '../../../../node_modules/@material-ui/core';
-
+import Collapse from '@material-ui/core/Collapse';
+import ExpandLess from '@material-ui/icons/ExpandLess';
+import ExpandMore from '@material-ui/icons/ExpandMore';
 import OptionToolbar from '../../../components/OptionToolbar/OptionToolbar';
 import JoinToolbar from '../../../components/JoinToolbar/JoinToobar';
 import Aux from '../../../hoc/aux/aux';
@@ -26,18 +29,15 @@ import SaveOption from '../../../components/SaveOption/SaveOption';
 import CustomDropdown from '../../../components/CustomDropdown/CustomDropdown';
 import GeneralModal from '../../../components/GeneralModal/GeneralModal';
 import CustomButton from '../../../components/CustomButtons/Button';
-import SqlEditor from "../../../components/SqlEditor";
 
 import createDatasetStyle from '../../../assets/jss/frontend/views/createDataset';
 
+
 import '../../../assets/css/srd.css';
 
-import { saveDataset,tableAdd,fieldClear, joinDataAdd, getCurrentSql } from '../../../store/Actions/ActionCreator';
+import { saveDataset,tableAdd,fieldClear } from '../../../store/Actions/ActionCreator';
 import Axios from 'axios';
-import WatchJS from 'melanke-watchjs';
 
-const watch = WatchJS.watch;
-const unwatch = WatchJS.unwatch;
 
 
 class CreateDataset extends Component {
@@ -51,9 +51,12 @@ class CreateDataset extends Component {
             worksheetData : [],
             joinData : [],
             name : '',
+            open:false,
             modalOpen : false
         };
     }
+
+
 
     componentWillMount(){
         this.engine = new DiagramEngine();
@@ -75,11 +78,9 @@ class CreateDataset extends Component {
             };
             Axios(postData).then( res => this.setState(state => ({ workSpace : [...state.workSpace,...res.data.data]}))).catch(e => console.error(e));
         }
-        watch(this.engine.getDiagramModel(), this.updateJoinData, 2);
     }
 
     componentDidUpdate(prevProps,prevState){
-        console.log(this.engine.getDiagramModel());
             if(this.props.dataset.fields.length !== prevProps.dataset.fields.length){
                 console.log('came in did update');
                 this.props.dataset.fields.forEach(field =>  {
@@ -101,26 +102,9 @@ class CreateDataset extends Component {
                     )
                 });
                 this.forceUpdate();
-                this.updateHandler();
             }
+        
     }
-
-    // handleToggle = value  => {
-    //     const { selectedWorkSheet,workSheet } = this.state;
-    //     const currentIndex = selectedWorkSheet.indexOf(workSheet[value]);
-    //     const newSelectedWorkSheet =  [...selectedWorkSheet]
-
-    //     if(currentIndex === -1){
-    //         newSelectedWorkSheet.push(workSheet[value]);
-    //     }
-    //     else {
-    //         newSelectedWorkSheet.splice(currentIndex,1)
-    //     }
-
-    //     this.setState({
-    //         selectedWorkSheet : newSelectedWorkSheet
-    //     })
-    // }
 
     getWorksheets = (workspace_id,event) => {
         const postData = {
@@ -136,6 +120,7 @@ class CreateDataset extends Component {
             }
         };
         Axios(postData).then(res => this.setState({ workSheet : res.data.data })).catch(e => console.error(e));
+        this.openListClick()
     }
 
     getWorksheetData = (worksheet) => {
@@ -159,24 +144,53 @@ class CreateDataset extends Component {
                 worksheet_key : worksheet.key
             };
             return {worksheetData : [...prevState.worksheetData,worksheetData]};
-        }))
+        })) 
         .catch(e => console.error(e));
-
+        
     }
 
     handleSubmit = (event) =>  {
-        this.updateJoinData();
+        let allJoinData = [];
         Object.entries(this.engine.getDiagramModel().getNodes()).forEach(
             ([key,value]) => {
+                if(value.name === "Inner-Join" || value.name === "Right-Join" || value.name === "Left-Join" || value.name === "Outer-Join"){
+                    Object.entries(this.engine.getDiagramModel().getNode(key).getPorts()).forEach(
+                        ([name,val]) => {
+                            if(val.in){
+                                Object.entries(this.engine.getDiagramModel().getNode(key).getPort(name).getLinks()).forEach(
+                                    ([linkKey,linkVal]) => {
+                                        let JoinData = {
+                                            type : value.name,
+                                            field : linkVal.sourcePort.name,
+                                            worksheet_1 : linkVal.sourcePort.parent.key
+                                        }
+                                        Object.entries(this.engine.getDiagramModel().getNode(key).getPorts()).forEach(
+                                            ([n,v]) => {
+                                                if(!v.in){
+                                                    Object.entries(this.engine.getDiagramModel().getNode(key).getPort(n).getLinks()).forEach(
+                                                        ([oLinkName,oLinkVal]) => { 
+                                                            JoinData.worksheet_2 = oLinkVal.targetPort.parent.key;
+                                                            allJoinData = [...new Set([...allJoinData,JoinData])];
+                                                            this.engine.getDiagramModel().removeLink(oLinkName);
+                                                        }
+                                                    );
+                                                }
+                                            }
+                                        );
+                                    }
+                                );
+                            }
+                        }
+                    );
+                }
                 this.engine.getDiagramModel().removeNode(key);
             }
         );
-        Object.entries(this.engine.getDiagramModel().getLinks()).forEach(
-            ([key,value]) => {
-                this.engine.getDiagramModel().removeLink(value.id);
-            }
-        )
-        this.props.saveDataset(this.state.name);
+        this.props.saveDataset(this.state.name,allJoinData);
+    }
+
+    openListClick=()=>{
+        this.setState({open:!this.state.open})
     }
 
     handleChange = e => {
@@ -185,81 +199,21 @@ class CreateDataset extends Component {
 
     componentWillUnmount(){
         this.props.fieldClear();
-        unwatch(this.engine.getDiagramModel());
     }
 
     handleClose = () => {
         this.setState(prevState => ({ modalOpen : !prevState.modalOpen }))
     }
-
-    updateJoinData = () => {
-        let allJoinData = [];
-        this.engine.getDiagramModel().getNodes() && Object.entries(this.engine.getDiagramModel().getNodes()).forEach(
-            ([key, value]) => {
-                console.log(value);
-                if(value.name === "Inner-Join" || value.name === "Right-Join" || value.name === "Left-Join" || value.name === "Outer-Join"){
-                    this.engine.getDiagramModel().getNode(value.id) && Object.entries(this.engine.getDiagramModel().getNode(value.id).getPorts()).forEach(
-                        ([name,val]) => {
-                            console.log(val);
-                            if(val.in){
-                                this.engine.getDiagramModel().getNode(value.id).getPortFromID(val.id) && Object.entries(this.engine.getDiagramModel().getNode(value.id).getPortFromID(val.id).getLinks()).forEach(
-                                    ([linkKey,linkVal]) => {
-                                        console.log(linkVal);
-                                        let JoinData = {
-                                            type : value.name,
-                                            field : linkVal.sourcePort.name,
-                                            worksheet_1 : linkVal.sourcePort.parent.key
-                                        }
-                                        Object.entries(this.engine.getDiagramModel().getNode(value.id).getPorts()).forEach(
-                                            ([n,v]) => {
-                                                if(!v.in){
-                                                    Object.entries(this.engine.getDiagramModel().getNode(value.id).getPortFromID(v.id).getLinks()).forEach(
-                                                        ([oLinkName,oLinkVal]) => {
-                                                            JoinData.worksheet_2 = oLinkVal.targetPort.parent.key;
-                                                            console.log(JoinData)
-                                                            allJoinData = [...allJoinData,JoinData];
-                                                            // this.engine.getDiagramModel().removeLink(oLinkName);
-                                                        });
-                                                    }
-                                                });
-                                        });
-                                    }
-                                });
-                            }
-                });
-                
-    this.props.joinDataAdd(allJoinData);
-    this.props.updateSql();
-    }
-
-
-    updateHandler = () => {
-        Object.entries(this.engine.getDiagramModel().getNodes()).forEach(
-            ([key, value]) => {
-                this.engine.getDiagramModel().getNode(key).addListener({
-                    nodesUpdated : () => {
-                        // console.log(this.engine.getDiagramModel());
-                        this.props.updateSql();
-                    },
-                });
-                Object.entries(this.engine.getDiagramModel().getNode(value.id).getPorts()).forEach(
-                    val => {
-                        this.engine.getDiagramModel().getNode(value.id).getPortFromID(val.id) && this.engine.getDiagramModel().getNode(value.id).getPortFromID(val.id).addListener({
-                            linksUpdated : () => {
-                                console.log("Yessss");
-                                this.updateJoinData();
-                            }
-                        })
-                    }
-                )
-            }
-        );
-    }
-
+    
+    
     render(){
+
+
         const {classes} = this.props;
 
         let list = null;
+
+        let listSpace =null;
 
         let optionToolbar = null;
 
@@ -268,8 +222,34 @@ class CreateDataset extends Component {
         let saveOption = null;
 
         let workspaceOption = null;
+ 
 
-        if(this.state.workSpace.length > 0) workspaceOption = (<CustomDropdown
+ 
+
+        
+        if(this.state.workSpace.length > 0){
+            listSpace = 
+            <List >
+            <ListItem button onClick={this.openListClick}>
+            <ListItemText classes={{primary:classes.listItemText}} inset primary="Select Workspace" />
+            {this.state.open ? <ExpandLess /> : <ExpandMore />}
+          </ListItem>
+          {  this.state.workSpace.map((workspace ) => {
+               return ( <div key = {workspace.workspace_id}
+                        className = {classes.listStyle}>      
+                        <Collapse in={this.state.open} timeout="auto" unmountOnExit>
+                        <List component="div" disablePadding>
+                          <ListItem button>
+                            <ListItemText classes={{primary:classes.listItemText}} inset primary={workspace.workspace_name} onClick = {e => this.getWorksheets(workspace.workspace_id,e)} />
+                          </ListItem>
+                        </List>
+                      </Collapse></div>)
+            }) }
+            </List>
+        }
+
+
+        if(this.state.workSpace.length > 0) workspaceOption = (<CustomDropdown 
             buttonText = "Select Workspace"
             dropdownHeader = "Select Workspace"
             dropdownList = {this.state.workSpace.map(workspace => {
@@ -302,10 +282,10 @@ class CreateDataset extends Component {
                                 root : classes.radio,
                                 checked : classes.radio_checked,
                             }}
-                        />
+                        /> 
                     </ListItemSecondaryAction>
                 </ListItem></List></div>)
-            })
+            }) 
         }
 
         if(this.state.worksheetData.length > 0){
@@ -319,7 +299,7 @@ class CreateDataset extends Component {
                 </GeneralModal>
                  );
 
-            saveOption = (<SaveOption
+            saveOption = (<SaveOption 
                 handleSubmit = {this.handleSubmit}
                 handleChange = {this.handleChange}
                 content = {this.state.name}
@@ -327,9 +307,40 @@ class CreateDataset extends Component {
         }
 
         const fieldsOption = (
-            <CustomButton onClick = {this.handleClose}>
+            <CustomButton onClick = {this.handleClose} >
                 Select fields
             </CustomButton>
+        )
+
+        const workSpace =(
+            <div >
+            {saveOption}
+            <div
+                className = "diagram-layer"
+                onDrop = { event => {
+                    event.preventDefault();
+                    let data = JSON.parse(event.dataTransfer.getData('worksheet'));
+                    let worksheet = new DefaultNodeModel(data.name);
+                    worksheet.addPort(new DefaultPortModel(true,'in-1','X'));
+                    worksheet.addPort(new DefaultPortModel(false,'out-1','O'));
+                    let points = this.engine.getRelativeMousePoint(event);
+                    worksheet.x = points.x;
+                    worksheet.y = points.y;
+                    if(data.name !== 'Inner-Join' && data.name !== 'Left-Join' && data.name !== 'Right-Join' && data.name !== 'Outer-Join')
+                    worksheet.key = data.key;
+                    this.engine.getDiagramModel().addNode(worksheet);
+                    this.forceUpdate ();
+                    if(data.name !== 'Inner-Join' && data.name !== 'Left-Join' && data.name !== 'Right-Join' && data.name !== 'Outer-Join')
+                    this.getWorksheetData(data);
+                
+                }}
+                onDragOver = { event => {
+                    event.preventDefault();
+                }}
+            >
+                <DiagramWidget diagramEngine= {this.engine}/>
+            </div>
+        </div>
         )
 
         const drawer = (
@@ -339,61 +350,48 @@ class CreateDataset extends Component {
                 classes = {{
                     paper : classes.drawerPaper
                 }}
-                anchor = "left"
-            >
-                 <div className = {classes.toolbar}>
-                    {"DATASET CREATION"}
-                 </div>
+                anchor = "left">
+               {/* {workspaceOption} */}
+               <Divider />
+               {listSpace}
+             
+               <Divider />
+                 {optionToolbar}
                  <Divider />
-                 {fieldsOption}
+                 {fieldsOption} 
                  <Divider />
                  {list}
                  <Divider />
                  {joinToolbar}
-                 <Divider />
-                 {optionToolbar}
+                 <Divider/>
             </Drawer>
             </Aux>
         );
         return (
-            <div className = {classes.root}>
-                <div className = {classes.appFrame}>
-                {drawer}
-                {workspaceOption}
-                <div className = {classes.content}>
-                    {saveOption}
-                    <div
-                        className = "diagram-layer"
-                        onDrop = { event => {
-                            event.preventDefault();
-                            let data = JSON.parse(event.dataTransfer.getData('worksheet'));
-                            let worksheet = new DefaultNodeModel(data.name);
-                            worksheet.addPort(new DefaultPortModel(true,'in-1','X'));
-                            worksheet.addPort(new DefaultPortModel(false,'out-1','O'));
-                            let points = this.engine.getRelativeMousePoint(event);
-                            worksheet.x = points.x;
-                            worksheet.y = points.y;
-                            if(data.name !== 'Inner-Join' && data.name !== 'Left-Join' && data.name !== 'Right-Join' && data.name !== 'Outer-Join')
-                            {
-                                worksheet.key = data.key;
-                            }
-                            this.engine.getDiagramModel().addNode(worksheet);
-                            this.forceUpdate();
-                            this.updateHandler();
-                            if(data.name !== 'Inner-Join' && data.name !== 'Left-Join' && data.name !== 'Right-Join' && data.name !== 'Outer-Join')
-                            this.getWorksheetData(data);
 
-                        }}
-                        onDragOver = { event => {
-                            event.preventDefault();
-                        }}
-                    >
-                        <DiagramWidget diagramEngine = {this.engine} maxNumberPointsPerLink = {0}/>
-                    </div>
-                </div>
-                </div>
-                <SqlEditor updateSql = {this.props.updateJoinData}/>
-            </div>
+
+            <div className={classes.root}>
+            <CssBaseline />
+            <Drawer
+              className={classes.drawer}
+              variant="permanent"
+              classes={{
+                paper: classes.drawerPaper
+              }}>
+              
+
+
+{drawer}
+
+
+            </Drawer>
+            <main className={classes.content}>
+
+              {workSpace}      
+            </main>
+          </div>
+
+    
         );
     }
 }
@@ -411,9 +409,7 @@ const mapDispatchToProps = dispatch => {
     return {
         saveDataset : (name,joinData) => dispatch(saveDataset(name,joinData)),
         tableAdd : (table) => dispatch(tableAdd(table)),
-        fieldClear : () => dispatch(fieldClear()),
-        joinDataAdd : (joinData) => dispatch(joinDataAdd(joinData)),
-        updateSql : () => dispatch(getCurrentSql()),
+        fieldClear : () => dispatch(fieldClear())
     }
 }
 

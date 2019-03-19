@@ -60,16 +60,16 @@ class HomePage extends React.Component{
         this._ismounted = true;
 
         const loginData = {
-            email : "shreyanshkitu.10@gmail.com",
-            organization_id: "pragyaamtesting2",
-            password : "Pragyaam@12345"
+            email : "testing@gmail.com",
+            organization_id: "testorg",
+            password : "Testing123!"
         };
         console.log(loginData);
         this.props.login(loginData);
 
         const postData = {
             method : 'GET',
-            url : `${process.env.REACT_APP_API_URL}/reports/`,
+            url : 'http://127.0.0.1:8000/api/reports/',
             auth : {
                 username : 'sharabesh',
                 password : 'shara1234'
