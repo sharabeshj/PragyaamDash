@@ -2,6 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import axios from 'axios';
 import {Link} from 'react-router-dom';
+import { connect } from 'react-redux';
 
 import { withStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
@@ -49,12 +50,9 @@ class DatasetList extends React.Component{
                 dataset_id : dataset_id,
                 view_mode : 'view'
             }),
-            auth : {
-                username : 'sharabesh',
-                password : 'shara1234'
-            },
             headers : {
-                'Content-Type' : 'application/json'
+                'Content-Type' : 'application/json',
+                'Authorization' : `Token ${this.props.auth_token}`
             }
         }
         axios(postData)
@@ -70,12 +68,9 @@ class DatasetList extends React.Component{
                 dataset_id : dataset_id,
                 view_mode : 'add'
             }),
-            auth : {
-                username : 'sharabesh',
-                password : 'shara1234'
-            },
             headers : {
-                'Content-Type' : 'application/json'
+                'Content-Type' : 'application/json',
+                'Authorization' : `Token ${this.props.auth_token}`
             }
         }
         axios(postData)
@@ -158,4 +153,8 @@ DatasetList.propTypes = {
     classes : PropTypes.object.isRequired
 };
 
-export default withStyles(datasetListStyle)(DatasetList);
+const mapStateToProps = state => ({
+    auth_token: state.login.auth_token,
+})
+
+export default connect(mapStateToProps, null)(withStyles(datasetListStyle)(DatasetList));

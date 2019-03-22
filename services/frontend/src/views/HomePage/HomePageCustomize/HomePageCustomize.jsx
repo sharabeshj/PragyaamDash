@@ -59,20 +59,19 @@ class HomePage extends React.Component{
     componentDidMount(){
         this._ismounted = true;
 
-        const loginData = {
-            email : "shreyanshkitu.10@gmail.com",
-            organization_id: "pragyaamtesting2",
-            password : "Pragyaam@12345"
-        };
-        console.log(loginData);
-        this.props.login(loginData);
+        // const loginData = {
+        //     email : "shreyanshkitu.10@gmail.com",
+        //     organization_id: "pragyaamtesting2",
+        //     password : "Pragyaam@12345"
+        // };
+        // console.log(loginData);
+        // this.props.login(loginData);
 
         const postData = {
             method : 'GET',
             url : `${process.env.REACT_APP_API_URL}/reports/`,
-            auth : {
-                username : 'sharabesh',
-                password : 'shara1234'
+            headers : {
+                'Authorization' : `Token ${this.props.auth_token}`
             }
         };
         console.log('component did mount');

@@ -17,10 +17,11 @@ import dashboardRoutes from "routes/dashboard.jsx";
 
 import dashboardStyle from "../../assets/jss/frontend/layouts/dashboardStyle";
 
-import { mobileResizeFunction, handleDrawerToggle, handleDrawerToggleOnUpdate, handleMiniSidebarToggle } from '../../store/Actions/ActionCreator';
+import { mobileResizeFunction, handleDrawerToggle, handleDrawerToggleOnUpdate, handleMiniSidebarToggle, login } from '../../store/Actions/ActionCreator';
 
 import logo from "assets/img/logo.png";
 import image from "assets/img/sidebar-2.jpg";
+
 
 const switchRoutes = (
   <Switch>
@@ -45,12 +46,12 @@ class App extends React.Component {
     super(props);
     this.dashboardRoutes = dashboardRoutes;
     this.logo = logo;
-
   }
   
   getRoute() {
     return this.props.location.pathname !== "/maps";
   }
+
   componentDidMount() {
     if (navigator.platform.indexOf("Win") > -1) {
       ps = new PerfectScrollbar(this.refs.mainPanel, {
@@ -88,6 +89,7 @@ class App extends React.Component {
     const dashboardRoutes = this.dashboardRoutes;
     const logo = this.logo;
     console.log(dashboardRoutes);
+    if(this.props.authenticated === false) return <Redirect to='/auth/login'/>
     return (
       <div className={classes.wrapper}>
         <Sidebar
@@ -125,14 +127,15 @@ App.propTypes = {
 
 const mapStateToProps = state => ({
   mobileOpen : state.drawer.mobileOpen,
-  miniActive : state.drawer.miniActive
+  miniActive : state.drawer.miniActive,
+  authenticated : state.login.authenticated,
 });
 
 const mapDispatchToProps = dispatch => ({
   mobileResizeFunction : () => dispatch(mobileResizeFunction()),
   handleDrawerToggle : () => dispatch(handleDrawerToggle()),
   handleDrawerToggleOnUpdate : () => dispatch(handleDrawerToggleOnUpdate()),
-  handleMiniSidebarToggle : () => dispatch(handleMiniSidebarToggle())
+  handleMiniSidebarToggle : () => dispatch(handleMiniSidebarToggle()),
 });
 
 export default connect(mapStateToProps, mapDispatchToProps)(withStyles(dashboardStyle)(App));

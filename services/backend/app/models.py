@@ -13,15 +13,9 @@ import uuid
 
 class Profile(models.Model):
     user = models.OneToOneField(User,related_name = 'profile',on_delete=models.CASCADE)
+    organisation_id = models.CharField(max_length = 50)
+    user_email = models.EmailField(unique=True)
     
-@receiver(post_save,sender = User)
-def create_user_profile(sender,instance,created,**kwargs):
-    if created:
-        Profile.objects.create(user = instance)
-
-@receiver(post_save,sender = True)
-def save_user_profile(sender,instance,**kwargs):
-    instance.profile.save()
 
 
 class Dataset(models.Model):

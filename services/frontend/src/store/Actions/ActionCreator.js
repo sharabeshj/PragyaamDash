@@ -80,11 +80,7 @@ const save = (name,state) => {
                 mode : state().dataset.sqlMode,
                 sql : state().dataset.sql,
             }),
-            auth :  {
-                username : 'sharabesh',
-                password : 'shara1234'
-            },
-            headers : { 'Content-Type' : 'application/json'}
+            headers : { 'Content-Type' : 'application/json', 'Authorization' : `Token ${state().login.auth_token}`}
         };
         return Axios(postData).then((res) => dispatch(saved(name))).catch(e => dispatch(saveError(e)));
     }
@@ -93,7 +89,7 @@ const save = (name,state) => {
 const validate = loginData => {
     return dispatch => {
         const postData = {
-            url : 'http://pragyaambackend.mysnippt.com/api/login',
+            url : `${process.env.REACT_APP_API_URL}/login/`,
             method : 'POST',
             data : JSON.stringify({
                 ...loginData
@@ -104,12 +100,28 @@ const validate = loginData => {
     }
 }
 
+const logging_out = (state) => {
+    return dispatch => {
+        const postData = {
+            url : `${process.env.REACT_APP_API_URL}/logout/`,
+            method: 'POST',
+            data: JSON.stringify({
+                
+            })
+        }
+    }
+}
+
 export const saveDataset = (name) => {
     return (dispatch,getState) => dispatch(save(name,getState))
 }
 
 export const login = (loginData) => {
     return (dispatch,getState) => dispatch(validate(loginData))
+}
+
+export const logout = () => {
+    return (dispatch,getState) => dispatch(logging_out(getState))
 }
 
 export const fieldClear = () => {
@@ -167,17 +179,13 @@ const loadError = err => {
     }
 }
 
-const loadData = data => {
+const loadData = (data,state) => {
     return dispatch => {
         const postData = {
             url : `${process.env.REACT_APP_API_URL}/report_generate/`,
             method : 'POST',
             data : JSON.stringify(data),
-            auth :  {
-                username : 'sharabesh',
-                password : 'shara1234'
-            },
-            headers : { 'Content-Type' : 'application/json'}
+            headers : { 'Content-Type' : 'application/json' , 'Authorization' : `Token ${state().login.auth_token}`}
         };
         Axios(postData)
             .then(res => dispatch(loadSuccess(res.data.data, data)))
@@ -186,7 +194,7 @@ const loadData = data => {
 } 
 
 export const handleDataLoad = (data) => {
-    return (dispatch,getState) => (dispatch(loadData(data)))
+    return (dispatch,getState) => (dispatch(loadData(data, getState)))
 }
 
 export const handleDefaultDataLoad = (data,type) => {
@@ -236,17 +244,13 @@ const reportLoadError = (err) => {
     }
 }
 
-const dashLoadData = (data, id) => {
+const dashLoadData = (data, id, state) => {
     return dispatch => {
         const postData = {
             url : `${process.env.REACT_APP_API_URL}/report_generate/`,
             method : 'POST',
             data : JSON.stringify(data.report_options),
-            auth :  {
-                username : 'sharabesh',
-                password : 'shara1234'
-            },
-            headers : { 'Content-Type' : 'application/json'}
+            headers : { 'Content-Type' : 'application/json', 'Authorization' : `Token ${state().login.auth_token}`}
         };
         Axios(postData)
             .then(res => dispatch(dashLoadSuccess(res.data.data, id)))
@@ -254,17 +258,13 @@ const dashLoadData = (data, id) => {
     }
 }
 
-const reportLoadData = (data,id) => {
+const reportLoadData = (data, id, state) => {
     return dispatch => {
         const postData = {
             url : `${process.env.REACT_APP_API_URL}/report_generate/`,
             method : 'POST',
             data : JSON.stringify(data.report_options),
-            auth :  {
-                username : 'sharabesh',
-                password : 'shara1234'
-            },
-            headers : { 'Content-Type' : 'application/json'}
+            headers : { 'Content-Type' : 'application/json', 'Authorization' : `Token ${state().login.auth_token}`}
         };
         Axios(postData)
             .then(res => dispatch(reportLoadSuccess(res.data.data, id)))
@@ -273,7 +273,7 @@ const reportLoadData = (data,id) => {
 }
 
 export const handleDashCustomizeFetchData = (data, id) => {
-    return (dispatch,getState) => (dispatch(dashLoadData(data, id)));
+    return (dispatch,getState) => (dispatch(dashLoadData(data, id ,getState)));
 }
 
 export const clearDashCustomizeData = () => {
@@ -283,7 +283,7 @@ export const clearDashCustomizeData = () => {
 }
 
 export const handleReportFetchData = (data,id) => {
-    return (dispatch,getState) => (dispatch(reportLoadData(data, id)));
+    return (dispatch,getState) => (dispatch(reportLoadData(data, id, getState)));
 }
 
 export const clearReportDataList = () => {
