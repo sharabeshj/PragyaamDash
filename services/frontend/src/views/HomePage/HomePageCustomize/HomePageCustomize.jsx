@@ -318,7 +318,8 @@ class HomePage extends React.Component{
 const mapStateToProps = state => {
     return {
         loginState : state.login,
-        dashReportCustomize : state.dashboard.dashReportCustomize
+        dashReportCustomize : state.dashboard.dashReportCustomize,
+        auth_token : state.login.auth_token,
     }
 }
 

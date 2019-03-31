@@ -606,10 +606,13 @@ class ReportGenerate(viewsets.ViewSet):
 
             df_num = df_required.select_dtypes(exclude = [np.number])
             all_columns = list(df_num)
-            all_columns.remove(X_field)
-            df_num[all_columns] = df_num[all_columns].astype('category')
-            df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes+1)
-            df_required.update(df_num)
+            try:
+                all_columns.remove(X_field)
+            except:
+                pass
+            # df_num[all_columns] = df_num[all_columns].astype('category')
+            # df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes+1)
+            # df_required.update(df_num)
             
             # ax.invert_yaxis()
             # label = 'fields-'
@@ -780,10 +783,13 @@ class ReportGenerate(viewsets.ViewSet):
             # label = 'fields-'
             df_num = df_required.select_dtypes(exclude = [np.number])
             all_columns = list(df_num)
-            all_columns.remove(X_field)
-            df_num[all_columns] = df_num[all_columns].astype('category')
-            df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes)
-            df_required.update(df_num)
+            try:
+                all_columns.remove(X_field)
+            except:
+                pass
+            # df_num[all_columns] = df_num[all_columns].astype('category')
+            # df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes)
+            # df_required.update(df_num)
 
             data = {
                 'labels' : np.unique(np.array(df_required.loc[:,X_field])),
@@ -917,7 +923,8 @@ class ReportGenerate(viewsets.ViewSet):
             all_fields.extend([X_field,Y_field])
             if len(group_by) > 0:
                 all_fields.extend([group_by])
-            df_required = df.loc[:,all_fields]
+            print(all_fields)
+            # df_required = df.loc[:,all_fields]
             df_required = df.loc[:,df.columns.isin(all_fields)]
             # df_required = df_required.dropna()
             # plt.rcdefaults()
@@ -931,10 +938,14 @@ class ReportGenerate(viewsets.ViewSet):
 
             df_num = df_required.select_dtypes(exclude = [np.number])
             all_columns = list(df_num)
-            all_columns.remove(X_field)
-            df_num[all_columns] = df_num[all_columns].astype('category')
-            df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes+1)
-            df_required.update(df_num)
+            print(all_columns)
+            try:
+                all_columns.remove(X_field)
+            except:
+                pass
+            # df_num[all_columns] = df_num[all_columns].astype('category')
+            # df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes+1)
+            # df_required.update(df_num)
                     
             # print(df_required)
             # i = -(ny-1)*width/2
@@ -1124,10 +1135,13 @@ class ReportGenerate(viewsets.ViewSet):
 
             df_num = df_required.select_dtypes(exclude = [np.number])
             all_columns = list(df_num)
-            all_columns.remove(X_field)
-            df_num[all_columns] = df_num[all_columns].astype('category')
-            df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes+1)
-            df_required.update(df_num)
+            try:
+                all_columns.remove(X_field)
+            except:
+                pass
+            # df_num[all_columns] = df_num[all_columns].astype('category')
+            # df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes+1)
+            # df_required.update(df_num)
 
             data = {
                 'labels' : np.unique(np.array(df_required.loc[:,X_field])),
@@ -1286,10 +1300,13 @@ class ReportGenerate(viewsets.ViewSet):
 
             df_num = df_required.select_dtypes(exclude = [np.number])
             all_columns = list(df_num)
-            all_columns.remove(X_field)
-            df_num[all_columns] = df_num[all_columns].astype('category')
-            df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes+1)
-            df_required.update(df_num)
+            try:
+                all_columns.remove(X_field)
+            except:
+                pass
+            # df_num[all_columns] = df_num[all_columns].astype('category')
+            # df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes+1)
+            # df_required.update(df_num)
 
             data = {
                 'labels' : np.unique(np.array(df_required.loc[:,X_field])),
@@ -1742,10 +1759,13 @@ class ReportGenerate(viewsets.ViewSet):
             # label = 'fields-'
             df_num = df_required.select_dtypes(exclude = [np.number])
             all_columns = list(df_num)
-            all_columns.remove(X_field)
-            df_num[all_columns] = df_num[all_columns].astype('category')
-            df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes)
-            df_required.update(df_num)
+            try:
+                all_columns.remove(X_field)
+            except:
+                pass
+            # df_num[all_columns] = df_num[all_columns].astype('category')
+            # df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes)
+            # df_required.update(df_num)
 
             data = {
                 'labels' : np.unique(np.array(df_required.loc[:,X_field])),
@@ -2024,10 +2044,14 @@ class ReportGenerate(viewsets.ViewSet):
             # label = 'fields-'
             df_num = df_required.select_dtypes(exclude = [np.number])
             all_columns = list(df_num)
-            all_columns.remove(X_field)
-            df_num[all_columns] = df_num[all_columns].astype('category')
-            df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes)
-            df_required.update(df_num)
+            print(all_columns)
+            try:
+                all_columns.remove(X_field)
+            except:
+                pass
+            # df_num[all_columns] = df_num[all_columns].astype('category')
+            # df_num[all_columns] = df_num[all_columns].apply(lambda x: x.cat.codes)
+            # df_required.update(df_num)
 
             data = {
                 'labels' : np.unique(np.array(df_required.loc[:,X_field])),
