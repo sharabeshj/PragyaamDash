@@ -15,7 +15,7 @@ done
 
 echo "Postgres DB connected"
 
-
+rm -rf app/migrations/
 python manage.py collectstatic --no-input
 python manage.py flush --no-input
 python manage.py makemigrations app
