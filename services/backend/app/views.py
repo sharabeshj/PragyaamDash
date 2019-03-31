@@ -9,8 +9,10 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.http import Http404
-from rest_framework import permissions
+from rest_framework import permissions,exceptions
 from rest_framework import viewsets,generics
+from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+from rest_framework.authtoken.models import Token
 
 from django.contrib import admin
 from django.core.management import call_command
@@ -19,6 +21,8 @@ from django.core.cache import caches
 from django.db.migrations.recorder import MigrationRecorder
 from django.core.management.commands import sqlmigrate
 from django.urls import resolve
+from django.contrib.auth import authenticate, login
+from django.contrib.auth.models import User
 
 import collections
 import json
@@ -28,6 +32,7 @@ from django_pandas.io import read_frame
 import numpy as np
 import random
 import os
+import requests
 
 # Create your views here.
 
@@ -46,6 +51,48 @@ class ProfileDetail(APIView):
         profile = self.get_object(request.user)
         serializer = ProfileSerializer(profile)
         return Response(serializer.data,status=status.HTTP_200_OK)
+
+class LoginView(APIView):
+
+    permission_classes = (permissions.AllowAny, )
+    
+    def post(self, request):
+        
+        data = { 'organization_id': request.data['organisation_id'], 'email': request.data['user_email'], 'password': request.data['password'] }
+        status = requests.post('http://pragyaambackend.mysnippt.com/api/login', data = data)
+        if status.status_code == 200:
+            print(status.text)
+            res_data = json.loads(status.text)['data']
+            user = authenticate(username=request.data['user_email'], password=request.data['password'])
+            print(user)
+            if user is not None:
+                print('yess')
+                if user.is_active:
+                    login(request, user)
+                    auth_token,_ = Token.objects.get_or_create(user=user)
+                    return Response({ 'status': 'success', 'data' : {'token': res_data['token'], 'auth_token': auth_token.key, 'orgId': res_data['organizationId'], 'userId': res_data['userId']}})
+            else:
+                try:
+                    new_user = User(username=request.data['user_email'])
+                    new_user.set_password(request.data['password'])
+                    new_user.save()
+                    profile = Profile.objects.create(user=new_user, organisation_id=request.data['organisation_id'], user_email=request.data['user_email'])
+                except Exception as e:
+                    print(e)
+                    return Response("error", status = status.HTTP_500_INTERNAL_SERVER_ERROR)
+                try:
+                    user = authenticate(username=request.data['user_email'], password=request.data['password'])
+                    if user is not None:
+                        print(user)
+                        if user.is_active:
+                            login(request, user)
+                            auth_token,_ = Token.objects.get_or_create(user=user)
+                            return Response({ 'status': 'success', 'data' : {'token': res_data['token'], 'auth_token': auth_token.key, 'orgId': res_data['organizationId'], 'userId': res_data['userId']}})
+                except Exception as e:
+                    print(e)
+                    return Response("error", status = status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            return Response("error", status = status.HTTP_400_BAD_REQUEST)
 
 class DatasetList(APIView):
 
@@ -907,8 +954,7 @@ class ReportGenerate(viewsets.ViewSet):
             # ax.set_ylabel(label)
             # ax.set_title(request.data['report_title'], size = '20')
             # ax.legend()
-            print(X_field
-            )
+            print(X_field)
             data = {
                 'labels' : np.unique(np.array(df_required.loc[:,X_field])),
                 'datasets' : []
