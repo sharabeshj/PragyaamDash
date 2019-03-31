@@ -12,7 +12,7 @@ import HomePageCustomize from '../views/HomePage/HomePageCustomize/HomePageCusto
 import HomePageDisplay from '../views/HomePage/HomePageDisplay/HomePageDisplay';
 import WorkspacePage from '../views/WorkspacePage/WorkspacePage';
 import Layers from '../views/Layers/Layers';
-
+import Login from '../views/Login';
 
 
 const dashboardRoutes = [
@@ -26,13 +26,15 @@ const dashboardRoutes = [
         path: "/home/customize",
         name: "Dashboard Customize",
         mini : "DC",
-        component : HomePageCustomize
+        component : HomePageCustomize,
+        icon:Home
       },
       {
         path: "/home",
         name: "Dashboard",
         mini: "D",
-        component: HomePageDisplay
+        component: HomePageDisplay,
+        icon:Home
       }
     ]
   },
@@ -88,6 +90,12 @@ const dashboardRoutes = [
         component: ReportList
       }
     ]
+  },
+  {
+    path: '/login',
+    name: 'Login',
+    component: Login,
+    layout: '/auth'
   },
   { redirect: true, path: "/", to: "/home", navbarName: "Redirect" }
 ];

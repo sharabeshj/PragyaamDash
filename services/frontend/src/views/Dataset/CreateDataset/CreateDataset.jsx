@@ -63,7 +63,7 @@ class CreateDataset extends Component {
     }
 
     componentDidMount(){
-        if(this.props.login.token !== '') {
+        if(this.props.login.authenticated) {
             const postData = {
                 url : 'http://pragyaambackend.mysnippt.com/api/workspace/view',
                 method : 'POST',

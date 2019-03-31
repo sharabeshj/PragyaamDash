@@ -301,12 +301,9 @@ class ReportCreate extends React.Component{
                     }
                 }
             }),
-            auth: {
-                username : 'sharabesh',
-                password : 'shara1234'
-            },
             headers : {
-                'Content-Type' : 'application/json'
+                'Content-Type' : 'application/json',
+                'Authorization' : `Token ${this.props.auth_token}`
             }
         }
         Axios(postData)
@@ -396,7 +393,8 @@ class ReportCreate extends React.Component{
 const mapStateToProps = state => {
     return {
         reportData : state.report.reportData,
-        options : state.report.options
+        options : state.report.options,
+        auth_token : state.login.auth_token,
     }
 };
 

@@ -14,6 +14,8 @@ import Hidden from "@material-ui/core/Hidden";
 import Collapse from "@material-ui/core/Collapse";
 import Icon from "@material-ui/core/Icon";
 
+import Input from "@material-ui/icons/Input"
+
 import HeaderLinks from '../Header/HeaderLinks';
 
 import sidebarStyle from '../../assets/jss/frontend/components/sidebarStyle';
@@ -162,6 +164,36 @@ class Sidebar extends React.Component {
                           </ListItem>
                         );
                       }
+                    if(prop.layout === '/auth') {
+                      const navLinkClasses =
+                        classes.itemLink +
+                        " " +
+                        cx({
+                        [" " + classes[color]]: this.activeRoute(prop.path)
+                        });
+                    const itemText =
+                        classes.itemText +
+                        " " +
+                        cx({
+                        [classes.itemTextMini]:
+                            this.props.miniActive && this.state.miniActive,
+                        });
+                    const itemIcon = classes.itemIcon
+                    return (
+                        <ListItem key={key} className={classes.item}>
+                            <NavLink to={"/auth/logout"} className={navLinkClasses}>
+                                <ListItemIcon className={itemIcon}>
+                                  <Input />
+                                </ListItemIcon>
+                                <ListItemText
+                                primary={"Logout"}
+                                disableTypography={true}
+                                className={itemText}
+                                />
+                            </NavLink>
+                        </ListItem>
+                    );
+                    } 
                     const navLinkClasses =
                         classes.itemLink +
                         " " +
@@ -179,13 +211,13 @@ class Sidebar extends React.Component {
                     return (
                         <ListItem key={key} className={classes.item}>
                             <NavLink to={prop.path} className={navLinkClasses}>
-                                <ListItemIcon className={itemIcon}>
+                                {/* <ListItemIcon className={itemIcon}>
                                 {typeof prop.icon === "string" ? (
                                     <Icon>{prop.icon}</Icon>
                                 ) : (
                                     <prop.icon />
                                 )}
-                                </ListItemIcon>
+                                </ListItemIcon> */}
                                 <ListItemText
                                 primary={prop.name}
                                 disableTypography={true}

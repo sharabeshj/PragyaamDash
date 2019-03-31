@@ -6,14 +6,15 @@ class ProfileSerializer(serializers.ModelSerializer):
     
     user = serializers.ReadOnlyField(source = 'user.username')
     datasets = serializers.SlugRelatedField( many = True, slug_field = 'name',read_only = True)
+    password = serializers.CharField(source='user.password')
 
     class Meta:
         model = Profile
-        fields = ('user','datasets')
+        fields = ('user','organisation_id','user_email','password','datasets')
 
 class DatasetSeraializer(serializers.ModelSerializer):
 
-    profile = serializers.ReadOnlyField(source = 'profile.user.username')
+    profile = serializers.ReadOnlyField(source = 'profile.user_email')
     fields = serializers.SlugRelatedField(many = True, slug_field='name',read_only = True)
     dataset_id = serializers.UUIDField(default = uuid.uuid4)
 
