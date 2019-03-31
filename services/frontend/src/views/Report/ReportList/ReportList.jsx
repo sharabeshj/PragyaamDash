@@ -57,9 +57,8 @@ class ReportList extends React.Component{
         const data = {
             url : `${process.env.REACT_APP_API_URL}/reports/`,
             method : 'GET',
-            auth : {
-                username : 'sharabesh',
-                password : 'shara1234'
+            headers : {
+                'Authorization' : `Token ${this.props.auth_token}`
             }
         };
         Axios(data)
@@ -86,11 +85,7 @@ class ReportList extends React.Component{
                     reported : true
                 }
             }),
-            auth : {
-                username : 'sharabesh',
-                password : 'shara1234'
-            },
-            headers : { 'Content-Type' : 'application/json'}
+            headers : { 'Content-Type' : 'application/json', 'Authorization' : `Token ${this.props.auth_token}`}
         };
         Axios(postData)
         .then(res => this.props.history.push('/'))
@@ -268,7 +263,8 @@ ReportList.propTypes = {
 
 const mapStateToProps = state => {
     return {
-        reportDataList : state.report.reportDataList
+        reportDataList : state.report.reportDataList,
+        auth_token : state.login.auth_token,
     }
 }
 
