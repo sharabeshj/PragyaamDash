@@ -65,7 +65,7 @@ class CreateDataset extends Component {
     componentDidMount(){
         if(this.props.login.authenticated) {
             const postData = {
-                url : 'http://pragyaambackend.mysnippt.com/api/workspace/view',
+                url : 'http://dev-blr-b.pragyaam.in/api/workspace/view',
                 method : 'POST',
                 data : JSON.stringify({ organization_id : this.props.login.orgId }),
                 headers : {
@@ -124,7 +124,7 @@ class CreateDataset extends Component {
 
     getWorksheets = (workspace_id,event) => {
         const postData = {
-            url : 'http://pragyaambackend.mysnippt.com/api/worksheet/view',
+            url : 'http://dev-blr-b.pragyaam.in/api/worksheet/view',
             method : 'POST',
             data : JSON.stringify({
                 organization_id : this.props.login.orgId,
@@ -141,7 +141,7 @@ class CreateDataset extends Component {
     getWorksheetData = (worksheet) => {
         this.props.tableAdd(worksheet.key);
         const postData = {
-            url : `http://pragyaambackend.mysnippt.com/api/entrypage`,
+            url : `http://dev-blr-b.pragyaam.in/api/entrypage`,
             method : 'POST',
             data : JSON.stringify({
                 organization_id : this.props.login.orgId,

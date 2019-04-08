@@ -97,6 +97,11 @@ const dashboardRoutes = [
     component: Login,
     layout: '/auth'
   },
+  // {
+  //   path: '/logout',
+  //   name: 'Logout',
+  //   component: 
+  // },
   { redirect: true, path: "/", to: "/home", navbarName: "Redirect" }
 ];
 
