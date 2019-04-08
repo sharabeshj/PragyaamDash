@@ -59,7 +59,7 @@ class LoginView(APIView):
     def post(self, request):
         
         data = { 'organization_id': request.data['organisation_id'], 'email': request.data['user_email'], 'password': request.data['password'] }
-        status = requests.post('http://pragyaambackend.mysnippt.com/api/login', data = data)
+        status = requests.post('http://dev-blr-b.pragyaam.in/api/login', data = data)
         if status.status_code == 200:
             print(status.text)
             res_data = json.loads(status.text)['data']
@@ -263,7 +263,9 @@ class DatasetDetail(APIView):
 
                 for t in tables:
                     with connections['rds'].cursor() as cursor:
+                        print('slowww')
                         cursor.execute('select * from `%s`'%(t.name))
+                        print('came out')
                         table_data = dictfetchall(cursor)
                         # print(table_data)
 
@@ -292,7 +294,7 @@ class DatasetDetail(APIView):
                     print('hi2')
                     for x in model_data:
                         for a in x['data']:
-                            print(a)
+                            # print(a)
                             id_count +=1
                             join_model_data.append({**dict(a),'id' : id_count })
 
@@ -521,11 +523,11 @@ class DatasetDetail(APIView):
                 #             pass
                         
                 #     all_model_data_list.append(d)
-                print(json.dumps(join_model_data))
+                # print(json.dumps(join_model_data))
                 serializer = GeneralSerializer(data = join_model_data,many = True)
                 if serializer.is_valid(raise_exception = True):
                     print('hi')
-                    serializer.save()
+                    model.objects.bulk_create([model(**params) for params in serializer.validated_data])
                 else:
                     return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
                 data_subset = model.objects.all()
@@ -1092,10 +1094,24 @@ class ReportGenerate(viewsets.ViewSet):
                     
                 
                 if measure_operation == "SUM":
-                    print(df_required.group_by([X_field, Y_field])[Y_field].sum())
-            
-            
-            
+                    # print(df_required.groupby([X_field, Y_field])[Y_field].sum())
+
+                    print(df_required.groupby([X_field])[Y_field].sum().reset_index())
+                    # print(df_sum.loc[:,:])
+                    # df_sum[Y_field] = df_sum[Y_field].sum()
+                    # print(df_sum)
+                    # labels = []
+                    # labels.extend(df_sum.loc[:,[X_field]].values)
+                    # data['labels'] = labels
+                    # new_data = []
+                    # new_data.extend(df_sum.loc[:,[Y_field]].values)
+                    # if len(data['labels']) < len(self.color_choices):
+                    #     colors = random.sample(set(self.color_choices),len(data['labels']))
+                    # else:
+                    #     colors = self.color_choices
+
+                    # data['datasets'].append({ 'label' : Y_field, 'backgroundColor' : colors, 'data' : new_data})
+                    # print(data)
 
             return Response({ 'data' : data }, status = status.HTTP_200_OK)
         

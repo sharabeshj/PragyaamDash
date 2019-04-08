@@ -1,4 +1,4 @@
-FROM python:3.5-alpine
+    FROM python:3.5-alpine
 
 ADD requirements.txt /requirements.txt
 
@@ -39,5 +39,4 @@ RUN chmod +x ./entrypoint.sh
 
 ENTRYPOINT [ "./entrypoint.sh" ] 
 
-# CMD export DJANGO_PASSWORD=$(cat /etc/secrets/djangouserpw);
 
