@@ -105,9 +105,9 @@ DATABASES = {
         'PASSWORD' : os.environ['RDS_PASSWORD'],
         'HOST' : os.environ['RDS_HOST'],
         'PORT' : 3306,
-        # 'OPTIONS' : {
-        #     'skip-ssl',
-        # }
+        'OPTIONS' : {
+            'init_command' : 'SET read_rnd_buffer_size=256000',
+        }
     }
     # 'redshift': {
     #     'ENGINE': 'django_redshift_backend',
