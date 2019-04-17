@@ -106,7 +106,8 @@ DATABASES = {
         'HOST' : os.environ['RDS_HOST'],
         'PORT' : 3306,
         'OPTIONS' : {
-            'init_command' : 'SET read_rnd_buffer_size=256000',
+            'read_default_file' : BASE_DIR+'db.cnf',
+            'init_command' : 'SET GLOBAL innodb_fast_shutdown = 0'
         }
     }
     # 'redshift': {
