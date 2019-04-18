@@ -2,6 +2,8 @@
 database = pragyaamdbtest937851
 user = pragyaam
 password = nn7zQHW6&CAk
+host = grid-dev.cluster-cvt6u27fv795.ap-south-1.rds.amazonaws.com
+port = 3306
 default-character-set = utf8
 max_allowed_packet = 1G
 innodb_log_file_size = 1536M
