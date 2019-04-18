@@ -105,10 +105,10 @@ DATABASES = {
         'PASSWORD' : os.environ['RDS_PASSWORD'],
         'HOST' : os.environ['RDS_HOST'],
         'PORT' : 3306,
-        'OPTIONS' : {
-            'read_default_file' : BASE_DIR+'db.cnf',
-            'init_command' : 'SET max_allowed_packet=1024*1024'
-        }
+        # 'OPTIONS' : {
+        #     'read_default_file' : BASE_DIR+'db.cnf',
+        #     'init_command' : 'SET global max_allowed_packet=1024*1024'
+        # }
     }
     # 'redshift': {
     #     'ENGINE': 'django_redshift_backend',

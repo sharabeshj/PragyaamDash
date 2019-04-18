@@ -33,6 +33,7 @@ import numpy as np
 import random
 import os
 import requests
+import pandas as pd
 
 # Create your views here.
 
@@ -1042,10 +1043,243 @@ class ReportGenerate(viewsets.ViewSet):
                             colors.remove(color_chosen)
 
                 if measure_operation == "SUM":
-                    print(df_required.group_by([group_by, X_field, Y_field])[Y_field].sum())
+                    print(df_required.groupby([group_by, X_field],as_index=False)[Y_field].sum())
+                    df_group_sum = df_required.groupby([group_by, X_field],as_index=False)[Y_field].sum()
+                    for x in df_group_sum.groupby([group_by]).groups.keys():
+                        
+                        df_group = df_group_sum.groupby([group_by]).get_group(x)
+                        curr.append(np.array(df_group[[X_field,Y_field,group_by]]))
 
+                        for d in np.array(df_group.loc[:,X_field]):
+                            if d not in op_dict.keys():
+                                op_dict[d] = []
+
+                    colors = random.sample(set(self.color_choices),len(df_group_sum.groupby([group_by]).groups.keys()))
+
+                    for x in curr:
+                        
+                        for l in data['labels']:
+                            op_dict[l] = []
+
+                        group_by = ""
+
+                        for c in x:
+                            
+                            
+                            group_by = c[2]
+
+                            if c[1] not in op_dict[c[0]]:
+                                
+                                op_dict[c[0]].append(c[1])
+                    
+
+                        color_chosen = random.choice(colors)    
+                        new_add = []
+                        for d in data['labels']:
+                            new_add.append(op_dict[d])
+                            
+                        data['datasets'].append({ 'label' : [group_by], 'backgroundColor' : color_chosen, 'data' : new_add })
+                        if len(colors) > 1:
+                            colors.remove(color_chosen)
                 
-                
+                if measure_operation == "COUNT":
+                    print(df_required.groupby([group_by, X_field],as_index=False)[Y_field].count())
+                    df_group_sum = df_required.groupby([group_by, X_field],as_index=False)[Y_field].count()
+                    for x in df_group_sum.groupby([group_by]).groups.keys():
+                        
+                        df_group = df_group_sum.groupby([group_by]).get_group(x)
+                        curr.append(np.array(df_group[[X_field,Y_field,group_by]]))
+
+                        for d in np.array(df_group.loc[:,X_field]):
+                            if d not in op_dict.keys():
+                                op_dict[d] = []
+
+                    colors = random.sample(set(self.color_choices),len(df_group_sum.groupby([group_by]).groups.keys()))
+
+                    for x in curr:
+                        
+                        for l in data['labels']:
+                            op_dict[l] = []
+
+                        group_by = ""
+
+                        for c in x:
+                            
+                            
+                            group_by = c[2]
+
+                            if c[1] not in op_dict[c[0]]:
+                                
+                                op_dict[c[0]].append(c[1])
+                    
+
+                        color_chosen = random.choice(colors)    
+                        new_add = []
+                        for d in data['labels']:
+                            new_add.append(op_dict[d])
+                            
+                        data['datasets'].append({ 'label' : [group_by], 'backgroundColor' : color_chosen, 'data' : new_add })
+                        if len(colors) > 1:
+                            colors.remove(color_chosen)
+
+                if measure_operation == "COUNT DISTINCT":
+                    df_group_sum = df_required.groupby([group_by, X_field],as_index=False).agg({ Y_field : pd.Series.nunique})
+                    for x in df_group_sum.groupby([group_by]).groups.keys():
+                        
+                        df_group = df_group_sum.groupby([group_by]).get_group(x)
+                        curr.append(np.array(df_group[[X_field,Y_field,group_by]]))
+
+                        for d in np.array(df_group.loc[:,X_field]):
+                            if d not in op_dict.keys():
+                                op_dict[d] = []
+
+                    colors = random.sample(set(self.color_choices),len(df_group_sum.groupby([group_by]).groups.keys()))
+
+                    for x in curr:
+                        
+                        for l in data['labels']:
+                            op_dict[l] = []
+
+                        group_by = ""
+
+                        for c in x:
+                            
+                            
+                            group_by = c[2]
+
+                            if c[1] not in op_dict[c[0]]:
+                                
+                                op_dict[c[0]].append(c[1])
+                    
+
+                        color_chosen = random.choice(colors)    
+                        new_add = []
+                        for d in data['labels']:
+                            new_add.append(op_dict[d])
+                            
+                        data['datasets'].append({ 'label' : [group_by], 'backgroundColor' : color_chosen, 'data' : new_add })
+                        if len(colors) > 1:
+                            colors.remove(color_chosen)
+
+                if measure_operation == "MAX":
+                    print(df_required.groupby([group_by, X_field],as_index=False)[Y_field].max())
+                    df_group_sum = df_required.groupby([group_by, X_field],as_index=False)[Y_field].max()
+                    for x in df_group_sum.groupby([group_by]).groups.keys():
+                        
+                        df_group = df_group_sum.groupby([group_by]).get_group(x)
+                        curr.append(np.array(df_group[[X_field,Y_field,group_by]]))
+
+                        for d in np.array(df_group.loc[:,X_field]):
+                            if d not in op_dict.keys():
+                                op_dict[d] = []
+
+                    colors = random.sample(set(self.color_choices),len(df_group_sum.groupby([group_by]).groups.keys()))
+
+                    for x in curr:
+                        
+                        for l in data['labels']:
+                            op_dict[l] = []
+
+                        group_by = ""
+
+                        for c in x:
+                            
+                            
+                            group_by = c[2]
+
+                            if c[1] not in op_dict[c[0]]:
+                                
+                                op_dict[c[0]].append(c[1])
+                    
+
+                        color_chosen = random.choice(colors)    
+                        new_add = []
+                        for d in data['labels']:
+                            new_add.append(op_dict[d])
+                            
+                        data['datasets'].append({ 'label' : [group_by], 'backgroundColor' : color_chosen, 'data' : new_add })
+                        if len(colors) > 1:
+                            colors.remove(color_chosen)
+
+                if measure_operation == "MIN":
+                    print(df_required.groupby([group_by, X_field],as_index=False)[Y_field].min())
+                    df_group_sum = df_required.groupby([group_by, X_field],as_index=False)[Y_field].min()
+                    for x in df_group_sum.groupby([group_by]).groups.keys():
+                        
+                        df_group = df_group_sum.groupby([group_by]).get_group(x)
+                        curr.append(np.array(df_group[[X_field,Y_field,group_by]]))
+
+                        for d in np.array(df_group.loc[:,X_field]):
+                            if d not in op_dict.keys():
+                                op_dict[d] = []
+
+                    colors = random.sample(set(self.color_choices),len(df_group_sum.groupby([group_by]).groups.keys()))
+
+                    for x in curr:
+                        
+                        for l in data['labels']:
+                            op_dict[l] = []
+
+                        group_by = ""
+
+                        for c in x:
+                            
+                            
+                            group_by = c[2]
+
+                            if c[1] not in op_dict[c[0]]:
+                                
+                                op_dict[c[0]].append(c[1])
+                    
+
+                        color_chosen = random.choice(colors)    
+                        new_add = []
+                        for d in data['labels']:
+                            new_add.append(op_dict[d])
+                            
+                        data['datasets'].append({ 'label' : [group_by], 'backgroundColor' : color_chosen, 'data' : new_add })
+                        if len(colors) > 1:
+                            colors.remove(color_chosen)
+
+                if measure_operation == "AVERAGE":
+                    df_group_sum = df_required.groupby([group_by, X_field],as_index=False)[Y_field].mean()
+                    for x in df_group_sum.groupby([group_by]).groups.keys():
+                        
+                        df_group = df_group_sum.groupby([group_by]).get_group(x)
+                        curr.append(np.array(df_group[[X_field,Y_field,group_by]]))
+
+                        for d in np.array(df_group.loc[:,X_field]):
+                            if d not in op_dict.keys():
+                                op_dict[d] = []
+
+                    colors = random.sample(set(self.color_choices),len(df_group_sum.groupby([group_by]).groups.keys()))
+
+                    for x in curr:
+                        
+                        for l in data['labels']:
+                            op_dict[l] = []
+
+                        group_by = ""
+
+                        for c in x:
+                            
+                            
+                            group_by = c[2]
+
+                            if c[1] not in op_dict[c[0]]:
+                                
+                                op_dict[c[0]].append(c[1])
+                    
+
+                        color_chosen = random.choice(colors)    
+                        new_add = []
+                        for d in data['labels']:
+                            new_add.append(op_dict[d])
+                            
+                        data['datasets'].append({ 'label' : [group_by], 'backgroundColor' : color_chosen, 'data' : new_add })
+                        if len(colors) > 1:
+                            colors.remove(color_chosen)
+
             else:
                 if measure_operation == "LAST":
 
@@ -1095,8 +1329,8 @@ class ReportGenerate(viewsets.ViewSet):
                 
                 if measure_operation == "SUM":
                     # print(df_required.groupby([X_field, Y_field])[Y_field].sum())
-
-                    print(df_required.groupby([X_field])[Y_field].sum().reset_index())
+                    curr = []
+                    curr.extend(df_required.groupby([X_field])[Y_field].sum().reset_index().values)
                     # print(df_sum.loc[:,:])
                     # df_sum[Y_field] = df_sum[Y_field].sum()
                     # print(df_sum)
@@ -1112,6 +1346,177 @@ class ReportGenerate(viewsets.ViewSet):
 
                     # data['datasets'].append({ 'label' : Y_field, 'backgroundColor' : colors, 'data' : new_data})
                     # print(data)
+                    for c in curr:
+                        if c[1] not in op_dict[c[0]]:
+                            op_dict[c[0]].append(c[1])
+
+
+
+                    color_count = 0
+                                
+                    total_length = 0
+
+                    for d in data['labels']:
+                        if len(op_dict[d]) > total_length:
+                            total_length = len(op_dict[d])
+
+                    new_add = []
+                    for d in data['labels']:
+                        color_count+=1
+                        new_add.append(op_dict[d])
+                        
+                    if color_count < len(self.color_choices):            
+                        colors = random.sample(set(self.color_choices),color_count)
+                    else:
+                        colors = self.color_choices  
+                            
+                    data['datasets'].append({ 'label' : Y_field, 'backgroundColor' : colors, 'data' : new_add })
+                
+                if measure_operation == "COUNT":
+                    curr = []
+                    curr.extend(df_required.groupby([X_field])[Y_field].count().reset_index().values)
+                    for c in curr:
+                        if c[1] not in op_dict[c[0]]:
+                            op_dict[c[0]].append(c[1])
+
+
+
+                    color_count = 0
+                                
+                    total_length = 0
+
+                    for d in data['labels']:
+                        if len(op_dict[d]) > total_length:
+                            total_length = len(op_dict[d])
+
+                    new_add = []
+                    for d in data['labels']:
+                        color_count+=1
+                        new_add.append(op_dict[d])
+                        
+                    if color_count < len(self.color_choices):            
+                        colors = random.sample(set(self.color_choices),color_count)
+                    else:
+                        colors = self.color_choices  
+                            
+                    data['datasets'].append({ 'label' : Y_field, 'backgroundColor' : colors, 'data' : new_add })
+
+                if measure_operation == "COUNT DISTINCT":
+                    curr = []
+                    curr.extend(df_required.groupby([X_field])[Y_field].nunique().reset_index().values)
+                    for c in curr:
+                        if c[1] not in op_dict[c[0]]:
+                            op_dict[c[0]].append(c[1])
+
+
+
+                    color_count = 0
+                                
+                    total_length = 0
+
+                    for d in data['labels']:
+                        if len(op_dict[d]) > total_length:
+                            total_length = len(op_dict[d])
+
+                    new_add = []
+                    for d in data['labels']:
+                        color_count+=1
+                        new_add.append(op_dict[d])
+                        
+                    if color_count < len(self.color_choices):            
+                        colors = random.sample(set(self.color_choices),color_count)
+                    else:
+                        colors = self.color_choices  
+                            
+                    data['datasets'].append({ 'label' : Y_field, 'backgroundColor' : colors, 'data' : new_add })
+
+                if measure_operation == "MAX":
+                    curr = []
+                    curr.extend(df_required.groupby([X_field])[Y_field].max().reset_index().values)
+                    for c in curr:
+                        if c[1] not in op_dict[c[0]]:
+                            op_dict[c[0]].append(c[1])
+
+
+
+                    color_count = 0
+                                
+                    total_length = 0
+
+                    for d in data['labels']:
+                        if len(op_dict[d]) > total_length:
+                            total_length = len(op_dict[d])
+
+                    new_add = []
+                    for d in data['labels']:
+                        color_count+=1
+                        new_add.append(op_dict[d])
+                        
+                    if color_count < len(self.color_choices):            
+                        colors = random.sample(set(self.color_choices),color_count)
+                    else:
+                        colors = self.color_choices  
+                            
+                    data['datasets'].append({ 'label' : Y_field, 'backgroundColor' : colors, 'data' : new_add })
+
+                if measure_operation == "MIN":
+                    curr = []
+                    curr.extend(df_required.groupby([X_field])[Y_field].min().reset_index().values)
+                    for c in curr:
+                        if c[1] not in op_dict[c[0]]:
+                            op_dict[c[0]].append(c[1])
+
+
+
+                    color_count = 0
+                                
+                    total_length = 0
+
+                    for d in data['labels']:
+                        if len(op_dict[d]) > total_length:
+                            total_length = len(op_dict[d])
+
+                    new_add = []
+                    for d in data['labels']:
+                        color_count+=1
+                        new_add.append(op_dict[d])
+                        
+                    if color_count < len(self.color_choices):            
+                        colors = random.sample(set(self.color_choices),color_count)
+                    else:
+                        colors = self.color_choices  
+                            
+                    data['datasets'].append({ 'label' : Y_field, 'backgroundColor' : colors, 'data' : new_add })
+
+                if measure_operation == "AVERAGE":
+                    curr = []
+                    curr.extend(df_required.groupby([X_field])[Y_field].average().reset_index().values)
+                    for c in curr:
+                        if c[1] not in op_dict[c[0]]:
+                            op_dict[c[0]].append(c[1])
+
+
+
+                    color_count = 0
+                                
+                    total_length = 0
+
+                    for d in data['labels']:
+                        if len(op_dict[d]) > total_length:
+                            total_length = len(op_dict[d])
+
+                    new_add = []
+                    for d in data['labels']:
+                        color_count+=1
+                        new_add.append(op_dict[d])
+                        
+                    if color_count < len(self.color_choices):            
+                        colors = random.sample(set(self.color_choices),color_count)
+                    else:
+                        colors = self.color_choices  
+                            
+                    data['datasets'].append({ 'label' : Y_field, 'backgroundColor' : colors, 'data' : new_add })
+
 
             return Response({ 'data' : data }, status = status.HTTP_200_OK)
         
