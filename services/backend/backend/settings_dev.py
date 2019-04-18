@@ -107,7 +107,7 @@ DATABASES = {
         'PORT' : 3306,
         'OPTIONS' : {
             'read_default_file' : BASE_DIR+'db.cnf',
-            'init_command' : 'SET max_allowed_packet=1G'
+            'init_command' : 'SET global max_allowed_packet=1024*1024'
         }
     }
     # 'redshift': {
