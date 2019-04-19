@@ -19,6 +19,7 @@ import Graph from '../../../components/Graph/Graph';
 
 
 import {login, handleDashCustomizeFetchData, clearDashCustomizeData} from '../../../store/Actions/ActionCreator';
+import FixedPlugin from '../../../components/FixedPlugin/FixedPlugin';
 
 
 class HomePage extends React.Component{
@@ -26,7 +27,8 @@ class HomePage extends React.Component{
         super(props);
         this.state = {
             tc : false,
-            dashReportsdata : []
+            dashReportsdata : [],
+            fixedClasses: "dropdown"
         };
     }
 
@@ -202,6 +204,33 @@ class HomePage extends React.Component{
         eval(value);
     }
 
+    handleSave = () => {
+        for(let i in this.state.dashReportsdata){
+            let postData = {
+                method: 'PUT',
+                url : `${process.env.REACT_APP_API_URL}/reports/`,
+                headers : {
+                    'Authorization' : `Token ${this.props.auth_token}`
+                },
+                data : {
+                    ...this.state.dashReportsdata[i]
+                }
+            };
+
+            Axios(postData)
+            .then(res => console.log('success'))
+            .catch(e => console.error(e));
+            
+        }
+    }
+
+    handleFixedClick = () => {
+        if (this.state.fixedClasses === "dropdown") {
+          this.setState({ fixedClasses: "dropdown show" });
+        } else {
+          this.setState({ fixedClasses: "dropdown" });
+        }
+      };
     render(){
         let dashReportsdata = null;
         const style = {
@@ -311,7 +340,13 @@ class HomePage extends React.Component{
                 close
             />
             {dashReportsdata}
-        </div>);
+            <FixedPlugin 
+                handleSave={this.handleSave}
+                handleFixedClick={this.handleFixedClick}
+                fixedClasses={this.state.fixedClasses}
+            />
+        </div>
+        );
     }
 }
 
