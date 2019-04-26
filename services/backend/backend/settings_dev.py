@@ -100,15 +100,9 @@ DATABASES = {
     },
     'rds' : {
         'ENGINE' : 'django.db.backends.mysql',
-        'NAME' : os.environ['RDS_DB_NAME'],
-        'USER' : os.environ['RDS_USERNAME'],
-        'PASSWORD' : os.environ['RDS_PASSWORD'],
-        'HOST' : os.environ['RDS_HOST'],
-        'PORT' : 3306,
-        # 'OPTIONS' : {
-        #     'read_default_file' : BASE_DIR+'db.cnf',
-        #     'init_command' : 'SET global max_allowed_packet=1024*1024'
-        # }
+        'OPTIONS' : {
+            'read_default_file' : os.path.join(BASE_DIR, 'cred.cnf'),
+        }
     }
     # 'redshift': {
     #     'ENGINE': 'django_redshift_backend',
