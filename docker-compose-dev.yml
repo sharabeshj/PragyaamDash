@@ -33,12 +33,12 @@ services:
   frontend:
     build:
       context: ./services/frontend
-      dockerfile: Dockerfile-dev
+      dockerfile: Dockerfile-prod
     volumes:
       - './services/frontend:/usr/src/app'
       - '/usr/src/app/node_modules'
     ports:
-      - 3000:3000
+      - 3000:80
     environment:
       - NODE_ENV=development
     env_file:
