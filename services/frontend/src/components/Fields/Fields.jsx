@@ -46,7 +46,7 @@ class Fields extends React.Component{
                 case 'number':
                     data =  {
                         ...data,
-                        type : 'IntegerField',
+                        type : 'FloatField',
                         settings : []
                     };
                     break;                                    

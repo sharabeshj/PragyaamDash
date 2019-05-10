@@ -26,6 +26,7 @@ from django.contrib.auth.models import User
 
 import collections
 import json
+import time
 from django_pandas.io import read_frame
 # import matplotlib.pyplot as plt
 # import mpld3
@@ -35,6 +36,7 @@ import os
 import requests
 import pandas as pd
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Create your views here.
 
 class ProfileDetail(APIView):
@@ -59,15 +61,12 @@ class LoginView(APIView):
     
     def post(self, request):
         
-        data = { 'organization_id': request.data['organisation_id'], 'email': request.data['user_email'], 'password': request.data['password'] }
+        data = { 'organization_id': request.data['organisation_id'], 'email': request.data['user_email'], 'password': request.data['password'], 'source' : 'web', 'timestamp' : time.time() }
         status = requests.post('http://dev-blr-b.pragyaam.in/api/login', data = data)
         if status.status_code == 200:
-            print(status.text)
             res_data = json.loads(status.text)['data']
             user = authenticate(username=request.data['user_email'], password=request.data['password'])
-            print(user)
             if user is not None:
-                print('yess')
                 if user.is_active:
                     login(request, user)
                     auth_token,_ = Token.objects.get_or_create(user=user)
@@ -77,7 +76,11 @@ class LoginView(APIView):
                     new_user = User(username=request.data['user_email'])
                     new_user.set_password(request.data['password'])
                     new_user.save()
-                    profile = Profile.objects.create(user=new_user, organisation_id=request.data['organisation_id'], user_email=request.data['user_email'])
+                    with connections['rds'].cursor() as cursor:
+                        cursor.execute("select database_name from organizations where organization_id='{}';".format(request.data['organisation_id']))
+                        data = cursor.fetchone()
+                        print(data)
+                    profile = Profile.objects.create(user=new_user, organisation_id=data[0], user_email=request.data['user_email'])
                 except Exception as e:
                     print(e)
                     return Response("error", status = status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -155,24 +158,34 @@ class DatasetList(APIView):
         else:
             data = request.data
             try:
-                with connections['rds'].cursor() as cursor:
+                profile = Profile.objects.get(user=request.user)
+                if profile.organisation_id not in connections.databases:
+                    connections.databases[profile.organisation_id] = {
+                        'ENGINE' : 'django.db.backends.mysql',
+                        'NAME' : profile.organisation_id,
+                        'OPTIONS' : {
+                            'read_default_file' : os.path.join(BASE_DIR, 'cred_dynamic.cnf'),
+                        }
+                    }
+                with connections[profile.organisation_id].cursor() as cursor:
                     # sql = data['sql'][:-1]
                     # createSql = 'CREATE TABLE "{}" AS select * from dblink({}dbname={}{}, {}{}{});'.format(data['name'], "'",os.environ['RDS_DB_NAME'], "'","'",sql.replace('`','"'),"'")
                     # cursor.execute(data['sql'][:-1])
                     # print(resolve(request.path).app_name)
                     dataset_model = get_model(data['name'],Dataset._meta.app_label,cursor, 'CREATE', data['sql'][:-1])
                     admin.site.register(dataset_model)
-                    call_command('makemigrations')
-                    call_command('migrate', database='default', fake=True)
-                    last_migration = MigrationRecorder.Migration.objects.latest('id')
-                    last_migration_object = sqlmigrate.Command()
-                    last_migration_sql = last_migration_object.handle(app_label = last_migration.app, migration_name = last_migration.name, database = 'default', backwards = False)
-                    print(last_migration_sql)
-                    for item in last_migration_sql.split('\n'):
-                        if item.split(' ')[0] == 'CREATE':
-                            with connections['default'].cursor() as cur:
-                                print('query')
-                                cur.execute(item)
+                del connections[profile.organisation_id]
+                call_command('makemigrations')
+                call_command('migrate', database='default', fake=True)
+                last_migration = MigrationRecorder.Migration.objects.latest('id')
+                last_migration_object = sqlmigrate.Command()
+                last_migration_sql = last_migration_object.handle(app_label = last_migration.app, migration_name = last_migration.name, database = 'default', backwards = False)
+                print(last_migration_sql)
+                for item in last_migration_sql.split('\n'):
+                    if item.split(' ')[0] == 'CREATE':
+                       with connections['default'].cursor() as cur:
+                            print('query')
+                            cur.execute(item)
             except Exception as e:
                 print(e)
                 return Response("error", status = status.HTTP_400_BAD_REQUEST)
@@ -221,11 +234,21 @@ class DatasetDetail(APIView):
                     else:
                         cursor.execute('DELETE FROM "{}"'.format(dataset.name))
                         # cursor.execute("INSERT INTO {} select * from dblink('dbname={}' , {})".format(dataset.name, os.environ['RDS_DB_NAME'], dataset.sql))
-                        with connections['rds'].cursor() as cur:
+                        profile = Profile.objects.get(user=request.user)
+                        if profile.organisation_id not in connections.databases:
+                            connections.databases[profile.organisation_id] = {
+                                'ENGINE' : 'django.db.backends.mysql',
+                                'NAME' : profile.organisation_id,
+                                'OPTIONS' : {
+                                    'read_default_file' : os.path.join(BASE_DIR, 'cred_dynamic.cnf'),
+                                }
+                            }
+                        with connections[profile.organisation_id].cursor() as cur:
                             cur.execute(dataset.sql.replace('"', '`'))
                             dataset_data = dictfetchall(cur)
                             print(dataset_data)
                             serializer = GeneralSerializer(data = dataset_data, many = True)
+                        del connections[profile.organisation_id]
                         GeneralSerializer.Meta.model = dataset_model
                         if serializer.is_valid(raise_exception = True):
                             serializer.save()
@@ -262,7 +285,16 @@ class DatasetDetail(APIView):
                 model.objects.all().delete()
 
                 for t in tables:
-                    with connections['rds'].cursor() as cursor:
+                    profile = Profile.objects.get(user=request.user)
+                    if profile.organisation_id not in connections.databases:
+                        connections.databases[profile.organisation_id] = {
+                            'ENGINE' : 'django.db.backends.mysql',
+                            'NAME' : profile.organisation_id,
+                            'OPTIONS' : {
+                                'read_default_file' : os.path.join(BASE_DIR, 'cred_dynamic.cnf'),
+                            }
+                        }
+                    with connections[profile.organisation_id].cursor() as cursor:
                         print('slowww')
                         cursor.execute('select * from `%s`'%(t.name))
                         print('came out')
@@ -279,8 +311,9 @@ class DatasetDetail(APIView):
                         dynamic_serializer = DynamicFieldsModelSerializer(table_data,many = True,fields = set(model_fields))
                         # print(dynamic_serializer.data)
                         model_data.append({ 'name' : t.name,'data' : dynamic_serializer.data})
-                        call_command('makemigrations')
-                        call_command('migrate', database = 'default',fake = True)
+                    del connections[profile.organisation_id]
+                    call_command('makemigrations')
+                    call_command('migrate', database = 'default',fake = True)
                         # del table_model
                         # try:
                         #     del caches[model._meta.app_label][t.name]
@@ -1489,7 +1522,7 @@ class ReportGenerate(viewsets.ViewSet):
 
                 if measure_operation == "AVERAGE":
                     curr = []
-                    curr.extend(df_required.groupby([X_field])[Y_field].average().reset_index().values)
+                    curr.extend(df_required.groupby([X_field])[Y_field].mean().reset_index().values)
                     for c in curr:
                         if c[1] not in op_dict[c[0]]:
                             op_dict[c[0]].append(c[1])
