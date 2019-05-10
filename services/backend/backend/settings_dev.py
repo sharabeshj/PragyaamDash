@@ -104,14 +104,6 @@ DATABASES = {
             'read_default_file' : os.path.join(BASE_DIR, 'cred.cnf'),
         }
     }
-    # 'redshift': {
-    #     'ENGINE': 'django_redshift_backend',
-    #     'NAME' : 'testdb',
-    #     'USER' : 'pragyaamtest',
-    #     'PASSWORD': 'PragyaamTestUser1',
-    #     'HOST' : 'pragyaam-test.cpfjyhfhhtvd.ap-south-1.redshift.amazonaws.com',
-    #     'PORT' : 5439,   
-    # }
 }
 
 DATABASE_ROUTERS = ['app.routers.Router']

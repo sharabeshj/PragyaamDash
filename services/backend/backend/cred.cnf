@@ -1,6 +1,6 @@
 [client]
 skip-secure-auth
-database=pragyaamdbtest937851
+database=Pragyaam_DIY
 user=pragyaam
 password="nn7zQHW6&CAk"
 host=grid-dev.cluster-cvt6u27fv795.ap-south-1.rds.amazonaws.com

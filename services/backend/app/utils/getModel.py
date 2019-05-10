@@ -16,10 +16,11 @@ def get_model(table_name,app_name,cursor, req_type, sql=''):
             elif fieldType == 'datetime' : attrs[x] = models.DateTimeField(null = True)    
             elif fieldType == 'time': attrs[x] = models.TimeField(null= True)
             elif fieldType == 'float': attrs[x] = models.FloatField(null = True)
+            elif fieldType == 'decimal': attrs[x] = models.FloatField(null=True)
             elif fieldType == 'varchar(max)': attrs[x] = models.TextField(null = True)
             elif fieldType == 'text': attrs[x] = models.TextField(null = True)
             elif fieldType == 'longtext': attrs[x] = models.TextField(null = True)
-            elif fieldType == 'int': attrs[x] = models.IntegerField(null=True)
+            elif fieldType == 'int': attrs[x] = models.FloatField(null=True)
             else: print ("Problem handling datatbase table",x,y['type'])
         return create_model(table_name,attrs,app_label=app_name,module='',options={'db_table' : table_name,'managed' : False})
 
