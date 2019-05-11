@@ -77,7 +77,7 @@ class LoginView(APIView):
                     new_user.set_password(request.data['password'])
                     new_user.save()
                     with connections['rds'].cursor() as cursor:
-                        cursor.execute("select database_name from organizations where organization_id='{}';".format(request.data['organisation_id']))
+                        cursor.execute("select SQL_NO_CACHE database_name from organizations where organization_id='{}';".format(request.data['organisation_id']))
                         data = cursor.fetchone()
                         print(data)
                     profile = Profile.objects.create(user=new_user, organisation_id=data[0], user_email=request.data['user_email'])
@@ -218,7 +218,7 @@ class DatasetDetail(APIView):
         if dataset.mode == 'SQL':
             try:
                 with connections['default'].cursor() as cursor:
-                    cursor.execute('select * from "{}"'.format(dataset.name))
+                    cursor.execute('select SQL_NO_CACHE * from "{}"'.format(dataset.name))
                     print(Dataset._meta.app_label)
                     dataset_model = get_model(dataset.name, Dataset._meta.app_label, cursor, 'READ_POSTGRES')
 
@@ -296,7 +296,7 @@ class DatasetDetail(APIView):
                         }
                     with connections[profile.organisation_id].cursor() as cursor:
                         print('slowww')
-                        cursor.execute('select * from `%s`'%(t.name))
+                        cursor.execute('select SQL_NO_CACHE * from `%s`'%(t.name))
                         print('came out')
                         table_data = dictfetchall(cursor)
                         # print(table_data)
@@ -598,7 +598,7 @@ class ReportGenerate(viewsets.ViewSet):
         model = {}
         if dataset_detail.mode == 'SQL':
             with connections['default'].cursor as cursor:
-                cursor.execute('select * from {}'.format(dataset.name))
+                cursor.execute('select SQL_NO_CACHE * from {}'.format(dataset.name))
                 table_data = dictfetchall(cursor)
 
                 model = get_model(dataset.name, request.resolver_match.app_name, cursor)
