@@ -79,21 +79,17 @@ class LoginView(APIView):
                     with connections['rds'].cursor() as cursor:
                         cursor.execute("select SQL_NO_CACHE database_name from organizations where organization_id='{}';".format(request.data['organisation_id']))
                         data = cursor.fetchone()
-                        print(data)
                     profile = Profile.objects.create(user=new_user, organisation_id=data[0], user_email=request.data['user_email'])
                 except Exception as e:
-                    print(e)
                     return Response("error", status = status.HTTP_500_INTERNAL_SERVER_ERROR)
                 try:
                     user = authenticate(username=request.data['user_email'], password=request.data['password'])
                     if user is not None:
-                        print(user)
                         if user.is_active:
                             login(request, user)
                             auth_token,_ = Token.objects.get_or_create(user=user)
                             return Response({ 'status': 'success', 'data' : {'token': res_data['token'], 'auth_token': auth_token.key, 'orgId': res_data['organizationId'], 'userId': res_data['userId']}})
                 except Exception as e:
-                    print(e)
                     return Response("error", status = status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
             return Response("error", status = status.HTTP_400_BAD_REQUEST)
@@ -107,7 +103,6 @@ class DatasetList(APIView):
         datasets = Dataset.objects.all()
         serializer = DatasetSeraializer(datasets, many = True)
         for x in serializer.data:
-            print(x)
             if x['mode'] == 'SQL':
                 with connections['default'].cursor() as cursor:
                     x['fields'] = getColumnList(x['name'],cursor)
@@ -129,7 +124,6 @@ class DatasetList(APIView):
                         field_serializer.save(dataset = dataset)
                     for s in f['settings']:
                         field = Field.objects.filter(dataset__name = data['name']).filter(worksheet = f['worksheet']).get(name = f['name'])
-                        print(s)
                         settings_serializer = SettingSerializer(data = s)
                         if settings_serializer.is_valid():
                             settings_serializer.save(field = field)
@@ -148,7 +142,6 @@ class DatasetList(APIView):
                 last_migration = MigrationRecorder.Migration.objects.latest('id')
                 last_migration_object = sqlmigrate.Command()
                 last_migration_sql = last_migration_object.handle(app_label = last_migration.app, migration_name = last_migration.name,database = 'default', backwards = False)
-                print(last_migration_sql)
                 for item in last_migration_sql.split('\n'):
                     if item.split(' ')[0] == 'CREATE':
                         with connections['default'].cursor() as cursor:
@@ -180,14 +173,11 @@ class DatasetList(APIView):
                 last_migration = MigrationRecorder.Migration.objects.latest('id')
                 last_migration_object = sqlmigrate.Command()
                 last_migration_sql = last_migration_object.handle(app_label = last_migration.app, migration_name = last_migration.name, database = 'default', backwards = False)
-                print(last_migration_sql)
                 for item in last_migration_sql.split('\n'):
                     if item.split(' ')[0] == 'CREATE':
                        with connections['default'].cursor() as cur:
-                            print('query')
                             cur.execute(item)
             except Exception as e:
-                print(e)
                 return Response("error", status = status.HTTP_400_BAD_REQUEST)
                 
             profile = Profile.objects.get(user = request.user)
@@ -218,14 +208,12 @@ class DatasetDetail(APIView):
         if dataset.mode == 'SQL':
             try:
                 with connections['default'].cursor() as cursor:
-                    cursor.execute('select SQL_NO_CACHE * from "{}"'.format(dataset.name))
-                    print(Dataset._meta.app_label)
+                    cursor.execute('select * from "{}"'.format(dataset.name))
                     dataset_model = get_model(dataset.name, Dataset._meta.app_label, cursor, 'READ_POSTGRES')
 
                     if request.data['view_mode'] == 'view':
                         data_subset = dataset_model.objects.all() 
                         query = data_subset.query.__str__().replace('"{}"."id", '.format(dataset.name),"")
-                        print(query)
                         cursor.execute(query)
                         data = dictfetchall(cursor)
                         call_command('makemigrations')
@@ -246,7 +234,6 @@ class DatasetDetail(APIView):
                         with connections[profile.organisation_id].cursor() as cur:
                             cur.execute(dataset.sql.replace('"', '`'))
                             dataset_data = dictfetchall(cur)
-                            print(dataset_data)
                             serializer = GeneralSerializer(data = dataset_data, many = True)
                         del connections[profile.organisation_id]
                         GeneralSerializer.Meta.model = dataset_model
@@ -256,20 +243,17 @@ class DatasetDetail(APIView):
                             return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
                         data_subset = dataset_model.objects.all()
                         query = data_subset.query.__str__().replace('"{}"."id", '.format(dataset.name),"")
-                        print(query)
                         cursor.execute(query)
                         data = dictfetchall(cursor)
                         call_command('makemigrations')
                         call_command('migrate', database = 'default',fake = True)
                         return Response(data,status=status.HTTP_200_OK)
             except Exception as e:
-                print(e)
                 return Response("error",status=status.HTTP_400_BAD_REQUEST)
 
         else:
             model = dataset.get_django_model()
             GeneralSerializer.Meta.model = model
-            print(model)
             
             if request.data['view_mode'] == 'view':
                 data_subset = model.objects.all()
@@ -279,7 +263,6 @@ class DatasetDetail(APIView):
                 tables = Table.objects.filter(dataset = dataset)
                 joins = Join.objects.filter(dataset =  dataset)
                 model_fields = [f.name for f in model._meta.get_fields() if f.name is not 'id']
-                print(model_fields)
                 model_data = []
                 data = []
                 model.objects.all().delete()
@@ -295,9 +278,7 @@ class DatasetDetail(APIView):
                             }
                         }
                     with connections[profile.organisation_id].cursor() as cursor:
-                        print('slowww')
                         cursor.execute('select SQL_NO_CACHE * from `%s`'%(t.name))
-                        print('came out')
                         table_data = dictfetchall(cursor)
                         # print(table_data)
 
@@ -324,10 +305,8 @@ class DatasetDetail(APIView):
                 id_count = 0
                 
                 if joins.count() == 0:
-                    print('hi2')
                     for x in model_data:
                         for a in x['data']:
-                            # print(a)
                             id_count +=1
                             join_model_data.append({**dict(a),'id' : id_count })
 
@@ -598,7 +577,7 @@ class ReportGenerate(viewsets.ViewSet):
         model = {}
         if dataset_detail.mode == 'SQL':
             with connections['default'].cursor as cursor:
-                cursor.execute('select SQL_NO_CACHE * from {}'.format(dataset.name))
+                cursor.execute("select SQL_NO_CACHE * from '{}'".format(dataset.name))
                 table_data = dictfetchall(cursor)
 
                 model = get_model(dataset.name, request.resolver_match.app_name, cursor)
@@ -926,15 +905,10 @@ class ReportGenerate(viewsets.ViewSet):
                                 t += 1
                         
                     k = 0
-            
-                    total_length = 0
 
-                    for d in data['labels']:
-                        if len(op_dict[d]) > total_length:
-                            total_length = len(op_dict[d])
-
-                    colors = random.sample(set(self.color_choices),total_length)       
-                    while k < total_length:
+                    colors=[]
+                    colors.extend([random.choice(self.color_choices) for _ in range(tl)])       
+                    while k < tl:
                         
                         new_add = []
                         for d in data['labels']:
@@ -958,7 +932,6 @@ class ReportGenerate(viewsets.ViewSet):
             all_fields.extend([X_field,Y_field])
             if len(group_by) > 0:
                 all_fields.extend([group_by])
-            print(all_fields)
             # df_required = df.loc[:,all_fields]
             df_required = df.loc[:,df.columns.isin(all_fields)]
             # df_required = df_required.dropna()
@@ -973,7 +946,6 @@ class ReportGenerate(viewsets.ViewSet):
 
             df_num = df_required.select_dtypes(exclude = [np.number])
             all_columns = list(df_num)
-            print(all_columns)
             try:
                 all_columns.remove(X_field)
             except:
@@ -1000,7 +972,6 @@ class ReportGenerate(viewsets.ViewSet):
             # ax.set_ylabel(label)
             # ax.set_title(request.data['report_title'], size = '20')
             # ax.legend()
-            print(X_field)
             data = {
                 'labels' : np.unique(np.array(df_required.loc[:,X_field])),
                 'datasets' : []
@@ -1022,7 +993,8 @@ class ReportGenerate(viewsets.ViewSet):
                             if d not in op_dict.keys():
                                 op_dict[d] = []
 
-                    colors = random.sample(set(self.color_choices),len(df_required.groupby([group_by]).groups.keys()))
+                    colors=[]
+                    colors.extend([random.choice(self.color_choices) for _ in range(len(df_required.groupby([group_by]).groups.keys()))])
 
                     for x in curr:
                         
@@ -1081,17 +1053,13 @@ class ReportGenerate(viewsets.ViewSet):
                         
                         df_group = df_group_sum.groupby([group_by]).get_group(x)
                         curr.append(np.array(df_group[[X_field,Y_field,group_by]]))
-
-                        for d in np.array(df_group.loc[:,X_field]):
-                            if d not in op_dict.keys():
-                                op_dict[d] = []
-
-                    colors = random.sample(set(self.color_choices),len(df_group_sum.groupby([group_by]).groups.keys()))
-
-                    for x in curr:
-                        
-                        for l in data['labels']:
+                    
+                    colors=[]
+                    colors.extend([random.choice(self.color_choices) for _ in range(len(df_required.groupby([group_by]).groups.keys()))])
+                    print(curr)
+                    for l in data['labels']:
                             op_dict[l] = []
+                    for x in curr:
 
                         group_by = ""
 
@@ -1103,12 +1071,13 @@ class ReportGenerate(viewsets.ViewSet):
                             if c[1] not in op_dict[c[0]]:
                                 
                                 op_dict[c[0]].append(c[1])
-                    
 
-                        color_chosen = random.choice(colors)    
-                        new_add = []
-                        for d in data['labels']:
-                            new_add.append(op_dict[d])
+
+                      
+                    new_add = []
+                    for d in data['labels']:
+                        color_chosen = random.choice(colors)  
+                        new_add.append(op_dict[d])
                             
                         data['datasets'].append({ 'label' : [group_by], 'backgroundColor' : color_chosen, 'data' : new_add })
                         if len(colors) > 1:
@@ -1125,8 +1094,8 @@ class ReportGenerate(viewsets.ViewSet):
                         for d in np.array(df_group.loc[:,X_field]):
                             if d not in op_dict.keys():
                                 op_dict[d] = []
-
-                    colors = random.sample(set(self.color_choices),len(df_group_sum.groupby([group_by]).groups.keys()))
+                    colors=[]
+                    colors.extend([random.choice(self.color_choices) for _ in range(len(df_required.groupby([group_by]).groups.keys()))])
 
                     for x in curr:
                         
@@ -1164,8 +1133,8 @@ class ReportGenerate(viewsets.ViewSet):
                         for d in np.array(df_group.loc[:,X_field]):
                             if d not in op_dict.keys():
                                 op_dict[d] = []
-
-                    colors = random.sample(set(self.color_choices),len(df_group_sum.groupby([group_by]).groups.keys()))
+                    colors=[]
+                    colors.extend([random.choice(self.color_choices) for _ in range(len(df_required.groupby([group_by]).groups.keys()))])
 
                     for x in curr:
                         
@@ -1204,8 +1173,8 @@ class ReportGenerate(viewsets.ViewSet):
                         for d in np.array(df_group.loc[:,X_field]):
                             if d not in op_dict.keys():
                                 op_dict[d] = []
-
-                    colors = random.sample(set(self.color_choices),len(df_group_sum.groupby([group_by]).groups.keys()))
+                    colors=[]
+                    colors.extend([random.choice(self.color_choices) for _ in range(len(df_required.groupby([group_by]).groups.keys()))])
 
                     for x in curr:
                         
@@ -1244,8 +1213,8 @@ class ReportGenerate(viewsets.ViewSet):
                         for d in np.array(df_group.loc[:,X_field]):
                             if d not in op_dict.keys():
                                 op_dict[d] = []
-
-                    colors = random.sample(set(self.color_choices),len(df_group_sum.groupby([group_by]).groups.keys()))
+                    colors=[]
+                    colors.extend([random.choice(self.color_choices) for _ in range(len(df_required.groupby([group_by]).groups.keys()))])
 
                     for x in curr:
                         
@@ -1283,8 +1252,8 @@ class ReportGenerate(viewsets.ViewSet):
                         for d in np.array(df_group.loc[:,X_field]):
                             if d not in op_dict.keys():
                                 op_dict[d] = []
-
-                    colors = random.sample(set(self.color_choices),len(df_group_sum.groupby([group_by]).groups.keys()))
+                    colors=[]
+                    colors.extend([random.choice(self.color_choices) for _ in range(len(df_required.groupby([group_by]).groups.keys()))])
 
                     for x in curr:
                         
@@ -1324,33 +1293,23 @@ class ReportGenerate(viewsets.ViewSet):
                             op_dict[c[0]].append(c[1])
                 
                     tl = 0        
-                        
+                    color_count=0
                     for d in data['labels']:
+                        color_count+=1
                         if len(op_dict[d]) > tl:
                             tl = len(op_dict[d])
 
-                    color_count = 0
                     for key,value in op_dict.items():
-                        color_count += 1
                         if len(value) < tl:
                             t = len(value)
                             while t < tl:
                                 op_dict[key].append(None)
                                 t += 1
-                    if color_count < len(self.color_choices):            
-                        colors = random.sample(set(self.color_choices),color_count)
-                    else:
-                        colors = self.color_choices                        
+
+                    colors=[]
+                    colors.extend([random.choice(self.color_choices) for _ in range(color_count)])                        
                     k = 0
-            
-                    total_length = 0
-
-                    for d in data['labels']:
-                        if len(op_dict[d]) > total_length:
-                            total_length = len(op_dict[d])
-
-                    
-                    while k < total_length:
+                    while k < tl:
                         new_add = []
                         for d in data['labels']:
                             new_add.append(op_dict[d][k])
@@ -1382,26 +1341,16 @@ class ReportGenerate(viewsets.ViewSet):
                         if c[1] not in op_dict[c[0]]:
                             op_dict[c[0]].append(c[1])
 
-
-
                     color_count = 0
                                 
-                    total_length = 0
-
-                    for d in data['labels']:
-                        if len(op_dict[d]) > total_length:
-                            total_length = len(op_dict[d])
-
                     new_add = []
                     for d in data['labels']:
                         color_count+=1
                         new_add.append(op_dict[d])
+                    
+                    colors=[]
+                    colors.extend([random.choice(self.color_choices) for _ in range(color_count)])
                         
-                    if color_count < len(self.color_choices):            
-                        colors = random.sample(set(self.color_choices),color_count)
-                    else:
-                        colors = self.color_choices  
-                            
                     data['datasets'].append({ 'label' : Y_field, 'backgroundColor' : colors, 'data' : new_add })
                 
                 if measure_operation == "COUNT":
@@ -1411,26 +1360,16 @@ class ReportGenerate(viewsets.ViewSet):
                         if c[1] not in op_dict[c[0]]:
                             op_dict[c[0]].append(c[1])
 
-
-
-                    color_count = 0
-                                
-                    total_length = 0
-
-                    for d in data['labels']:
-                        if len(op_dict[d]) > total_length:
-                            total_length = len(op_dict[d])
+                    color_count = 0                    
 
                     new_add = []
                     for d in data['labels']:
                         color_count+=1
                         new_add.append(op_dict[d])
                         
-                    if color_count < len(self.color_choices):            
-                        colors = random.sample(set(self.color_choices),color_count)
-                    else:
-                        colors = self.color_choices  
-                            
+                    colors=[]
+                    colors.extend([random.choice(self.color_choices) for _ in range(color_count)])
+                      
                     data['datasets'].append({ 'label' : Y_field, 'backgroundColor' : colors, 'data' : new_add })
 
                 if measure_operation == "COUNT DISTINCT":
@@ -1440,26 +1379,16 @@ class ReportGenerate(viewsets.ViewSet):
                         if c[1] not in op_dict[c[0]]:
                             op_dict[c[0]].append(c[1])
 
-
-
                     color_count = 0
                                 
-                    total_length = 0
-
-                    for d in data['labels']:
-                        if len(op_dict[d]) > total_length:
-                            total_length = len(op_dict[d])
-
                     new_add = []
                     for d in data['labels']:
                         color_count+=1
                         new_add.append(op_dict[d])
-                        
-                    if color_count < len(self.color_choices):            
-                        colors = random.sample(set(self.color_choices),color_count)
-                    else:
-                        colors = self.color_choices  
-                            
+
+                    colors=[]
+                    colors.extend([random.choice(self.color_choices) for _ in range(color_count)])    
+                    
                     data['datasets'].append({ 'label' : Y_field, 'backgroundColor' : colors, 'data' : new_add })
 
                 if measure_operation == "MAX":
@@ -1469,26 +1398,16 @@ class ReportGenerate(viewsets.ViewSet):
                         if c[1] not in op_dict[c[0]]:
                             op_dict[c[0]].append(c[1])
 
-
-
                     color_count = 0
                                 
-                    total_length = 0
-
-                    for d in data['labels']:
-                        if len(op_dict[d]) > total_length:
-                            total_length = len(op_dict[d])
-
                     new_add = []
                     for d in data['labels']:
                         color_count+=1
                         new_add.append(op_dict[d])
                         
-                    if color_count < len(self.color_choices):            
-                        colors = random.sample(set(self.color_choices),color_count)
-                    else:
-                        colors = self.color_choices  
-                            
+                    colors=[]
+                    colors.extend([random.choice(self.color_choices) for _ in range(color_count)])
+                   
                     data['datasets'].append({ 'label' : Y_field, 'backgroundColor' : colors, 'data' : new_add })
 
                 if measure_operation == "MIN":
@@ -1498,26 +1417,16 @@ class ReportGenerate(viewsets.ViewSet):
                         if c[1] not in op_dict[c[0]]:
                             op_dict[c[0]].append(c[1])
 
-
-
                     color_count = 0
-                                
-                    total_length = 0
-
-                    for d in data['labels']:
-                        if len(op_dict[d]) > total_length:
-                            total_length = len(op_dict[d])
 
                     new_add = []
                     for d in data['labels']:
                         color_count+=1
                         new_add.append(op_dict[d])
-                        
-                    if color_count < len(self.color_choices):            
-                        colors = random.sample(set(self.color_choices),color_count)
-                    else:
-                        colors = self.color_choices  
-                            
+
+                    colors=[]
+                    colors.extend([random.choice(self.color_choices) for _ in range(color_count)])   
+                         
                     data['datasets'].append({ 'label' : Y_field, 'backgroundColor' : colors, 'data' : new_add })
 
                 if measure_operation == "AVERAGE":
@@ -1527,26 +1436,16 @@ class ReportGenerate(viewsets.ViewSet):
                         if c[1] not in op_dict[c[0]]:
                             op_dict[c[0]].append(c[1])
 
-
-
                     color_count = 0
-                                
-                    total_length = 0
-
-                    for d in data['labels']:
-                        if len(op_dict[d]) > total_length:
-                            total_length = len(op_dict[d])
 
                     new_add = []
                     for d in data['labels']:
                         color_count+=1
                         new_add.append(op_dict[d])
-                        
-                    if color_count < len(self.color_choices):            
-                        colors = random.sample(set(self.color_choices),color_count)
-                    else:
-                        colors = self.color_choices  
-                            
+                    
+                    colors=[]
+                    colors.extend([random.choice(self.color_choices) for _ in range(color_count)])    
+                      
                     data['datasets'].append({ 'label' : Y_field, 'backgroundColor' : colors, 'data' : new_add })
 
 
