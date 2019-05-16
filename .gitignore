@@ -9,3 +9,5 @@ env/
 .idea/
 
 *.env
+
+node_modules/

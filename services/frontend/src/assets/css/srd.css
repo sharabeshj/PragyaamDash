@@ -5,7 +5,7 @@
 	cursor: move;
 	overflow: hidden;
 	height: 800px;
-	background-color: rgb(60, 60, 60);
+	background-color: rgb(248, 241, 241);
 }
 .srd-diagram .point {
 	fill: rgba(255, 255, 255, 0.5);
@@ -76,7 +76,7 @@
 }
 .srd-diagram .srd-default-node {
 	background-color: #1e1e1e;
-	border-radius: 5px;
+	border-radius: 0px;
 	font-family: Arial;
 	color: white;
 	border: solid 2px black;

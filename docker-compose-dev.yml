@@ -8,10 +8,35 @@ services:
       dockerfile: Dockerfile-dev
     restart: always
     ports:
-      - 80:80
+      - 8000:80
     depends_on:
       - backend
+      - grid_backend
       # - frontend
+    volumes:
+      - './services/grid_backend_new:/var/www/html'
+  grid_backend:
+    container_name: grid_backend
+    build:
+      context: ./services/grid_backend_new
+      dockerfile: Dockerfile
+    image: hakase-labs/laravel
+    restart: unless-stopped
+    ports:
+      - 9000:9000
+    tty: true
+    environment:
+      - DB_HOST=db
+    env_file:
+      - env_variables.env
+    depends_on:
+      - db
+    links:
+      - db
+    working_dir: /var/www/html
+    volumes:
+      - ./services/grid_backend_new/:/var/www/html
+      
   backend:
     build:
       context: ./services/backend
@@ -28,32 +53,37 @@ services:
       - env_variables.env
     depends_on:
       - db
+      - grid_backend
     links:
       - db
-  frontend:
-    build:
-      context: ./services/frontend
-      dockerfile: Dockerfile-dev
-    volumes:
-      - './services/frontend:/usr/src/app'
-      - '/usr/src/app/node_modules'
-    ports:
-      - 3000:80
-    environment:
-      - NODE_ENV=development
-    env_file:
-      - env_variables.env
-    depends_on:
-      - backend
+  # frontend:
+  #   build:
+  #     context: ./services/frontend
+  #     dockerfile: Dockerfile-dev
+  #   volumes:
+  #     - './services/frontend:/usr/src/app'
+  #     - '/usr/src/app/node_modules'
+  #   ports:
+  #     - 3000:80
+  #   environment:
+  #     - NODE_ENV=development
+  #   env_file:
+  #     - env_variables.env
+  #   depends_on:
+  #     - backend
   db:
     build:
       context: ./services/backend/backend/db
       dockerfile: Dockerfile
     ports:
-      - 5432:5432
+      - 3307:3306
+    environment:
+      MYSQL_DATABASE: pragyaam_dev
+      MYSQL_USERNAME: root
+      MYSQL_ROOT_PASSWORD: shara1234
     volumes:
-      - postgres_data:/var/lib/postgresql/data/
+      - dbdata:/var/lib/mysql
 
 volumes:
-  postgres_data:
+  dbdata:
   static_volume:

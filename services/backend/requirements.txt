@@ -2,6 +2,7 @@ certifi==2019.3.9
 chardet==3.0.4
 Django==2.2
 django-cors-headers==2.5.2
+django-mysql==3.0.0.post1
 django-pandas==0.6.1
 djangorestframework==3.9.2
 gunicorn==19.9.0

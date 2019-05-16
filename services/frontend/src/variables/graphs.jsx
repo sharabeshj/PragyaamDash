@@ -53,7 +53,8 @@ const lineChartDemo = {
     title: {
       display: true,
       text: 'World population per region (in millions)'
-    }
+    },
+    legend: { display: false }
   }
 };
 
@@ -164,6 +165,69 @@ const horBarChartDemo = {
   }
 };
 
+
+const stackedBarChartDemo = {
+  data: {
+    labels: ["1900", "1950", "1999", "2050"],
+    datasets: [{
+        label: "Europe",
+        backgroundColor: "#8e5ea2",
+        data: [408,547,675,734],
+      }, {
+        label: "Africa",
+        backgroundColor: "#3e95cd",
+        data: [133,221,783,2478]
+      }
+    ]
+  },
+  options: {
+    title: {
+      display: true,
+      text: 'Population growth (millions): Europe & Africa'
+    },
+    scales: {
+      xAxes: [{
+          stacked: true
+      }],
+      yAxes: [{
+        stacked: true
+    }]
+  },
+    legend: { display: false }
+  }
+}
+
+const stackedHorBarChartDemo = {
+  data: {
+    labels: ["1900", "1950", "1999", "2050"],
+    datasets: [{
+        label: "Europe",
+        backgroundColor: "#8e5ea2",
+        data: [408,547,675,734],
+      }, {
+        label: "Africa",
+        backgroundColor: "#3e95cd",
+        data: [133,221,783,2478]
+      }
+    ]
+  },
+  options: {
+    title: {
+      display: true,
+      text: 'Population growth (millions): Europe & Africa'
+    },
+    scales: {
+      xAxes: [{
+          stacked: true
+      }],
+      yAxes: [{
+        stacked: true
+      }]
+  },
+    legend: { display: false }
+  }
+}
+
 const mixedChartdemo = {
   data: {
     labels: ["1900", "1950", "1999", "2050"],
@@ -249,20 +313,58 @@ const bubbleChartDemo = {
     title: {
       display: true,
       text: 'Predicted world population (millions) in 2050'
-    }, scales: {
-      yAxes: [{ 
-        scaleLabel: {
-          display: true,
-          labelString: "Happiness"
-        }
-      }],
-      xAxes: [{ 
-        scaleLabel: {
-          display: true,
-          labelString: "GDP (PPP)"
-        }
-      }]
     }
+  }
+}
+
+const scatterChartDemo = {
+  data: {
+    labels: "Africa",
+    datasets: [
+      {
+        label: ["China"],
+        backgroundColor: "rgba(255,221,50,0.2)",
+        borderColor: "rgba(255,221,50,1)",
+        data: [{
+          x: 21269017,
+          y: 5.245,
+        }]
+      }, {
+        label: ["Denmark"],
+        backgroundColor: "rgba(60,186,159,0.2)",
+        borderColor: "rgba(60,186,159,1)",
+        data: [{
+          x: 258702,
+          y: 7.526,
+        }]
+      }, {
+        label: ["Germany"],
+        backgroundColor: "rgba(0,0,0,0.2)",
+        borderColor: "#000",
+        data: [{
+          x: 3979083,
+          y: 6.994,
+        }]
+      }, {
+        label: ["Japan"],
+        backgroundColor: "rgba(193,46,12,0.2)",
+        borderColor: "rgba(193,46,12,1)",
+        data: [{
+          x: 4931877,
+          y: 5.921,
+        }]
+      }
+    ]
+  },
+  options: {
+    title: {
+      display: true,
+      text: 'Predicted world population (millions) in 2050'
+    },
+    xAxes: [{
+      type: 'linear',
+      position: 'bottom'
+  }]
   }
 }
 
@@ -273,7 +375,10 @@ module.exports = {
     radarChartDemo,
     polarChartDemo,
     bubbleChartDemo,
+    scatterChartDemo,
     mixedChartdemo,
     donutChartDemo,
-    horBarChartDemo
+    horBarChartDemo,
+    stackedBarChartDemo,
+    stackedHorBarChartDemo
 }

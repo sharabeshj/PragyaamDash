@@ -76,7 +76,6 @@ class HomePage extends React.Component{
                 'Authorization' : `Token ${this.props.auth_token}`
             }
         };
-        console.log('component did mount');
         Axios(postData)
         .then(res => this.setState((prevState) => {
             let x_available=0,y_available=0,dashReportsdata = [];
@@ -89,12 +88,11 @@ class HomePage extends React.Component{
                     }
                 }
             }
-            console.log(x_available, y_available);
 
             if(res.data.length > 0){
                 const parsedData = res.data.map(report => ({ 
                     'id' : report.report_id , 
-                    'reportOptions' : this.parseFunctionInJson(JSON.stringify(report.data.report_options.reportOptions)) 
+                    'reportOptions' : report.data.report_options.reportOptions
                 }));
                 console.log("here");
                 console.log(parsedData);

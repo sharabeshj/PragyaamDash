@@ -30,28 +30,18 @@ import Graph from '../../../components/Graph/Graph';
 import { handleDataLoad, handleDefaultDataLoad, handleClearReportData } from '../../../store/Actions/ActionCreator'
 
 import {
-    roundedLineChart,
-    straightLinesChart,
-    simpleBarChart,
-    colouredLineChart,
-    multipleBarsChart,
-    colouredLinesChart,
-    pieChart,
-    stackedBarChart,
-    stackedHorBarChart,
-    donutChart
-  } from "variables/charts.jsx";
-
-import {
     barChartDemo,
     lineChartDemo,
     pieChartDemo,
     radarChartDemo,
     polarChartDemo,
     bubbleChartDemo,
+    scatterChartDemo,
     mixedChartdemo,
     donutChartDemo,
-    horBarChartDemo
+    horBarChartDemo,
+    stackedBarChartDemo,
+    stackedHorBarChartDemo
 } from '../../../variables/graphs';
 
 import radar from '../../../assets/img/radar.png';
@@ -81,7 +71,8 @@ class ReportCreate extends React.Component{
             filterChecked : false,
             selectedOperation : '',
             selectedGroupBy : '',
-            selectedMeasureOperation : 'LAST'
+            selectedMeasureOperation : 'LAST',
+            op_table: 'dataset'
         };
         this.ref = React.createRef();
         // this.resetFunc.bind(this);
@@ -94,10 +85,16 @@ class ReportCreate extends React.Component{
     }
 
     getDatasets = () => {
-        Axios.get(`${process.env.REACT_APP_API_URL}/datasets/`)
-        .then(res => {
-            this.setState({ datasets : [...res.data]})
-        }); 
+        const data = {
+            url : `${process.env.REACT_APP_API_URL}/datasets/`,
+            method : 'GET',
+            headers : {
+                'Authorization' : `Token ${this.props.auth_token}`
+            }
+        };
+        Axios(data)
+            .then(res => this.setState({ datasets : res.data }))
+            .catch( e => console.error(e));
     };
 
     componentWillUnmount(){
@@ -149,20 +146,20 @@ class ReportCreate extends React.Component{
                     reportOptions : lineChartDemo.options,
                 }
             case "StackedBar":
-                this.props.handleDefaultDataLoad(stackedBarChart, "Bar");
+                this.props.handleDefaultDataLoad(stackedBarChartDemo, "bar");
                 return {
-                    reportType : "Bar",
+                    reportType : "bar",
                     icon : (<ViewModule/>),
-                    reportOptions : stackedBarChart.options,
-                    reportListeners : stackedBarChart.animation
+                    reportOptions : stackedBarChartDemo.options,
+                    reportListeners : stackedBarChartDemo.animation
                 }
             case "StackedHorBar":
-                this.props.handleDefaultDataLoad(stackedHorBarChart, "Bar");
+                this.props.handleDefaultDataLoad(stackedHorBarChartDemo, "horizontalBar");
                 return {
-                    reportType : "Bar",
+                    reportType : "horizontalBar",
                     icon : (<ViewList />),
-                    reportOptions : stackedHorBarChart.options,
-                    reportListeners : stackedHorBarChart.animation
+                    reportOptions : stackedHorBarChartDemo.options,
+                    reportListeners : stackedHorBarChartDemo.animation
                 }
             case "pie":
                 this.props.handleDefaultDataLoad(pieChartDemo, name);
@@ -206,6 +203,13 @@ class ReportCreate extends React.Component{
                     icon : (<img src = {chartBubble} alt={"bubble-graph"}/>),
                     reportOptions : bubbleChartDemo.options
                 }
+            case 'scatter':
+                this.props.handleDefaultDataLoad(scatterChartDemo, name);
+                return {
+                    reportType : name,
+                    icon : (<ScatterPlot/>),
+                    reportOptions : scatterChartDemo.options
+                }
             case 'bar_mix':
                 this.props.handleDefaultDataLoad(mixedChartdemo, "bar");
                 return {
@@ -248,7 +252,8 @@ class ReportCreate extends React.Component{
             selectedXField : '',
             selectedYField : '',
             selectedDataset :  '',
-            selectedGroupBy : ''
+            selectedGroupBy : '',
+            selectedMeasureOperation: 'LAST'
         });
     }
 
@@ -262,7 +267,8 @@ class ReportCreate extends React.Component{
                     'group_by' : this.state.selectedGroupBy,
                     'measure_operation' : this.state.selectedMeasureOperation
                 },
-                'reportDescription' : this.state.reportDescription
+                'reportDescription' : this.state.reportDescription,
+                'op_table' : this.state.op_table,
         }
         this.props.handleDataLoad(postData);
     }
@@ -299,7 +305,8 @@ class ReportCreate extends React.Component{
                     'report_options' : {
                         ...this.props.options
                     }
-                }
+                },
+                'op_table' : this.state.op_table
             }),
             headers : {
                 'Content-Type' : 'application/json',
@@ -351,7 +358,7 @@ class ReportCreate extends React.Component{
                 <GridItem xs={12} sm={12} md={6}>
                     <FilterOptions 
                         yLen={this.props.reportData.datasets.length}
-                        xLen={this.props.reportData.labels.length}
+                        xLen={this.props.reportData.labels? this.props.reportData.labels.length : 0}
                         filterChecked = {this.state.filterChecked}
                         handleFilterToggle={this.handleFilterToggle}
                         handleFilterOptions={this.handleFilterOptions}

@@ -39,6 +39,7 @@ def get_model(table_name,app_name,cursor, req_type, sql=''):
             elif fieldType == 'integer': attrs[x] =  models.IntegerField(null = True)
             elif fieldType == 'text': attrs[x] = models.TextField(null = True)
             elif fieldType == 'numeric': attrs[x] = models.IntegerField(null=True)
+            elif fieldType == 'double precision': attrs[x] = models.FloatField(null=True)
         return create_model(table_name,attrs,app_label=app_name,module='',options={'db_table' : table_name,'managed' : False})
 
     else:

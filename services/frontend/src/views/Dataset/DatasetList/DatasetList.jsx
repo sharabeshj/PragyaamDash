@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import axios from 'axios';
+import Axios from 'axios';
 import {Link} from 'react-router-dom';
 import { connect } from 'react-redux';
 
@@ -35,7 +35,14 @@ class DatasetList extends React.Component{
     }
 
     getDatasets = () => {
-        axios.get(`${process.env.REACT_APP_API_URL}/datasets`)
+        const data = {
+            url : `${process.env.REACT_APP_API_URL}/datasets/`,
+            method : 'GET',
+            headers : {
+                'Authorization' : `Token ${this.props.auth_token}`
+            }
+        };
+        Axios(data)
             .then(res => this.setState({ datasets : res.data }))
             .catch( e => console.error(e));
     }
@@ -55,7 +62,7 @@ class DatasetList extends React.Component{
                 'Authorization' : `Token ${this.props.auth_token}`
             }
         }
-        axios(postData)
+        Axios(postData)
             .then(res => this.setState({ modalOpen : true,tableData : res.data,name : name }))
             .catch(e => console.error(e));
     }
@@ -73,7 +80,7 @@ class DatasetList extends React.Component{
                 'Authorization' : `Token ${this.props.auth_token}`
             }
         }
-        axios(postData)
+        Axios(postData)
             .then(res => this.setState({ modalOpen : true,tableData : res.data, name : name }))
             .catch(e => console.error(e));
     }
