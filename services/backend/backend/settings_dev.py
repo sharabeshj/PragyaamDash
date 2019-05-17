@@ -38,7 +38,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'rest_framework.authtoken', 
     'app',
     'corsheaders',
     # 'channels'
@@ -106,16 +105,14 @@ DATABASES = {
     }
 }
 
-DATABASE_ROUTERS = ['app.routers.Router']
+# DATABASE_ROUTERS = ['app.routers.Router']
 
 AUTHENTICATION_BACKENDS = (
-        'django.contrib.auth.backends.ModelBackend',
     )
 
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework.authentication.TokenAuthentication',
     )
 }
 

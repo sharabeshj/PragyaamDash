@@ -1,5 +1,4 @@
 from django.db import models
-from django.contrib.auth.models import User
 from django.contrib.postgres.fields import JSONField
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -11,13 +10,6 @@ import uuid
 
 # Create your models here.
 
-class Profile(models.Model):
-    user = models.OneToOneField(User,related_name = 'profile',on_delete=models.CASCADE)
-    organisation_id = models.CharField(max_length = 50)
-    user_email = models.EmailField(unique=True)
-    
-
-
 class Dataset(models.Model):
 
     mode_choices = (
@@ -25,7 +17,8 @@ class Dataset(models.Model):
         ('SQL', 'SQL'),
     )
      
-    profile = models.ForeignKey(Profile,related_name='datasets',on_delete = models.CASCADE)
+    organization_id = models.CharField(max_length = 30)
+    user = models.CharField(max_length = 30)
     name = models.CharField(max_length = 50)
     dataset_id = models.UUIDField(primary_key = True, default = uuid.uuid4, editable = False)
     sql = models.TextField(null=True)
@@ -42,7 +35,7 @@ class Dataset(models.Model):
         return create_model(self.name, dict(fields), self._meta.app_label,options={'db_table' : self.name})
 
     class Meta:
-        unique_together = (('profile','name'),)
+        unique_together = (('user','name'),)
     
 def is_valid_field(field_data):
 
@@ -94,9 +87,25 @@ class Join(models.Model):
     worksheet_1 = models.CharField(max_length = 50)
     worksheet_2 = models.CharField(max_length = 50)
 
+class Dashboard(models.Model):
+
+    dashboard_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable = False)
+    user = models.CharField(max_length=30)
+    organization_id = models.CharField(max_length = 30)
+
 class Report(models.Model):
     
+    organization_id = models.CharField(max_length = 30)
     dataset = models.ForeignKey(Dataset,related_name = 'reports', on_delete = models.CASCADE)
-    profile = models.ForeignKey(Profile,related_name = 'reports', on_delete = models.CASCADE)
+    dashboards = models.ManyToManyField(Dashboard, blank=True, related_name = 'reports')
+    user = models.CharField(max_length=30)
     report_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable = False)
     data = JSONField()
+
+class SharedReport(models.Model):
+
+    report = models.ForeignKey(Report, related_name = 'shares', on_delete= models.CASCADE)
+    user_id = models.CharField(max_length=30)
+    view = models.BooleanField(default= False)
+    edit = models.BooleanField(default=False)
+    delete = models.BooleanField(default=False)

@@ -1,26 +1,15 @@
 from rest_framework import serializers
-from app.models import Dataset,Field,Setting,Table,Join,Profile,Report
+from app.models import Dataset,Field,Setting,Table,Join,Report, SharedReport, Dashboard
 import uuid
-
-class ProfileSerializer(serializers.ModelSerializer):
-    
-    user = serializers.ReadOnlyField(source = 'user.username')
-    datasets = serializers.SlugRelatedField( many = True, slug_field = 'name',read_only = True)
-    password = serializers.CharField(source='user.password')
-
-    class Meta:
-        model = Profile
-        fields = ('user','organisation_id','user_email','password','datasets')
 
 class DatasetSeraializer(serializers.ModelSerializer):
 
-    profile = serializers.ReadOnlyField(source = 'profile.user_email')
     fields = serializers.SlugRelatedField(many = True, slug_field='name',read_only = True)
     dataset_id = serializers.UUIDField(default = uuid.uuid4)
 
     class Meta:
         model = Dataset
-        fields = ('dataset_id','name','fields','profile', 'sql', 'mode')
+        fields = ('dataset_id','organization_id','name','fields','user', 'sql', 'mode')
 
 class FieldSerializer(serializers.ModelSerializer):
 
@@ -86,10 +75,27 @@ class DynamicFieldsModelSerializer(serializers.ModelSerializer):
 class ReportSerializer(serializers.ModelSerializer):
 
     dataset = serializers.ReadOnlyField(source = 'dataset.name')
-    profile = serializers.ReadOnlyField(source = 'profile.user.username')
     report_id = serializers.UUIDField(default = uuid.uuid4)
 
     class Meta:
         model = Report
-        fields = ('report_id','dataset','profile','data')
+        fields = ('report_id','organization_id','dataset','user','organization_id','data')
 
+
+class SharedReportSerializer(serializers.ModelSerializer):
+
+    report = serializers.ReadOnlyField(source = 'report.name')
+    
+    class Meta:
+        model = SharedReport
+        fields = ('report', 'user_id','view','edit','delete')
+
+
+class DashboardSerializer(serializers.ModelSerializer):
+
+    dashboard_id = serializers.UUIDField(default = uuid.uuid4)
+    reports = serializers.SlugRelatedField(many = True, slug_field='name',read_only = True)
+
+    class Meta:
+        model = Dashboard
+        fields = ('dashboard_id', 'organization_id','reports', 'user')

@@ -1,18 +1,16 @@
 from django.shortcuts import render
-from django.contrib.auth.models import User
 
-from app.models import Dataset,Field,Setting,Table,Join,Profile,Report
-from app.serializers import DatasetSeraializer,FieldSerializer,SettingSerializer,GeneralSerializer,TableSerializer,JoinSerializer,DynamicFieldsModelSerializer,ProfileSerializer,ReportSerializer
+from app.models import Dataset,Field,Setting,Table,Join,Report
+from app.serializers import DatasetSeraializer,FieldSerializer,SettingSerializer,GeneralSerializer,TableSerializer,JoinSerializer,DynamicFieldsModelSerializer,ReportSerializer, DashboardSerializer
 from app.utils import get_model,dictfetchall, getColumnList
+from app.Authentication import  GridBackendAuthentication,  GridBackendDatasetPermissions, GridBackendReportPermissions, GridBackendDashboardPermissions
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.http import Http404
 from rest_framework import permissions,exceptions
-from rest_framework import viewsets,generics
-from rest_framework.authentication import SessionAuthentication, BasicAuthentication
-from rest_framework.authtoken.models import Token
+from rest_framework import viewsets
 
 from django.contrib import admin
 from django.core.management import call_command
@@ -21,8 +19,6 @@ from django.core.cache import caches
 from django.db.migrations.recorder import MigrationRecorder
 from django.core.management.commands import sqlmigrate
 from django.urls import resolve
-from django.contrib.auth import authenticate, login
-from django.contrib.auth.models import User
 
 import collections
 import json
@@ -39,69 +35,69 @@ import pandas as pd
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Create your views here.
 
-class ProfileDetail(APIView):
+# class userDetail(APIView):
 
-    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
+#     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
-    def get_object(self,user):
-        try: 
-            return Profile.objects.get(user = user)
-        except Profile.DoesNotexist:
-            raise Http404
+#     def get_object(self,user):
+#         try: 
+#             return user.objects.get(user = user)
+#         except user.DoesNotexist:
+#             raise Http404
     
-    def get(self,request):
+#     def get(self,request):
         
-        profile = self.get_object(request.user)
-        serializer = ProfileSerializer(profile)
-        return Response(serializer.data,status=status.HTTP_200_OK)
+#         user = self.get_object(request.user)
+#         serializer = userSerializer(profile)
+#         return Response(serializer.data,status=status.HTTP_200_OK)
 
-class LoginView(APIView):
+# class LoginView(APIView):
 
-    permission_classes = (permissions.AllowAny, )
+#     permission_classes = (permissions.AllowAny, )
     
-    def post(self, request):
+#     def post(self, request):
         
-        data = { 'organization_id': request.data['organisation_id'], 'email': request.data['user_email'], 'password': request.data['password'], 'source' : 'web', 'timestamp' : time.time() }
-        status = requests.post('http://dev-blr-b.pragyaam.in/api/login', data = data)
-        if status.status_code == 200:
-            res_data = json.loads(status.text)['data']
-            user = authenticate(username=request.data['user_email'], password=request.data['password'])
-            if user is not None:
-                if user.is_active:
-                    login(request, user)
-                    auth_token,_ = Token.objects.get_or_create(user=user)
-                    return Response({ 'status': 'success', 'data' : {'token': res_data['token'], 'auth_token': auth_token.key, 'orgId': res_data['organizationId'], 'userId': res_data['userId']}})
-            else:
-                try:
-                    new_user = User(username=request.data['user_email'])
-                    new_user.set_password(request.data['password'])
-                    new_user.save()
-                    with connections['rds'].cursor() as cursor:
-                        cursor.execute("select SQL_NO_CACHE database_name from organizations where organization_id='{}';".format(request.data['organisation_id']))
-                        data = cursor.fetchone()
-                    profile = Profile.objects.create(user=new_user, organisation_id=data[0], user_email=request.data['user_email'])
-                except Exception as e:
-                    return Response("error", status = status.HTTP_500_INTERNAL_SERVER_ERROR)
-                try:
-                    user = authenticate(username=request.data['user_email'], password=request.data['password'])
-                    if user is not None:
-                        if user.is_active:
-                            login(request, user)
-                            auth_token,_ = Token.objects.get_or_create(user=user)
-                            return Response({ 'status': 'success', 'data' : {'token': res_data['token'], 'auth_token': auth_token.key, 'orgId': res_data['organizationId'], 'userId': res_data['userId']}})
-                except Exception as e:
-                    return Response("error", status = status.HTTP_500_INTERNAL_SERVER_ERROR)
-        else:
-            return Response("error", status = status.HTTP_400_BAD_REQUEST)
+#         data = { 'organization_id': request.data['organisation_id'], 'email': request.data['user_email'], 'password': request.data['password'], 'source' : 'web', 'timestamp' : time.time() }
+#         status = requests.post('http://dev-blr-b.pragyaam.in/api/login', data = data)
+#         if status.status_code == 200:
+#             res_data = json.loads(status.text)['data']
+#             user = authenticate(username=request.data['user_email'], password=request.data['password'])
+#             if user is not None:
+#                 if user.is_active:
+#                     login(request, user)
+#                     auth_token,_ = Token.objects.get_or_create(user=user)
+#                     return Response({ 'status': 'success', 'data' : {'token': res_data['token'], 'auth_token': auth_token.key, 'orgId': res_data['organizationId'], 'userId': res_data['userId']}})
+#             else:
+#                 try:
+#                     new_user = User(username=request.data['user_email'])
+#                     new_user.set_password(request.data['password'])
+#                     new_user.save()
+#                     with connections['rds'].cursor() as cursor:
+#                         cursor.execute("select SQL_NO_CACHE database_name from organizations where organization_id='{}';".format(request.data['organisation_id']))
+#                         data = cursor.fetchone()
+#                     profile = Profile.objects.create(user=new_user, organisation_id=data[0], user_email=request.data['user_email'])
+#                 except Exception as e:
+#                     return Response("error", status = status.HTTP_500_INTERNAL_SERVER_ERROR)
+#                 try:
+#                     user = authenticate(username=request.data['user_email'], password=request.data['password'])
+#                     if user is not None:
+#                         if user.is_active:
+#                             login(request, user)
+#                             auth_token,_ = Token.objects.get_or_create(user=user)
+#                             return Response({ 'status': 'success', 'data' : {'token': res_data['token'], 'auth_token': auth_token.key, 'orgId': res_data['organizationId'], 'userId': res_data['userId']}})
+#                 except Exception as e:
+#                     return Response("error", status = status.HTTP_500_INTERNAL_SERVER_ERROR)
+#         else:
+#             return Response("error", status = status.HTTP_400_BAD_REQUEST)
 
 class DatasetList(APIView):
 
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.IsAuthenticated&GridBackendDatasetPermissions,)
+    authentication_classes = (GridBackendAuthentication,)
 
     def get(self,request):
         
-        profile = Profile.objects.get(user = request.user)
-        datasets = Dataset.objects.filter(profile=profile)
+        datasets = Dataset.objects.filter(user=request.user.username)
         serializer = DatasetSeraializer(datasets, many = True)
         for x in serializer.data:
             if x['mode'] == 'SQL':
@@ -114,11 +110,10 @@ class DatasetList(APIView):
 
         if request.data['mode'] == 'VIZ':
             data = request.data
-            profile = Profile.objects.get(user = request.user)
             # -- Role Authorization -- #
             serializer = DatasetSeraializer(data = data)
             if serializer.is_valid():
-                serializer.save(profile = profile)
+                serializer.save(user = request.user.username)
                 dataset = Dataset.objects.get(name = data['name'])
                 for f in data['fields']:
                     field_serializer = FieldSerializer(data = f)
@@ -153,24 +148,23 @@ class DatasetList(APIView):
         else:
             data = request.data
             try:
-                profile = Profile.objects.get(user=request.user)
                 # -- Role Authorization -- #
-                if profile.organisation_id not in connections.databases:
-                    connections.databases[profile.organisation_id] = {
+                if user.organisation_id not in connections.databases:
+                    connections.databases[user.organisation_id] = {
                         'ENGINE' : 'django.db.backends.mysql',
-                        'NAME' : profile.organisation_id,
+                        'NAME' : user.organisation_id,
                         'OPTIONS' : {
                             'read_default_file' : os.path.join(BASE_DIR, 'cred_dynamic.cnf'),
                         }
                     }
-                with connections[profile.organisation_id].cursor() as cursor:
+                with connections[request.user.organisation_id].cursor() as cursor:
                     # sql = data['sql'][:-1]
                     # createSql = 'CREATE TABLE "{}" AS select * from dblink({}dbname={}{}, {}{}{});'.format(data['name'], "'",os.environ['RDS_DB_NAME'], "'","'",sql.replace('`','"'),"'")
                     # cursor.execute(data['sql'][:-1])
                     # print(resolve(request.path).app_name)
                     dataset_model = get_model(data['name'],Dataset._meta.app_label,cursor, 'CREATE', data['sql'][:-1])
                     admin.site.register(dataset_model)
-                del connections[profile.organisation_id]
+                del connections[user.organisation_id]
                 call_command('makemigrations')
                 call_command('migrate', database='default', fake=True)
                 last_migration = MigrationRecorder.Migration.objects.latest('id')
@@ -183,23 +177,24 @@ class DatasetList(APIView):
             except Exception as e:
                 return Response("error", status = status.HTTP_400_BAD_REQUEST)
                 
-            profile = Profile.objects.get(user = request.user)
+            user = user.objects.get(user = request.user)
             data['mode'] = 'SQL'
             data['sql'] = data['sql'][:-1].replace('`','"')
             serializer = DatasetSeraializer(data = data)
             if serializer.is_valid():
-                serializer.save(profile = profile)
+                serializer.save(user = user)
             return Response({'message' : 'success'},status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors,status = status.HTTP_400_BAD_REQUEST)
 
 class DatasetDetail(APIView):
 
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.IsAuthenticated&GridBackendDatasetPermissions,)
+    authentication_classes = (GridBackendAuthentication,)
 
     def get_object(self,dataset_id,user):
         try:
-            return Dataset.objects.filter(profile = user.profile).get(dataset_id = dataset_id)
+            return Dataset.objects.filter(user = user.username).get(dataset_id = dataset_id)
 
         except Dataset.DoesNotexist:
             return Http404
@@ -226,7 +221,7 @@ class DatasetDetail(APIView):
                     else:
                         cursor.execute('DELETE FROM "{}"'.format(dataset.name))
                         # cursor.execute("INSERT INTO {} select * from dblink('dbname={}' , {})".format(dataset.name, os.environ['RDS_DB_NAME'], dataset.sql))
-                        profile = Profile.objects.get(user=request.user)
+                        user = request.user
                         if profile.organisation_id not in connections.databases:
                             connections.databases[profile.organisation_id] = {
                                 'ENGINE' : 'django.db.backends.mysql',
@@ -235,11 +230,11 @@ class DatasetDetail(APIView):
                                     'read_default_file' : os.path.join(BASE_DIR, 'cred_dynamic.cnf'),
                                 }
                             }
-                        with connections[profile.organisation_id].cursor() as cur:
+                        with connections[user.organisation_id].cursor() as cur:
                             cur.execute(dataset.sql.replace('"', '`'))
                             dataset_data = dictfetchall(cur)
                             serializer = GeneralSerializer(data = dataset_data, many = True)
-                        del connections[profile.organisation_id]
+                        del connections[user.organisation_id]
                         GeneralSerializer.Meta.model = dataset_model
                         if serializer.is_valid(raise_exception = True):
                             serializer.save()
@@ -272,16 +267,16 @@ class DatasetDetail(APIView):
                 model.objects.all().delete()
 
                 for t in tables:
-                    profile = Profile.objects.get(user=request.user)
-                    if profile.organisation_id not in connections.databases:
-                        connections.databases[profile.organisation_id] = {
+                    user = request.user
+                    if user.organisation_id not in connections.databases:
+                        connections.databases[user.organisation_id] = {
                             'ENGINE' : 'django.db.backends.mysql',
-                            'NAME' : profile.organisation_id,
+                            'NAME' : user.organisation_id,
                             'OPTIONS' : {
                                 'read_default_file' : os.path.join(BASE_DIR, 'cred_dynamic.cnf'),
                             }
                         }
-                    with connections[profile.organisation_id].cursor() as cursor:
+                    with connections[user.organisation_id].cursor() as cursor:
                         cursor.execute('select SQL_NO_CACHE * from `%s`'%(t.name))
                         table_data = dictfetchall(cursor)
                         # print(table_data)
@@ -296,7 +291,7 @@ class DatasetDetail(APIView):
                         dynamic_serializer = DynamicFieldsModelSerializer(table_data,many = True,fields = set(model_fields))
                         # print(dynamic_serializer.data)
                         model_data.append({ 'name' : t.name,'data' : dynamic_serializer.data})
-                    del connections[profile.organisation_id]
+                    del connections[user.organisation_id]
                     call_command('makemigrations')
                     call_command('migrate', database = 'default',fake = True)
                         # del table_model
@@ -564,7 +559,7 @@ class ReportGenerate(viewsets.ViewSet):
 
     def get_object(self,dataset_id,user):
         try:
-            return Dataset.objects.filter(profile = user.profile).get(dataset_id = dataset_id)
+            return Dataset.objects.filter(user = user.username).get(dataset_id = dataset_id)
 
         except Dataset.DoesNotexist:
             return Http404
@@ -3679,25 +3674,28 @@ class ReportGenerate(viewsets.ViewSet):
 
 class ReportList(APIView):
 
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.IsAuthenticated&GridBackendReportPermissions,)
+    authentication_classes = (GridBackendAuthentication,)
     
     def get(self,request):
 
-        reports = Report.objects.filter(profile = request.user.profile).all()
+        reports = Report.objects.filter(user = request.user.username).all()
         serializer = ReportSerializer(reports, many=True)
 
         return Response(serializer.data, status = status.HTTP_200_OK)
     
     def get_object(self,dataset_id,user):
         try:
-            return Dataset.objects.filter(profile = user.profile).get(dataset_id = dataset_id)
+            return Dataset.objects.filter(user = user.username).get(dataset_id = dataset_id)
         except:
             return Http404
 
     
     def get_report_object(self,report_id,user):
         try:
-            return Report.objects.filter(profile = user.profile).get(report_id = report_id)
+            obj = Report.objects.filter(user = user.username).get(report_id = report_id)
+            self.check_object_permissions(self, request, obj)
+            return obj
         except:
             return Http404
 
@@ -3709,7 +3707,7 @@ class ReportList(APIView):
 
         if serializer.is_valid():
             if data['op_table'] == 'dataset':
-                serializer.save(profile = request.user.profile, dataset = dataset)
+                serializer.save(user = request.user.username, dataset = dataset)
             else:
                 serializer.save(user_id = request.user.user_id, worksheet = data['worksheet_id'])
 
