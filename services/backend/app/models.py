@@ -1,8 +1,8 @@
 from django.db import models
-from django.contrib.postgres.fields import JSONField
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.core.validators import ValidationError
+from django_mysql.models import JSONField
 
 from app.utils import create_model
 
@@ -104,7 +104,8 @@ class Report(models.Model):
 
 class SharedReport(models.Model):
 
-    report = models.ForeignKey(Report, related_name = 'shares', on_delete= models.CASCADE)
+    report = models.ForeignKey(Report, related_name = 'shared', on_delete= models.CASCADE)
+    shared_user_id = models.CharField(max_length=30)
     user_id = models.CharField(max_length=30)
     view = models.BooleanField(default= False)
     edit = models.BooleanField(default=False)

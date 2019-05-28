@@ -79,16 +79,19 @@ class ReportSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Report
-        fields = ('report_id','organization_id','dataset','user','organization_id','data')
+        fields = ('report_id','dataset','user','organization_id','data')
 
 
 class SharedReportSerializer(serializers.ModelSerializer):
 
     report = serializers.ReadOnlyField(source = 'report.name')
-    
+    view = serializers.BooleanField(default=False)
+    edit = serializers.BooleanField(default=False)
+    delete = serializers.BooleanField(default=False)
+
     class Meta:
         model = SharedReport
-        fields = ('report', 'user_id','view','edit','delete')
+        fields = ('report', 'shared_user_id','user_id','view','edit','delete')
 
 
 class DashboardSerializer(serializers.ModelSerializer):

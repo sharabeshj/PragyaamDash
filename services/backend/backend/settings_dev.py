@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'app',
     'corsheaders',
+    'django_mysql',
     # 'channels'
 ]
 
@@ -90,7 +91,7 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 DATABASES = {
     'default' : {
-        'ENGINE' : 'django.db.backends.postgresql_psycopg2',
+        'ENGINE' : 'django.db.backends.mysql',
         'NAME' : os.environ['SQL_DATABASE'],
         'USER' : os.environ['SQL_USER'],
         'PASSWORD' : os.environ['SQL_PASSWORD'],
@@ -104,6 +105,8 @@ DATABASES = {
         }
     }
 }
+
+APPEND_SLASH=False
 
 # DATABASE_ROUTERS = ['app.routers.Router']
 

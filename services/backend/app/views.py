@@ -1,7 +1,7 @@
 from django.shortcuts import render
 
 from app.models import Dataset,Field,Setting,Table,Join,Report
-from app.serializers import DatasetSeraializer,FieldSerializer,SettingSerializer,GeneralSerializer,TableSerializer,JoinSerializer,DynamicFieldsModelSerializer,ReportSerializer, DashboardSerializer
+from app.serializers import DatasetSeraializer,FieldSerializer,SettingSerializer,GeneralSerializer,TableSerializer,JoinSerializer,DynamicFieldsModelSerializer,ReportSerializer, DashboardSerializer,SharedReportSerializer
 from app.utils import get_model,dictfetchall, getColumnList
 from app.Authentication import  GridBackendAuthentication,  GridBackendDatasetPermissions, GridBackendReportPermissions, GridBackendDashboardPermissions
 
@@ -21,7 +21,7 @@ from django.core.management.commands import sqlmigrate
 from django.urls import resolve
 
 import collections
-import json
+import simplejson as json
 import time
 from django_pandas.io import read_frame
 # import matplotlib.pyplot as plt
@@ -31,64 +31,16 @@ import random
 import os
 import requests
 import pandas as pd
+import redis
+import shutil
+import subprocess
+import pickle
+import zlib
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Create your views here.
 
-# class userDetail(APIView):
 
-#     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
-
-#     def get_object(self,user):
-#         try: 
-#             return user.objects.get(user = user)
-#         except user.DoesNotexist:
-#             raise Http404
-    
-#     def get(self,request):
-        
-#         user = self.get_object(request.user)
-#         serializer = userSerializer(profile)
-#         return Response(serializer.data,status=status.HTTP_200_OK)
-
-# class LoginView(APIView):
-
-#     permission_classes = (permissions.AllowAny, )
-    
-#     def post(self, request):
-        
-#         data = { 'organization_id': request.data['organisation_id'], 'email': request.data['user_email'], 'password': request.data['password'], 'source' : 'web', 'timestamp' : time.time() }
-#         status = requests.post('http://dev-blr-b.pragyaam.in/api/login', data = data)
-#         if status.status_code == 200:
-#             res_data = json.loads(status.text)['data']
-#             user = authenticate(username=request.data['user_email'], password=request.data['password'])
-#             if user is not None:
-#                 if user.is_active:
-#                     login(request, user)
-#                     auth_token,_ = Token.objects.get_or_create(user=user)
-#                     return Response({ 'status': 'success', 'data' : {'token': res_data['token'], 'auth_token': auth_token.key, 'orgId': res_data['organizationId'], 'userId': res_data['userId']}})
-#             else:
-#                 try:
-#                     new_user = User(username=request.data['user_email'])
-#                     new_user.set_password(request.data['password'])
-#                     new_user.save()
-#                     with connections['rds'].cursor() as cursor:
-#                         cursor.execute("select SQL_NO_CACHE database_name from organizations where organization_id='{}';".format(request.data['organisation_id']))
-#                         data = cursor.fetchone()
-#                     profile = Profile.objects.create(user=new_user, organisation_id=data[0], user_email=request.data['user_email'])
-#                 except Exception as e:
-#                     return Response("error", status = status.HTTP_500_INTERNAL_SERVER_ERROR)
-#                 try:
-#                     user = authenticate(username=request.data['user_email'], password=request.data['password'])
-#                     if user is not None:
-#                         if user.is_active:
-#                             login(request, user)
-#                             auth_token,_ = Token.objects.get_or_create(user=user)
-#                             return Response({ 'status': 'success', 'data' : {'token': res_data['token'], 'auth_token': auth_token.key, 'orgId': res_data['organizationId'], 'userId': res_data['userId']}})
-#                 except Exception as e:
-#                     return Response("error", status = status.HTTP_500_INTERNAL_SERVER_ERROR)
-#         else:
-#             return Response("error", status = status.HTTP_400_BAD_REQUEST)
 
 class DatasetList(APIView):
 
@@ -107,10 +59,15 @@ class DatasetList(APIView):
         return Response(serializer.data,status = status.HTTP_200_OK)
 
     def post(self,request):
-
+        data = request.data
+        data['organization_id'] = request.user.organization_id
+        data['user'] = request.user.username
+        with connections['default'].cursor() as cursor:
+            cursor.execute('SELECT database_name from organizations where organization_id={}'.format(request.user.organization_id))
+            database_name = cursor.fetchone()
         if request.data['mode'] == 'VIZ':
-            data = request.data
             # -- Role Authorization -- #
+            
             serializer = DatasetSeraializer(data = data)
             if serializer.is_valid():
                 serializer.save(user = request.user.username)
@@ -146,25 +103,24 @@ class DatasetList(APIView):
                 return Response({'message' : 'success'},status=status.HTTP_201_CREATED)
 
         else:
-            data = request.data
             try:
                 # -- Role Authorization -- #
-                if user.organisation_id not in connections.databases:
-                    connections.databases[user.organisation_id] = {
+                if request.user.organization_id not in connections.databases:
+                    connections.databases[user.organization_id] = {
                         'ENGINE' : 'django.db.backends.mysql',
-                        'NAME' : user.organisation_id,
+                        'NAME' : database_name,
                         'OPTIONS' : {
                             'read_default_file' : os.path.join(BASE_DIR, 'cred_dynamic.cnf'),
                         }
                     }
-                with connections[request.user.organisation_id].cursor() as cursor:
+                with connections[request.user.organization_id].cursor() as cursor:
                     # sql = data['sql'][:-1]
                     # createSql = 'CREATE TABLE "{}" AS select * from dblink({}dbname={}{}, {}{}{});'.format(data['name'], "'",os.environ['RDS_DB_NAME'], "'","'",sql.replace('`','"'),"'")
                     # cursor.execute(data['sql'][:-1])
                     # print(resolve(request.path).app_name)
                     dataset_model = get_model(data['name'],Dataset._meta.app_label,cursor, 'CREATE', data['sql'][:-1])
                     admin.site.register(dataset_model)
-                del connections[user.organisation_id]
+                del connections[user.organization_id]
                 call_command('makemigrations')
                 call_command('migrate', database='default', fake=True)
                 last_migration = MigrationRecorder.Migration.objects.latest('id')
@@ -179,7 +135,6 @@ class DatasetList(APIView):
                 
             user = user.objects.get(user = request.user)
             data['mode'] = 'SQL'
-            data['sql'] = data['sql'][:-1].replace('`','"')
             serializer = DatasetSeraializer(data = data)
             if serializer.is_valid():
                 serializer.save(user = user)
@@ -197,89 +152,116 @@ class DatasetDetail(APIView):
             return Dataset.objects.filter(user = user.username).get(dataset_id = dataset_id)
 
         except Dataset.DoesNotexist:
-            return Http404
+            raise Http404
+    
 
+    def load_data(self, location):
+        subprocess.call('rdb --c protocol {} | redis-cli -n 0 --pipe'.format(location), shell=True)
 
     def post(self,request):
         
         # -- Role Authorization -- #
         dataset = self.get_object(request.data['dataset_id'],request.user)
+        user = request.user
+        with connections['rds'].cursor() as cursor:
+            cursor.execute('select database_name from organizations where organization_id="{}";'.format(request.user.organization_id))
+            database_name = cursor.fetchone()
+        r = redis.Redis(host='127.0.0.1', port=6379, db=0)
         if dataset.mode == 'SQL':
-            try:
-                with connections['default'].cursor() as cursor:
-                    # cursor.execute('select * from "{}"'.format(dataset.name))
-                    dataset_model = get_model(dataset.name, Dataset._meta.app_label, cursor, 'READ_POSTGRES')
-
-                    if request.data['view_mode'] == 'view':
-                        data_subset = dataset_model.objects.all() 
-                        query = data_subset.query.__str__().replace('"{}"."id", '.format(dataset.name),"")
-                        cursor.execute(query)
-                        data = dictfetchall(cursor)
-                        call_command('makemigrations')
-                        call_command('migrate',database = 'default', fake = True)
-                        return Response(data,status=status.HTTP_200_OK)
-                    else:
-                        cursor.execute('DELETE FROM "{}"'.format(dataset.name))
-                        # cursor.execute("INSERT INTO {} select * from dblink('dbname={}' , {})".format(dataset.name, os.environ['RDS_DB_NAME'], dataset.sql))
-                        user = request.user
-                        if profile.organisation_id not in connections.databases:
-                            connections.databases[profile.organisation_id] = {
-                                'ENGINE' : 'django.db.backends.mysql',
-                                'NAME' : profile.organisation_id,
-                                'OPTIONS' : {
-                                    'read_default_file' : os.path.join(BASE_DIR, 'cred_dynamic.cnf'),
-                                }
-                            }
-                        with connections[user.organisation_id].cursor() as cur:
-                            cur.execute(dataset.sql.replace('"', '`'))
-                            dataset_data = dictfetchall(cur)
-                            serializer = GeneralSerializer(data = dataset_data, many = True)
-                        del connections[user.organisation_id]
-                        GeneralSerializer.Meta.model = dataset_model
-                        if serializer.is_valid(raise_exception = True):
-                            serializer.save()
-                        else:
-                            return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
-                        data_subset = dataset_model.objects.all()
-                        query = data_subset.query.__str__().replace('"{}"."id", '.format(dataset.name),"")
-                        cursor.execute(query)
-                        data = dictfetchall(cursor)
-                        call_command('makemigrations')
-                        call_command('migrate', database = 'default',fake = True)
-                        return Response(data,status=status.HTTP_200_OK)
-            except Exception as e:
-                return Response("error",status=status.HTTP_400_BAD_REQUEST)
+            if request.data['view_mode'] == 'view':
+                try:
+                    self.load_data(os.path.join(BASE_DIR,'{}.rdb'.format(user.organization_id)))
+                except Exception as e:
+                    print(e)
+                    return Response(status=status.HTTP_204_NO_CONTENT)
+                data = []
+                print(r.dbsize())
+                for x in range(1,r.dbsize()+1):
+                    data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
+                r.flushdb()  
+                return Response(data,status=status.HTTP_200_OK)
+            else:
+                r.config_set('dbfilename', '{}.rdb'.format(user.organization_id))
+                r.config_rewrite()
+                try:
+                    self.load_data(os.path.join(BASE_DIR, '{}.rdb'.format(user.organization_id)))
+                except:
+                    pass
+                if profile.organization_id not in connections.databases:
+                    connections.databases[profile.organization_id] = {
+                        'ENGINE' : 'django.db.backends.mysql',
+                        'NAME' : database_name,
+                        'OPTIONS' : {
+                            'read_default_file' : os.path.join(BASE_DIR, 'cred_dynamic.cnf'),
+                        }
+                    }
+                with connections[user.organization_id].cursor() as cur:
+                    cur.execute(dataset.sql.replace('"', '`'))
+                    dataset_data = dictfetchall(cur)
+                    serializer = GeneralSerializer(data = dataset_data, many = True)
+                table_data = serializer.data
+                p = r.pipeline()
+                for a in table_data:
+                    id_count +=1
+                    p.hmset('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), {**dict(a)})
+                try:
+                    p.execute()
+                except Exception as e:        
+                    print(e)
+                del connections[user.organization_id]
+                data = []
+                for x in range(1,id_count+1):
+                    for c in model_fields:
+                        r.hsetnx('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(x)),c,"")
+                    data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(x)))))
+                r.save()
+                try:
+                    shutil.copy(os.path.join('/var/lib/redis/6379', '{}.rdb'.format(user.organization_id)),BASE_DIR)
+                except Exception as e:
+                    print(e)
+                r.flushdb()
+                r.config_set('dbfilename', 'dump.rdb')
+                r.config_rewrite()   
+                return Response(data,status=status.HTTP_200_OK)
 
         else:
-            model = dataset.get_django_model()
-            GeneralSerializer.Meta.model = model
-            
             if request.data['view_mode'] == 'view':
-                data_subset = model.objects.all()
-                data_serializer = GeneralSerializer(data_subset,many = True)
-                return Response(data_serializer.data,status=status.HTTP_200_OK)
+                try:
+                    self.load_data(os.path.join(BASE_DIR,'{}.rdb'.format(user.organization_id)))
+                except Exception as e:
+                    print(e)
+                    return Response(status=status.HTTP_204_NO_CONTENT)
+                data = []
+                print(r.dbsize())
+                for x in range(1,r.dbsize()+1):
+                    data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
+                r.flushdb()  
+                return Response(data,status=status.HTTP_200_OK)
             else:
+                model = dataset.get_django_model()
                 tables = Table.objects.filter(dataset = dataset)
                 joins = Join.objects.filter(dataset =  dataset)
                 model_fields = [f.name for f in model._meta.get_fields() if f.name is not 'id']
                 model_data = []
-                data = []
-                model.objects.all().delete()
-
+                data = []  
+                r.config_set('dbfilename', '{}.rdb'.format(user.organization_id))
+                r.config_rewrite()
+                try:
+                    self.load_data(os.path.join(BASE_DIR, '{}.rdb'.format(user.organization_id)))
+                except:
+                    pass
                 for t in tables:
-                    user = request.user
-                    if user.organisation_id not in connections.databases:
-                        connections.databases[user.organisation_id] = {
+                    if user.organization_id not in connections.databases:
+                        connections.databases[user.organization_id] = {
                             'ENGINE' : 'django.db.backends.mysql',
-                            'NAME' : user.organisation_id,
+                            'NAME' : database_name[0],
                             'OPTIONS' : {
                                 'read_default_file' : os.path.join(BASE_DIR, 'cred_dynamic.cnf'),
                             }
                         }
-                    with connections[user.organisation_id].cursor() as cursor:
+                    with connections[user.organization_id].cursor() as cursor:
                         cursor.execute('select SQL_NO_CACHE * from `%s`'%(t.name))
                         table_data = dictfetchall(cursor)
-                        # print(table_data)
 
                         table_model = get_model(t.name,model._meta.app_label,cursor, 'READ')
                         DynamicFieldsModelSerializer.Meta.model = table_model
@@ -289,26 +271,26 @@ class DatasetDetail(APIView):
                         }
                         
                         dynamic_serializer = DynamicFieldsModelSerializer(table_data,many = True,fields = set(model_fields))
-                        # print(dynamic_serializer.data)
                         model_data.append({ 'name' : t.name,'data' : dynamic_serializer.data})
-                    del connections[user.organisation_id]
+                    del connections[user.organization_id]
                     call_command('makemigrations')
                     call_command('migrate', database = 'default',fake = True)
-                        # del table_model
-                        # try:
-                        #     del caches[model._meta.app_label][t.name]
-                        # except KeyError:
-                        #     pass
+                        
                 join_model_data=[]
 
                 id_count = 0
                 
+                p = r.pipeline()
+
                 if joins.count() == 0:
                     for x in model_data:
                         for a in x['data']:
                             id_count +=1
-                            join_model_data.append({**dict(a),'id' : id_count })
-
+                            p.hmset('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), {**dict(a)})
+                    try:
+                        p.execute()
+                    except Exception as e:        
+                        print(e)
                 else:
                     for join in joins:
 
@@ -332,8 +314,8 @@ class DatasetDetail(APIView):
                                                         # print(check)
                                                 if check != []:
                                                     for z in check:
-                                                        id_count += 1 
-                                                        join_model_data.append({**X,**z,'id' : id_count})
+                                                        id_count += 1
+                                                        p.hmset('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), {**X,**z}) 
                                                 break
                             
                             continue
@@ -357,12 +339,10 @@ class DatasetDetail(APIView):
                                                 else:
                                                     for z in check:
                                                         id_count += 1
-                                                        join_model_data.append({**X,**z, 'id' : id_count})
-                                                print(join_model_data)
+                                                        p.hmset('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), {**X,**z})
                                                 break       
                             continue
                         if join.type == 'Right-Join':
-                            # print('came')
                             for d in model_data:
                                 if d['name'] == join.worksheet_2:
                                     
@@ -376,16 +356,14 @@ class DatasetDetail(APIView):
                                                     if C[join.field] == X[join.field]:
                                                         check.append(C)
                                                 if check == []:
-                                                    # print({**dict(x)})
                                                     id_count += 1
                                                     join_model_data.append({**X, 'id' : id_count})
                                                 else:
                                                     for z in check:
                                                         print({**z,**X})
                                                         id_count += 1
-                                                        join_model_data.append({**z,**X, 'id' : id_count})  
+                                                        p.hmset('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), {**z,**X})
                                                 break
-                            # print(join_model_data)     
                             continue
                         if join.type == 'Outer-Join':
                             for d in model_data:
@@ -403,7 +381,7 @@ class DatasetDetail(APIView):
                                                 
                                                 for z in check:
                                                     id_count += 1
-                                                    join_model_data.append({**X,**z, 'id' : id_count})
+                                                    p.hmset('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), {**X,**z})
                                                 break
                                 break
                                     
@@ -418,137 +396,36 @@ class DatasetDetail(APIView):
                                         C = dict(c)
                                         if C[join.field] == X[join.field]:
                                             f = 1
+                                            break
                                     if f == 0:
                                         id_count+=1
-                                        join_model_data.append({**X, 'id' : id_count})
+                                        p.hmset('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), {**X})
 
                             continue
-
-
-
-                # for join in joins:
-
-                #     if join.type == 'Inner-Join':
-                #         check = []
-                #         for d in model_data:
-                #             pass = 0
-                #             check_1 = collections.OrderedDict([])
-                #             for key,value in d.items():
-                #                 # print(d['table_data'])
-                #                 if key == join.field :
-                #                     pass_2 = 0 
-                #                     for x in model_data:
-                #                         for k,v in x.items():
-                #                             if k == join.field and v == value:
-                #                                 for a in check:
-                #                                     for b,c in a.items():
-                #                                         if b == k and c == v:
-                #                                             pass_2 = 1
-                #                                 if not pass_2:
-                #                                     check_1.update(x)
-                #                                     pass = 1
-                #                     check.append(check_1)
-
-                #             if not pass:
-                #                 check.append(d)
-
-                #         all_model_data.append(check)
-                #         continue
-                #     if join.type == 'Left-Join':
-                #         check = []
-                #         for d in model_data:
-                #             pass = 0
-                #             check_1 = collections.OrderedDict()
-                #             for key,value in d.items():
-                #                 # print(d['table_data'])
-                #                 if key == join.field :
-                #                     pass_2 = 0 
-                #                     for x in model_data:
-                #                         for k,v in x.items():
-                #                             if k == join.field and v == value:
-                #                                 for a in check:
-                #                                     for b,c in a.items():
-                #                                         if b == k and c == v:
-                #                                             pass_2 = 1
-                #                                 if not pass_2:
-                #                                     check_1.update(x)
-                #                                     pass = 1
-                #                     check.append(check_1)
-
-                #             if not pass:
-                #                 check.append(d)
-
-                #         all_model_data.append(check)
-                #         continue
-                #     if join.type == 'Right-Join':
-                #         check = []
-                #         for d in model_data:
-                #             pass = 0
-                #             check_1 = collections.OrderedDict()
-                #             for key,value in d.items():
-                #                 # print(d['table_data'])
-                #                 if key == join.field :
-                #                     pass_2 = 0 
-                #                     for x in model_data:
-                #                         for k,v in x.items():
-                #                             if k == join.field and v == value:
-                #                                 for a in check:
-                #                                     for b,c in a.items():
-                #                                         if b == k and c == v:
-                #                                             pass_2 = 1
-                #                                 if not pass_2:
-                #                                     check_1.update(x)
-                #                                     pass = 1
-                #                     check.append(check_1)
-
-                #             if not pass:
-                #                 check.append(d)
-
-                #         all_model_data.append(check)
-                #         continue
-
-                #     if join.type == 'Outer-Join':
-                #         continue
-                # for x in model_data:
-                #     all_model_data += list(x.items())
-                # all_model_data_dict = collections.defaultdict(list)
-                # for x in all_model_data:
-                #     all_model_data_dict[x[0]].append(x[1])
-                # # print(dict(all_model_data_dict))
-                # all_model_data_list = []
-                # max=0
-
-                # for key,value in dict(all_model_data_dict).items():
-                #     count=0
-                #     for i in value:
-                #         count+=1
-                #     if count>=max: max=count
-                # print(max)
-                # for x in range(max):
-                #     d = {}
-                #     for key,value in dict(all_model_data_dict).items():
-                #         try:
-                #             d.update({key : value[x]})
-                #             # print(value[x])
-                #         except:
-                #             pass
-                        
-                #     all_model_data_list.append(d)
-                # print(json.dumps(join_model_data))
-                serializer = GeneralSerializer(data = join_model_data,many = True)
-                if serializer.is_valid(raise_exception = True):
-                    print('hi')
-                    model.objects.bulk_create([model(**params) for params in serializer.validated_data])
-                else:
-                    return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
-                data_subset = model.objects.all()
-                data_serializer = GeneralSerializer(data_subset,many = True)
-                return Response(data_serializer.data,status=status.HTTP_200_OK)
+                    try:
+                        p.execute()
+                    except Exception as e:        
+                        print(e)
+                data = []
+                for x in range(1,id_count+1):
+                    for c in model_fields:
+                        r.hsetnx('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(x)),c,"")
+                    data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(x)))))
+                r.save()
+                try:
+                    shutil.copy(os.path.join('/var/lib/redis/6379', '{}.rdb'.format(user.organization_id)),BASE_DIR)
+                except Exception as e:
+                    print(e)
+                r.flushdb()
+                r.config_set('dbfilename', 'dump.rdb')
+                r.config_rewrite()   
+                return Response(data,status=status.HTTP_200_OK)
         return Response({'message' : 'error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 class ReportGenerate(viewsets.ViewSet):
 
     permission_classes = (permissions.IsAuthenticated,)
+    authentication_classes = (GridBackendAuthentication,)
     color_choices = ["#3e95cd", "#8e5ea2","#3cba9f","#e8c3b9","#c45850","#66FF66","#FB4D46", "#00755E", "#FFEB00", "#FF9933"]
 
     def report_options(self,request):
@@ -562,38 +439,106 @@ class ReportGenerate(viewsets.ViewSet):
             return Dataset.objects.filter(user = user.username).get(dataset_id = dataset_id)
 
         except Dataset.DoesNotexist:
-            return Http404
+            raise Http404
     
     def func(self, pct, allvals):
         absolute = int(pct/100.*np.sum(allvals))
         return "{:.1f}%\n({:d})".format(pct, absolute)
+    
+    def load_data(self, location):
+        subprocess.call('rdb --c protocol {} | redis-cli -n 0 --pipe'.format(location), shell=True)
+    
+    def check(self,options,request):
+        decode_options = {k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in options.items()}
+        for k,v in decode_options.items():
+            if decode_options[k] != request.data['options'][k]:
+                return False
+        return True
 
     def report_generate(self,request):
 
         report_type = request.data['type']
-        model = {}
         data = []
-        if request.data['op_table'] == 'dataset':
-            dataset = request.data['dataset']
-            dataset_detail = self.get_object(dataset,request.user)
-            
-            if dataset_detail.mode == 'SQL':
-                with connections['default'].cursor as cursor:
-                    # cursor.execute("select SQL_NO_CACHE * from '{}'".format(dataset.name))
-                    # table_data = dictfetchall(cursor)
-
-                    model = get_model(dataset.name, __package__.rsplit('.',1)[-1], cursor, 'READ_POSTGRES')
-                    data = model.objects.all()
-            else:        
-                model = dataset_detail.get_django_model()
-                data = model.objects.all()
+        user = request.user
+        r1 = redis.StrictRedis(host='127.0.0.1', port=6379, db=1)
+        if r1.exists('df') != 0 and self.check(r1.hgetall('conf'),request):
+            print('hellloo')
+            df = pickle.loads(zlib.decompress(r1.get("df")))
+            model_fields = [(k.decode('utf8').replace("'", '"'),v.decode('utf8').replace("'", '"')) for k,v in r1.hgetall('fields').items()]
         else:
-            with connections['default'].cursor() as cursor:
-                cursor.execute("select SQL_NO_CACHE * from '{}'".format(dataset.name))
-                data = dictfetchall(cursor)
+            EXPIRATION_SECONDS = 600
+            r = redis.Redis(host='127.0.0.1', port=6379, db=0)
+            if request.data['op_table'] == 'dataset':
+                dataset = request.data['dataset']
+                dataset = self.get_object(dataset,request.user)
+                model = dataset.get_django_model()
+                model_fields = [(f.name, f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
+                r = redis.Redis(host='127.0.0.1', port=6379, db=0)
+                try:
+                    self.load_data(os.path.join(BASE_DIR,'{}.rdb'.format(user.organization_id)))
+                except Exception as e:
+                    print(e)
+                    return Response(status=status.HTTP_204_NO_CONTENT)
+                data = []
+                print(r.dbsize())
+                for x in range(1,r.dbsize()+1):
+                    data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))).items()})
+                r.flushdb() 
+            else:
+                with connections['rds'].cursor() as cursor:
+                    cursor.execute('select SQL_NO_CACHE * from "{}"'.format(dataset.name))
+                    table_data = dictfetchall(cursor)
+                    table_model = get_model(t.name,model._meta.app_label,cursor, 'READ')
+                    model_fields = [(f.name, f.get_internal_type()) for f in table_model._meta.get_fields() if f.name is not 'id']
+                    GeneralSerializer.Meta.model = table_model
+                    
+                    context = {
+                        "request" : request,
+                    }
+                    
+                    dynamic_serializer = GeneralSerializer(table_data,many = True)
+                    call_command('makemigrations')
+                    call_command('migrate', database = 'default',fake = True)
+                serializer_data = dynamic_serializer.data
+                p = r.pipeline()
+                for a in serializer_data:
+                    id_count +=1
+                    p.hmset('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), {**dict(a)})
+                try:
+                    p.execute()
+                except Exception as e:        
+                    print(e)
+                del connections[user.organization_id]
+                data = []
+                for x in range(1,id_count+1):
+                    for c in model_fields:
+                        r.hsetnx('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(x)),c,"")
+                    data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))).items()})
+                r.save()
+                try:
+                    shutil.copy(os.path.join('/var/lib/redis/6379', '{}.rdb'.format(user.organization_id)),BASE_DIR)
+                except Exception as e:
+                    print(e)
+                r.flushdb()
+                r.config_set('dbfilename', 'dump.rdb')
+                r.config_rewrite() 
 
-        df = read_frame(data)
+            df = pd.DataFrame(data)
+            r1.setex("df", EXPIRATION_SECONDS, zlib.compress( pickle.dumps(df)))
+            r1.hmset('conf',request.data['options'])
+            r1.hmset('fields', { x[0] : x[1] for x in model_fields })
+        
+        for x in model_fields:
+            if x[1] == 'FloatField':
+                df = df.astype({ x[0] : 'float64'})
+            if x[1] == 'IntegerField':
+                df = df.astype({ x[0] : 'int64'})
+            if x[1] == 'CharField' or x[1] == 'TextField':
+                df = df.astype({ x[0] : 'object'})
+            if x[1] == 'DateField':
+                df = df.astype({ x[0] : 'datetime64'})
 
+        print(df.dtypes)
         if report_type == 'horizontalBar':
             X_field = request.data['options']['X_field']
             Y_field = request.data['options']['Y_field']
@@ -1195,7 +1140,8 @@ class ReportGenerate(viewsets.ViewSet):
             all_fields.extend([X_field,Y_field])
             if len(group_by) > 0:
                 all_fields.extend([group_by])
-            df_required = df.loc[:,df.columns.isin(all_fields)]
+            df_required = df.loc[:,df.columns.isin(all_fields)].dropna()
+            print(df_required)
             data = {
                 'labels' : np.unique(np.array(df_required.loc[:,X_field])),
                 'datasets' : []
@@ -3671,15 +3617,18 @@ class ReportGenerate(viewsets.ViewSet):
             return Response({ 'data' : data }, status = status.HTTP_200_OK)
         return Response('error',status = status.HTTP_400_BAD_REQUEST)
 
-
 class ReportList(APIView):
 
     permission_classes = (permissions.IsAuthenticated&GridBackendReportPermissions,)
     authentication_classes = (GridBackendAuthentication,)
     
     def get(self,request):
-
-        reports = Report.objects.filter(user = request.user.username).all()
+        if request.user.is_superuser:
+            reports = Report.objects.filter(organization_id=request.user.organization_id).all()
+        if request.user.role == 'Developer':
+            reports = Report.objects.filter(organization_id=request.user.organization_id).filter(user = request.user.username) | Report.objects.filter(organization_id = request.user.organization_id).filter(shared__user_id__contains = request.user.username)
+        else:
+            reports =Report.objects.filter(organization_id = request.user.organization_id).filter(shared__user_id__contains = request.user.username)
         serializer = ReportSerializer(reports, many=True)
 
         return Response(serializer.data, status = status.HTTP_200_OK)
@@ -3691,16 +3640,20 @@ class ReportList(APIView):
             return Http404
 
     
-    def get_report_object(self,report_id,user):
+    def get_report_object(self,request,report_id,user):
         try:
-            obj = Report.objects.filter(user = user.username).get(report_id = report_id)
-            self.check_object_permissions(self, request, obj)
-            return obj
-        except:
-            return Http404
+            obj = Report.objects.filter(organization_id=user.organization_id)
+            if self.check_object_permissions(self, request, obj):
+                return obj.filter(user=user.username).get(report_id=report_id) | obj.filter(shared__user_id__contains= user.username).get(report_id = report_id)
+            else:
+                return Response('Unauthorized', status = status.HTTP_401_UNAUTHORIZED)
+        except Report.DoesNotExist:
+            raise Http404
 
     def post(self, request):
         data = request.data
+        data['organization_id'] = request.user.organization_id
+        data['user'] = request.user.username
         if data['op_table'] == 'dataset':
             dataset = self.get_object(data['dataset_id'],request.user)
         serializer = ReportSerializer(data = data)
@@ -3718,13 +3671,151 @@ class ReportList(APIView):
     def put(self,request):
 
         data = request.data
-        print(data)
-        report = self.get_report_object(data['report_id'], request.user)
-
+        try:
+            report = self.get_report_object(request,data['report_id'], request.user)
+        except:
+            return Response('Unauthorized', status=status.HTTP_401_UNAUTHORIZED)
         serializer = ReportSerializer(report, data = data)
 
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status = status.HTTP_200_OK)
+            return Response(serializer.data, status = status.HTTP_202_ACCEPTED)
         
         return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+
+    def delete(self,request):
+
+        data = request.data
+        try:
+            report = self.get_report_object(request,data['report_id'], request.user)
+        except:
+            return Response('Unauthorized', status=status.HTTP_401_UNAUTHORIZED)
+        serializer = ReportSerializer(report, data = data)
+
+        if serializer.is_valid():
+            serializer.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+class DashboardList(APIView):
+
+    permission_classes = (permissions.IsAuthenticated&GridBackendDashboardPermissions,)
+    authentication_classes = (GridBackendAuthentication,)
+
+    def get(self,request):
+        if request.is_superuser:
+            dashboards = Dashboard.objects.filter(organization_id=request.user.organization_id).all()
+        if request.user.role == 'Developer':
+            dashboards = Dashboard.objects.filter(organization_id=request.user.organization_id).filter(user=request.user.username) | Dashboard.objects.filter(organization_id=organization_id).filter(reports__shared__user_id__contains = request.user.username)
+        else:
+            Dashboard.objects.filter(organization_id=request.user.organization_id).filter(reports__shared__user_id__contains=request.user.username)    
+        serializer = DashboardSerializer(dashboards, many = True)
+        return Response(serializer.data, status = status.HTTP_200_OK)
+    
+    def get_report_objects(self, organization_id, report_id_list):
+        try: 
+            return Report.objects.filter(organization_id=organization_id).filter(user = user.username).filter(report_id__in = report_id_list)
+        except:
+            return Http404
+
+    def get_object(self, request, dashboard_id, user):
+        try:
+            obj = Dashboard.objects.filter(organization_id = user.organization_id)
+            if self.check_object_permissions(self, request, obj):
+                return obj.filter(user = user.username).get(report_id = report_id) | obj.filter(shared__user_id__contains = user.username).get(dashboard_id = dashboard_id)
+            else:
+                return Response('Unauthorized', status = status.HTTP_401_UNAUTHORIZED)
+        except Dashboard.DoesNotExist:
+            raise Http404
+
+    def post(self, request):
+        data = request.data
+        data['organization_id'] = request.user.organization_id
+        data['user'] = request.user.username
+        reports = self.get_report_objects(request.user.organization_id, data['report_id_list'])
+        serializer = DashboardSerializer(data=data)
+        if serializer.is_valid:
+            serializer.save(reports = reports)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def put(self, request):
+
+        data = request.data
+
+        try:
+            dashboard = self.get_object(request, data['dashboard_id'], request.user)
+        except:
+            return Response('Unauthorized', status=status.HTTP_401_UNAUTHORIZED)
+        
+        serializer = DashboardSerializer(dashboard,data=data)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request):
+
+        data = request.data
+        try:
+            dashboard = self.get_object(request, data['dashboard_id'], request.user)
+        except:
+            return Response('Unauthorized', status=status.HTTP_401_UNAUTHORIZED)
+
+        serializer = DashboardSerializer(dashboard, data= data)
+        if serializer.is_valid():
+            serializer.delete()
+            return Response(status= status.HTTP_204_NO_CONTENT)
+        return Response(serializer.errors, status= status.HTTP_400_BAD_REQUEST)
+
+class SharingReports(viewsets.ViewSet):
+
+    permission_classes=(permissions.IsAuthenticated&GridBackendDatasetPermissions,)
+    authentication_classes=(GridBackendAuthentication,)
+
+    def get_report_object(self, organization_id,report_id,user):
+        try:
+            obj = Report.objects.filter(organization_id = organization_id).filter(user = user.username).get(report_id = report_id)
+            self.check_object_permissions(self, request, obj)
+            return obj
+        except:
+            return Http404
+    
+    def users_list(self,request):
+        try:
+            status = requests.post('{}/user/allUsers'.format(os.environ['GRID_API']), headers={'Authorization':'Bearer {}'.format(request.user.token)})
+            res_data = json.loads(status.text)['data']
+            out_data = []
+            if request.user.role == 'Developer':
+                out_data = [i for i in res_data if (i['role'] == 'Developer')]
+            if request.user.role == 'admin':
+                out_data = res_data
+            return Response(out_data, status=status.HTTP_200_OK)
+        except:
+            return Response('error', status=status.HTTP_400_BAD_REQUEST)
+
+    def report_share(self, request):
+
+        data = request.data
+        report = self.get_report_object(request.user.organization_id,data['report_id'], request.user)
+        for x in data['user_id_list']:
+            serializer = SharedReportSerializer(data=data)
+            if serializer.is_valid():
+                serializer.save(report = report, shared_user_id=request.user.username, user_id = x)
+            else:
+                return Response('error', status=status.HTTP_400_BAD_REQUEST)
+        return Response('success', status = status.HTTP_201_CREATED)
+    
+    def dashboard_share(self, request):
+        
+        data = request.data
+        for x in data['report_id_list']:
+            report = self.get_report_object(request.user.organization_id, x, request.user)
+            for c in data['user_id_list']:
+                serializer = SharedReportSerializer(data=data)
+                if serializer.is_valid():
+                    serializer.save(report = report, shared_user_id=request.user.username, user_id = x)
+                else:
+                    return Response('error', status=status.HTTP_400_BAD_REQUEST)
+        return Response('success', status = status.HTTP_201_CREATED)
