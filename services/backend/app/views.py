@@ -3,6 +3,7 @@ from django.shortcuts import render
 from app.models import Dataset,Field,Setting,Table,Join,Report
 from app.serializers import DatasetSeraializer,FieldSerializer,SettingSerializer,GeneralSerializer,TableSerializer,JoinSerializer,DynamicFieldsModelSerializer,ReportSerializer, DashboardSerializer,SharedReportSerializer
 from app.utils import get_model,dictfetchall, getColumnList
+from app.tasks import datasetRefresh, load_data
 from app.Authentication import  GridBackendAuthentication,  GridBackendDatasetPermissions, GridBackendReportPermissions, GridBackendDashboardPermissions
 
 from rest_framework.views import APIView
@@ -19,11 +20,17 @@ from django.core.cache import caches
 from django.db.migrations.recorder import MigrationRecorder
 from django.core.management.commands import sqlmigrate
 from django.urls import resolve
+# from rq import Queue,Worker
+# from rq_scheduler import Scheduler
+from datetime import timedelta
+
+from django_celery_beat.models import CrontabSchedule, PeriodicTask
 
 import collections
 import simplejson as json
 import time
 from django_pandas.io import read_frame
+# from django_rq import get_scheduler,get_queue
 # import matplotlib.pyplot as plt
 # import mpld3
 import numpy as np
@@ -40,12 +47,19 @@ import zlib
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Create your views here.
 
+# @job
 
-
-class DatasetList(APIView):
+class DatasetList(viewsets.ViewSet):
 
     permission_classes = (permissions.IsAuthenticated&GridBackendDatasetPermissions,)
     authentication_classes = (GridBackendAuthentication,)
+    
+    def get_object(self,dataset_id,user):
+        try:
+            return Dataset.objects.filter(user = user.username).get(dataset_id = dataset_id)
+
+        except Dataset.DoesNotexist:
+            raise Http404
 
     def get(self,request):
         
@@ -62,8 +76,8 @@ class DatasetList(APIView):
         data = request.data
         data['organization_id'] = request.user.organization_id
         data['user'] = request.user.username
-        with connections['default'].cursor() as cursor:
-            cursor.execute('SELECT database_name from organizations where organization_id={}'.format(request.user.organization_id))
+        with connections['rds'].cursor() as cursor:
+            cursor.execute('SELECT database_name from organizations where organization_id="{}"'.format(request.user.organization_id))
             database_name = cursor.fetchone()
         if request.data['mode'] == 'VIZ':
             # -- Role Authorization -- #
@@ -142,6 +156,75 @@ class DatasetList(APIView):
 
         return Response(serializer.errors,status = status.HTTP_400_BAD_REQUEST)
 
+    def add_refresh(self,request,id):
+        dataset = self.get_object(id,request.user)
+        user = request.user
+        data = request.data
+        # # queue = Queue(user.organization_id, connection=redis.StrictRedis(host='127.0.0.1', port=6379, db=3))
+        # # start_worker(user.organization_id)
+        # scheduler = get_scheduler('default')
+        # # scheduler = Scheduler(queue=queue, connection=redis.Redis(host='127.0.0.1', port=6379, db=3))
+        # job = scheduler.cron(
+        #     data['cron'],
+        #     func = datasetRefresh,
+        #     args = [user.organization_id,'{}'.format(dataset.dataset_id)],
+        #     repeat=None,
+        #     queue_name='default'
+        # )
+        # # job = scheduler.enqueue_in(timedelta(minutes=1), datasetRefreshCron,user.organization_id,'{}'.format(dataset.dataset_id))
+        # data['job_id'] = job.id
+
+        schedule,_ = CrontabSchedule.objects.get_or_create(
+            minute=data['minute'],
+            hour=data['hour'],
+            day_of_week=data['day_of_week'],
+            month_of_year=data['month_of_year']
+        )
+        periodic_task = PeriodicTask.objects.create(
+            crontab=schedule,
+            name='{}.{}'.format(user.organization_id, dataset.dataset_id),
+            task='app.tasks.datasetRefresh',
+            args=json.dumps([user.organization_id, '{}'.format(dataset.dataset_id)])
+        )
+        data['scheduler'] = periodic_task
+        serializer = DatasetSeraializer(dataset,data = data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status = status.HTTP_202_ACCEPTED)
+        
+        return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)        
+
+    def edit_refresh(self,request,id):
+        dataset = self.get_object(id,request.user)
+        data = request.data
+        job_id = dataset.job_id
+        queue = get_queue('default')
+        scheduler = Scheduler(queue=queue, connection=redis.StrictRedis(host='127.0.0.1', port=6379, db=3))
+        scheduler.cancel(job_id)
+        queue.empty()
+        job = scheduler.cron(
+            data['cron'],
+            func = datasetRefresh,
+            args = [request.user.organization_id,'{}'.format(dataset.dataset_id)],
+            repeat=None,
+            queue_name = 'default'
+        )
+        data['job_id'] = job.id
+        serializer = DatasetSeraializer(dataset,data = data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status = status.HTTP_202_ACCEPTED)
+        
+        return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+
+    def delete_refresh(self,request,id):
+        dataset = self.get_object(id,request.user)
+        job_id = dataset.job_id
+        scheduler = Scheduler(queue = queue)
+        scheduler.cancel(job_id)
+
+        return Response(status=HTTP_204_NO_CONTENT)
+
 class DatasetDetail(APIView):
 
     permission_classes = (permissions.IsAuthenticated&GridBackendDatasetPermissions,)
@@ -153,10 +236,6 @@ class DatasetDetail(APIView):
 
         except Dataset.DoesNotexist:
             raise Http404
-    
-
-    def load_data(self, location):
-        subprocess.call('rdb --c protocol {} | redis-cli -n 0 --pipe'.format(location), shell=True)
 
     def post(self,request):
         
@@ -166,262 +245,84 @@ class DatasetDetail(APIView):
         with connections['rds'].cursor() as cursor:
             cursor.execute('select database_name from organizations where organization_id="{}";'.format(request.user.organization_id))
             database_name = cursor.fetchone()
-        r = redis.Redis(host='127.0.0.1', port=6379, db=0)
+        
         if dataset.mode == 'SQL':
+            
             if request.data['view_mode'] == 'view':
+                r = redis.Redis(host='127.0.0.1', port=6379, db=0)
                 try:
-                    self.load_data(os.path.join(BASE_DIR,'{}.rdb'.format(user.organization_id)))
+                    load_data(os.path.join(BASE_DIR,'{}.rdb'.format(user.organization_id)),'127.0.0.1', 6379, 0)
                 except Exception as e:
                     print(e)
                     return Response(status=status.HTTP_204_NO_CONTENT)
                 data = []
                 print(r.dbsize())
                 for x in range(1,r.dbsize()+1):
-                    data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
+                    if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
+                        data.append(json.dumps(r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
+                    else:
+                        data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
                 r.flushdb()  
                 return Response(data,status=status.HTTP_200_OK)
             else:
-                r.config_set('dbfilename', '{}.rdb'.format(user.organization_id))
-                r.config_rewrite()
-                try:
-                    self.load_data(os.path.join(BASE_DIR, '{}.rdb'.format(user.organization_id)))
-                except:
-                    pass
-                if profile.organization_id not in connections.databases:
-                    connections.databases[profile.organization_id] = {
-                        'ENGINE' : 'django.db.backends.mysql',
-                        'NAME' : database_name,
-                        'OPTIONS' : {
-                            'read_default_file' : os.path.join(BASE_DIR, 'cred_dynamic.cnf'),
-                        }
-                    }
-                with connections[user.organization_id].cursor() as cur:
-                    cur.execute(dataset.sql.replace('"', '`'))
-                    dataset_data = dictfetchall(cur)
-                    serializer = GeneralSerializer(data = dataset_data, many = True)
-                table_data = serializer.data
-                p = r.pipeline()
-                for a in table_data:
-                    id_count +=1
-                    p.hmset('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), {**dict(a)})
-                try:
-                    p.execute()
-                except Exception as e:        
-                    print(e)
-                del connections[user.organization_id]
-                data = []
-                for x in range(1,id_count+1):
-                    for c in model_fields:
-                        r.hsetnx('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(x)),c,"")
-                    data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(x)))))
-                r.save()
-                try:
-                    shutil.copy(os.path.join('/var/lib/redis/6379', '{}.rdb'.format(user.organization_id)),BASE_DIR)
-                except Exception as e:
-                    print(e)
-                r.flushdb()
-                r.config_set('dbfilename', 'dump.rdb')
-                r.config_rewrite()   
-                return Response(data,status=status.HTTP_200_OK)
+                datasetRefresh(user, dataset)
+                return Response(status=status.HTTP_201_CREATED)
 
         else:
             if request.data['view_mode'] == 'view':
                 try:
-                    self.load_data(os.path.join(BASE_DIR,'{}.rdb'.format(user.organization_id)))
+                    load_data(os.path.join(BASE_DIR,'{}.rdb'.format(user.organization_id)),'127.0.0.1', 6379, 0)
                 except Exception as e:
                     print(e)
                     return Response(status=status.HTTP_204_NO_CONTENT)
                 data = []
                 print(r.dbsize())
+                edit = 1
                 for x in range(1,r.dbsize()+1):
-                    data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
+                    if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
+                        data.append(json.dumps(r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
+                    else:
+                        data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
                 r.flushdb()  
                 return Response(data,status=status.HTTP_200_OK)
             else:
-                model = dataset.get_django_model()
                 tables = Table.objects.filter(dataset = dataset)
-                joins = Join.objects.filter(dataset =  dataset)
-                model_fields = [f.name for f in model._meta.get_fields() if f.name is not 'id']
-                model_data = []
-                data = []  
-                r.config_set('dbfilename', '{}.rdb'.format(user.organization_id))
-                r.config_rewrite()
-                try:
-                    self.load_data(os.path.join(BASE_DIR, '{}.rdb'.format(user.organization_id)))
-                except:
-                    pass
-                for t in tables:
-                    if user.organization_id not in connections.databases:
-                        connections.databases[user.organization_id] = {
-                            'ENGINE' : 'django.db.backends.mysql',
-                            'NAME' : database_name[0],
-                            'OPTIONS' : {
-                                'read_default_file' : os.path.join(BASE_DIR, 'cred_dynamic.cnf'),
-                            }
-                        }
-                    with connections[user.organization_id].cursor() as cursor:
-                        cursor.execute('select SQL_NO_CACHE * from `%s`'%(t.name))
-                        table_data = dictfetchall(cursor)
-
-                        table_model = get_model(t.name,model._meta.app_label,cursor, 'READ')
-                        DynamicFieldsModelSerializer.Meta.model = table_model
-                        
-                        context = {
-                            "request" : request,
-                        }
-                        
-                        dynamic_serializer = DynamicFieldsModelSerializer(table_data,many = True,fields = set(model_fields))
-                        model_data.append({ 'name' : t.name,'data' : dynamic_serializer.data})
-                    del connections[user.organization_id]
-                    call_command('makemigrations')
-                    call_command('migrate', database = 'default',fake = True)
-                        
-                join_model_data=[]
-
-                id_count = 0
-                
-                p = r.pipeline()
-
-                if joins.count() == 0:
-                    for x in model_data:
-                        for a in x['data']:
-                            id_count +=1
-                            p.hmset('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), {**dict(a)})
-                    try:
-                        p.execute()
-                    except Exception as e:        
-                        print(e)
-                else:
-                    for join in joins:
-
-                        print(join.type)
-
-                        if join.type == 'Inner-Join':
-                            for d in model_data:
-                                if d['name'] == join.worksheet_1:
-                                    
-                                    for x in d['data']:
-                                        # print(d['table_data'])
-                                        check = []
-                                        for a in model_data:
-                                            if a['name'] == join.worksheet_2:
-                                                X = dict(x)
-                                                # print(a['table_data'])
-                                                for c in a['data']:
-                                                    C = dict(c)
-                                                    if C[join.field] == X[join.field]:
-                                                        check.append(C)
-                                                        # print(check)
-                                                if check != []:
-                                                    for z in check:
-                                                        id_count += 1
-                                                        p.hmset('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), {**X,**z}) 
-                                                break
-                            
-                            continue
-                        if join.type == 'Left-Join':
-                            print(model_data)
-                            for d in model_data:
-                                if d['name'] == join.worksheet_1:
-                                    
-                                    for x in d['data']:
-                                        check = []
-                                        for a in model_data:
-                                            if a['name'] == join.worksheet_2:
-                                                X = dict(x)
-                                                for c in a['data']:
-                                                    C = dict(c)
-                                                    if C[join.field] == X[join.field]:
-                                                        check.append(C)
-                                                if check == []:
-                                                    id_count += 1
-                                                    join_model_data.append({**X, 'id' : id_count})
-                                                else:
-                                                    for z in check:
-                                                        id_count += 1
-                                                        p.hmset('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), {**X,**z})
-                                                break       
-                            continue
-                        if join.type == 'Right-Join':
-                            for d in model_data:
-                                if d['name'] == join.worksheet_2:
-                                    
-                                    for x in d['data']:
-                                        for a in model_data:
-                                            if a['name'] == join.worksheet_1:
-                                                check = []
-                                                X = dict(x)
-                                                for c in a['data']:
-                                                    C = dict(c)
-                                                    if C[join.field] == X[join.field]:
-                                                        check.append(C)
-                                                if check == []:
-                                                    id_count += 1
-                                                    join_model_data.append({**X, 'id' : id_count})
-                                                else:
-                                                    for z in check:
-                                                        print({**z,**X})
-                                                        id_count += 1
-                                                        p.hmset('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), {**z,**X})
-                                                break
-                            continue
-                        if join.type == 'Outer-Join':
-                            for d in model_data:
-                                if d['name'] == join.worksheet_1:
-                                    
-                                    for x in d['data']:
-                                        check = []
-                                        for a in model_data:
-                                            if a['name'] == join.worksheet_2:
-                                                X = dict(x)
-                                                for c in a['data']:
-                                                    C = dict(c)
-                                                    if C[join.field] == X[join.field]:
-                                                        check.append(C)
-                                                
-                                                for z in check:
-                                                    id_count += 1
-                                                    p.hmset('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), {**X,**z})
-                                                break
-                                break
-                                    
-
-                            for d in model_data:
-                        
-                                for x in d['data']:
-                                    check = []
-                                    X = dict(x)
-                                    f = 0
-                                    for c in join_model_data:
-                                        C = dict(c)
-                                        if C[join.field] == X[join.field]:
-                                            f = 1
-                                            break
-                                    if f == 0:
-                                        id_count+=1
-                                        p.hmset('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), {**X})
-
-                            continue
-                    try:
-                        p.execute()
-                    except Exception as e:        
-                        print(e)
-                data = []
-                for x in range(1,id_count+1):
-                    for c in model_fields:
-                        r.hsetnx('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(x)),c,"")
-                    data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(x)))))
-                r.save()
-                try:
-                    shutil.copy(os.path.join('/var/lib/redis/6379', '{}.rdb'.format(user.organization_id)),BASE_DIR)
-                except Exception as e:
-                    print(e)
-                r.flushdb()
-                r.config_set('dbfilename', 'dump.rdb')
-                r.config_rewrite()   
-                return Response(data,status=status.HTTP_200_OK)
+                joins = Join.objects.filter(dataset =  dataset)  
+                datasetRefresh(user, dataset, tables,joins) 
+                return Response(status=status.HTTP_201_CREATED)
         return Response({'message' : 'error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+
+    def put(self,request):
+        data = request.data
+        dataset = self.get_object(request.data['dataset_id'],request.user)
+        r = redis.Redis(host='127.0.0.1', port=6379, db=0)
+        r.config_set('dbfilename', '{}.rdb'.format(user.organization_id))
+        r.config_rewrite()
+        try:
+            load_data(os.path.join(BASE_DIR, '{}.rdb'.format(user.organization_id)), '127.0.0.1', 6379, 0)
+        except:
+            pass
+        edit_data = json.loads(data['data'])
+        p = r.pipeline()
+        id_count = 0
+        for a in edit_data:
+            id_count +=1
+            p.hmset('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), a)
+        try:
+            p.execute()
+        except Exception as e:        
+            print(e)
+        r.save()
+        dataset.last_refreshed = datetime.datetime.now()
+        dataset.save()
+        try:
+            shutil.copy(os.path.join('/var/lib/redis/6379', '{}.rdb'.format(user.organization_id)),BASE_DIR)
+        except Exception as e:
+            print(e)
+        r.flushdb()
+        r.config_set('dbfilename', 'dump.rdb')
+        r.config_rewrite()
+
 class ReportGenerate(viewsets.ViewSet):
 
     permission_classes = (permissions.IsAuthenticated,)
@@ -445,9 +346,6 @@ class ReportGenerate(viewsets.ViewSet):
         absolute = int(pct/100.*np.sum(allvals))
         return "{:.1f}%\n({:d})".format(pct, absolute)
     
-    def load_data(self, location):
-        subprocess.call('rdb --c protocol {} | redis-cli -n 0 --pipe'.format(location), shell=True)
-    
     def check(self,options,request):
         decode_options = {k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in options.items()}
         for k,v in decode_options.items():
@@ -461,7 +359,7 @@ class ReportGenerate(viewsets.ViewSet):
         data = []
         user = request.user
         r1 = redis.StrictRedis(host='127.0.0.1', port=6379, db=1)
-        if r1.exists('df') != 0 and self.check(r1.hgetall('conf'),request):
+        if r1.exists('df') != 0 and self.check(r1.hgetall('conf'),request) and request.data['dataset'] == r1.get('id'):
             print('hellloo')
             df = pickle.loads(zlib.decompress(r1.get("df")))
             model_fields = [(k.decode('utf8').replace("'", '"'),v.decode('utf8').replace("'", '"')) for k,v in r1.hgetall('fields').items()]
@@ -469,24 +367,28 @@ class ReportGenerate(viewsets.ViewSet):
             EXPIRATION_SECONDS = 600
             r = redis.Redis(host='127.0.0.1', port=6379, db=0)
             if request.data['op_table'] == 'dataset':
-                dataset = request.data['dataset']
-                dataset = self.get_object(dataset,request.user)
+                dataset_id = request.data['dataset']
+                dataset = self.get_object(dataset_id,request.user)
                 model = dataset.get_django_model()
                 model_fields = [(f.name, f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
                 r = redis.Redis(host='127.0.0.1', port=6379, db=0)
                 try:
-                    self.load_data(os.path.join(BASE_DIR,'{}.rdb'.format(user.organization_id)))
+                    load_data(os.path.join(BASE_DIR,'{}.rdb'.format(user.organization_id)),'127.0.0.1', 6379, 0)
                 except Exception as e:
                     print(e)
                     return Response(status=status.HTTP_204_NO_CONTENT)
                 data = []
                 print(r.dbsize())
                 for x in range(1,r.dbsize()+1):
-                    data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))).items()})
+                    if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
+                        data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))).items()})
+                    else:
+                        data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))).items()})
+                    
                 r.flushdb() 
             else:
                 with connections['rds'].cursor() as cursor:
-                    cursor.execute('select SQL_NO_CACHE * from "{}"'.format(dataset.name))
+                    cursor.execute('select SQL_NO_CACHE * from "{}"'.format(request.data['dataset']))
                     table_data = dictfetchall(cursor)
                     table_model = get_model(t.name,model._meta.app_label,cursor, 'READ')
                     model_fields = [(f.name, f.get_internal_type()) for f in table_model._meta.get_fields() if f.name is not 'id']
@@ -514,11 +416,7 @@ class ReportGenerate(viewsets.ViewSet):
                     for c in model_fields:
                         r.hsetnx('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(x)),c,"")
                     data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))).items()})
-                r.save()
-                try:
-                    shutil.copy(os.path.join('/var/lib/redis/6379', '{}.rdb'.format(user.organization_id)),BASE_DIR)
-                except Exception as e:
-                    print(e)
+    
                 r.flushdb()
                 r.config_set('dbfilename', 'dump.rdb')
                 r.config_rewrite() 
@@ -526,6 +424,7 @@ class ReportGenerate(viewsets.ViewSet):
             df = pd.DataFrame(data)
             r1.setex("df", EXPIRATION_SECONDS, zlib.compress( pickle.dumps(df)))
             r1.hmset('conf',request.data['options'])
+            r1.set('id', request.data['dataset'])
             r1.hmset('fields', { x[0] : x[1] for x in model_fields })
         
         for x in model_fields:

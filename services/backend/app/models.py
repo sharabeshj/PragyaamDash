@@ -3,6 +3,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.core.validators import ValidationError
 from django_mysql.models import JSONField
+from django_celery_beat.models import PeriodicTask
 
 from app.utils import create_model
 
@@ -23,6 +24,7 @@ class Dataset(models.Model):
     dataset_id = models.UUIDField(primary_key = True, default = uuid.uuid4, editable = False)
     sql = models.TextField(null=True)
     mode = models.CharField(max_length = 3, choices = mode_choices, default = 'VIZ')
+    scheduler = models.ForeignKey(PeriodicTask, null=True,related_name = 'datasets', on_delete = models.SET_NULL)
 
     def __str__(self):
          return self.name

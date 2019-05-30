@@ -38,9 +38,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'app',
+    'app.apps.AppConfig',
     'corsheaders',
     'django_mysql',
+    'django_celery_beat', 
+    # "django_rq",
     # 'channels'
 ]
 
@@ -106,6 +108,22 @@ DATABASES = {
     }
 }
 
+# RQ_QUEUES = {
+#     'default' : {
+#         'HOST' : '127.0.0.1',
+#         'PORT' : 6379,
+#         'DB' : 3,
+#     }
+# }
+
+# CELERY STUFF
+BROKER_URL = 'redis://127.0.0.1:6379/3'
+CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/3'
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Asia/Kolkata'
+
 APPEND_SLASH=False
 
 # DATABASE_ROUTERS = ['app.routers.Router']
@@ -143,7 +161,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kolkata'
 
 USE_I18N = True
 

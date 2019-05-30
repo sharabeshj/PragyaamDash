@@ -1,15 +1,17 @@
 from rest_framework import serializers
 from app.models import Dataset,Field,Setting,Table,Join,Report, SharedReport, Dashboard
+from django_celery_beat.models import PeriodicTask
 import uuid
 
 class DatasetSeraializer(serializers.ModelSerializer):
 
+    scheduler = serializers.ReadOnlyField(source='periodicTask.last_run_at')
     fields = serializers.SlugRelatedField(many = True, slug_field='name',read_only = True)
     dataset_id = serializers.UUIDField(default = uuid.uuid4)
 
     class Meta:
         model = Dataset
-        fields = ('dataset_id','organization_id','name','fields','user', 'sql', 'mode')
+        fields = ('dataset_id','organization_id','name','fields','user', 'sql', 'mode', 'scheduler')
 
 class FieldSerializer(serializers.ModelSerializer):
 

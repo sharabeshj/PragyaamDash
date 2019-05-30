@@ -18,5 +18,6 @@ from django.urls import path,include
 
 urlpatterns = [
     path('api/',include('app.urls')),
+    # path('django-rq/', include('django_rq.urls'))
     # path('api-auth/',include('rest_framework.urls'))
 ]
