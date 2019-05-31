@@ -239,8 +239,6 @@ def datasetRefresh(organization_id,dataset_id):
             for c in model_fields:
                 r.hsetnx('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(x)),c,"")
         r.save()
-        dataset.last_refreshed = datetime.datetime.now()
-        dataset.save()
         try:
             shutil.copy(os.path.join('/var/lib/redis/6379', '{}.rdb'.format(organization_id)),BASE_DIR)
         except Exception as e:

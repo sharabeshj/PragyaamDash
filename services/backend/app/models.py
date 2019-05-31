@@ -94,15 +94,35 @@ class Dashboard(models.Model):
     dashboard_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable = False)
     user = models.CharField(max_length=30)
     organization_id = models.CharField(max_length = 30)
+    name = models.CharField(max_length = 50)
+    description = models.TextField(null=True)
 
 class Report(models.Model):
     
     organization_id = models.CharField(max_length = 30)
     dataset = models.ForeignKey(Dataset,related_name = 'reports', on_delete = models.CASCADE)
-    dashboards = models.ManyToManyField(Dashboard, blank=True, related_name = 'reports')
+    dashboards = models.ManyToManyField(Dashboard, related_name = 'reports')
     user = models.CharField(max_length=30)
     report_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable = False)
     data = JSONField()
+
+class DashboardReportOptions(models.Model):
+
+    dashboard = models.ForeignKey(Dashboard, related_name='reportOption', on_delete=models.CASCADE)
+    report = models.ForeignKey(Report, related_name = 'dashboardOption', on_delete = models.CASCADE)
+    reportOptions = JSONField()
+
+class Filter(models.Model):
+
+    filter_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable = False)
+    dataset = models.TextField()
+    reports = models.ManyToManyField(Report, related_name='filters')
+    dashboard_reports = models.ManyToManyField(DashboardReportOptions, related_name = 'dashboards')
+    user = models.CharField(max_length=30)
+    organization_id = models.CharField(max_length = 30)
+    field_name = models.CharField(max_length = 50)
+    field_operation = models.CharField(max_length=10)
+    options = JSONField()
 
 class SharedReport(models.Model):
 

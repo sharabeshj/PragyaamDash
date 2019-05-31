@@ -1,7 +1,7 @@
 from django.shortcuts import render
 
 from app.models import Dataset,Field,Setting,Table,Join,Report
-from app.serializers import DatasetSeraializer,FieldSerializer,SettingSerializer,GeneralSerializer,TableSerializer,JoinSerializer,DynamicFieldsModelSerializer,ReportSerializer, DashboardSerializer,SharedReportSerializer
+from app.serializers import DatasetSeraializer,FieldSerializer,SettingSerializer,GeneralSerializer,TableSerializer,JoinSerializer,DynamicFieldsModelSerializer,ReportSerializer, DashboardSerializer,SharedReportSerializer, FilterSerializer, DashboardReportOptions
 from app.utils import get_model,dictfetchall, getColumnList
 from app.tasks import datasetRefresh, load_data
 from app.Authentication import  GridBackendAuthentication,  GridBackendDatasetPermissions, GridBackendReportPermissions, GridBackendDashboardPermissions
@@ -198,21 +198,18 @@ class DatasetList(viewsets.ViewSet):
         dataset = self.get_object(id,request.user)
         data = request.data
         job_id = dataset.job_id
-        queue = get_queue('default')
-        scheduler = Scheduler(queue=queue, connection=redis.StrictRedis(host='127.0.0.1', port=6379, db=3))
-        scheduler.cancel(job_id)
-        queue.empty()
-        job = scheduler.cron(
-            data['cron'],
-            func = datasetRefresh,
-            args = [request.user.organization_id,'{}'.format(dataset.dataset_id)],
-            repeat=None,
-            queue_name = 'default'
+        scheduler = PeriodicTask.objects.get(name = dataset.scheduler.name)
+        schedule,_ = CrontabSchedule.objects.get_or_create(
+            minute=data['minute'],
+            hour=data['hour'],
+            day_of_week=data['day_of_week'],
+            month_of_year=data['month_of_year']
         )
-        data['job_id'] = job.id
+        scheduler.update(crontab = schedule)
+
         serializer = DatasetSeraializer(dataset,data = data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(scheduler = scheduler)
             return Response(serializer.data, status = status.HTTP_202_ACCEPTED)
         
         return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
@@ -220,9 +217,8 @@ class DatasetList(viewsets.ViewSet):
     def delete_refresh(self,request,id):
         dataset = self.get_object(id,request.user)
         job_id = dataset.job_id
-        scheduler = Scheduler(queue = queue)
-        scheduler.cancel(job_id)
-
+        scheduler = PeriodicTask.objects.get(name = dataset.scheduler.name)
+        scheduler.delete()
         return Response(status=HTTP_204_NO_CONTENT)
 
 class DatasetDetail(APIView):
@@ -329,12 +325,6 @@ class ReportGenerate(viewsets.ViewSet):
     authentication_classes = (GridBackendAuthentication,)
     color_choices = ["#3e95cd", "#8e5ea2","#3cba9f","#e8c3b9","#c45850","#66FF66","#FB4D46", "#00755E", "#FFEB00", "#FF9933"]
 
-    def report_options(self,request):
-
-        report_type = request.data['type']
-        if report_type == 'hor_bar':
-            return Response({'options' : ['X_field','Y_field']})
-
     def get_object(self,dataset_id,user):
         try:
             return Dataset.objects.filter(user = user.username).get(dataset_id = dataset_id)
@@ -352,6 +342,20 @@ class ReportGenerate(viewsets.ViewSet):
             if decode_options[k] != request.data['options'][k]:
                 return False
         return True
+    
+    def check_filter_value_condition(self, df, condition,value_1, value_2=0):
+        if condition == 'equals':
+            return df == value_1
+        if condition == 'greater_than':
+            return df > value_1
+        if condition == 'less than':
+            return df < value_1
+        if condition == 'greater_than_or_equals':
+            return df >= value_1
+        if condition == 'less_than_or_equals':
+            return df <= value_1
+        if condition == 'between':
+            return (df >= value_1) & (df <= value_2)
 
     def report_generate(self,request):
 
@@ -359,10 +363,11 @@ class ReportGenerate(viewsets.ViewSet):
         data = []
         user = request.user
         r1 = redis.StrictRedis(host='127.0.0.1', port=6379, db=1)
-        if r1.exists('df') != 0 and self.check(r1.hgetall('conf'),request) and request.data['dataset'] == r1.get('id'):
+        if r1.exists('{}.{}'.format(user.organization_id,dataset.dataset_id)) != 0 and self.check(r1.hgetall('conf'),request) and request.data['dataset'] == r1.get('id'):
             print('hellloo')
-            df = pickle.loads(zlib.decompress(r1.get("df")))
+            df = pickle.loads(zlib.decompress(r1.get("{}.{}".format(user.organization_id,dataset.dataset_id))))
             model_fields = [(k.decode('utf8').replace("'", '"'),v.decode('utf8').replace("'", '"')) for k,v in r1.hgetall('fields').items()]
+
         else:
             EXPIRATION_SECONDS = 600
             r = redis.Redis(host='127.0.0.1', port=6379, db=0)
@@ -422,7 +427,7 @@ class ReportGenerate(viewsets.ViewSet):
                 r.config_rewrite() 
 
             df = pd.DataFrame(data)
-            r1.setex("df", EXPIRATION_SECONDS, zlib.compress( pickle.dumps(df)))
+            r1.setex("{}.{}".format(user.organization_id,dataset.dataset_id), EXPIRATION_SECONDS, zlib.compress( pickle.dumps(df)))
             r1.hmset('conf',request.data['options'])
             r1.set('id', request.data['dataset'])
             r1.hmset('fields', { x[0] : x[1] for x in model_fields })
@@ -436,8 +441,26 @@ class ReportGenerate(viewsets.ViewSet):
                 df = df.astype({ x[0] : 'object'})
             if x[1] == 'DateField':
                 df = df.astype({ x[0] : 'datetime64'})
-
-        print(df.dtypes)
+        
+        dict_fields = dict(model_fields)
+        for filter in request.data['filters']:
+            options = json.loads(filter.options)
+            if filter.field_operation == 'filter_by_name':
+                condition = df[filter.field_name] in options['values']
+                df = df[condition]
+            if filter.field_operation == 'filter_by_date':
+                df = df[(df[filter.field_name] > options['start_date']) & (df[filter.field_name] < options['end_date'])]
+            if filter.field_operation == 'last':
+                df = df[self.check_filter_value_condition(df[filter.field_name], options['condition'], options['value'])]
+            if filter.field_operation == 'sum':
+                df = df[self.check_filter_value_condition(df[filter.field_name].sum(), options['condition'], options['value'])]
+            if filter.field_operation == 'count':
+                df = df[self.check_filter_value_condition(df[filter.field_name].count(), options['condition'], options['value'])]
+            if filter.field_operation == 'min':
+                df = df[self.check_filter_value_condition(df[filter.field_name].max(), options['condition'], options['value'])]
+            if filter.field_operation == 'max':
+                df = df[self.check_filter_value_condition(df[filter.field_name].min(), options['condition'], options['value'])]
+        
         if report_type == 'horizontalBar':
             X_field = request.data['options']['X_field']
             Y_field = request.data['options']['Y_field']
@@ -3670,7 +3693,7 @@ class DashboardList(APIView):
 
 class SharingReports(viewsets.ViewSet):
 
-    permission_classes=(permissions.IsAuthenticated&GridBackendDatasetPermissions,)
+    permission_classes=(permissions.IsAuthenticated&GridBackendDatasetPermissions|GridBackendReportPermissions,)
     authentication_classes=(GridBackendAuthentication,)
 
     def get_report_object(self, organization_id,report_id,user):
@@ -3718,3 +3741,95 @@ class SharingReports(viewsets.ViewSet):
                 else:
                     return Response('error', status=status.HTTP_400_BAD_REQUEST)
         return Response('success', status = status.HTTP_201_CREATED)
+
+class FilterList(viewsets.ViewSet):
+
+    authentication_classes = (GridBackendAuthentication, )
+    permission_classes = (permissions.IsAuthenticated|GridBackendReportPermissions|GridBackendDashboardPermissions,)
+
+    def get_report_object(self,reqeust,report_id, user):
+        try:
+            obj = Report.objects.filter(organization_id=user.organization_id)
+            if self.check_object_permissions(self, request, obj):
+                return obj.filter(user=user.username).get(report_id=report_id) | obj.filter(shared__user_id__contains= user.username).get(report_id = report_id)
+            else:
+                return Response('Unauthorized', status = status.HTTP_401_UNAUTHORIZED)
+        except Report.DoesNotExist:
+            raise Http404
+    
+    def get_dashboard_object(self, request, dashboard_id, user):
+        try:
+            obj = Dashboard.objects.filter(organization_id = user.organization_id)
+            if self.check_object_permissions(self, request, obj):
+                return obj.filter(user = user.username).get(dashboard_id = dashboard_id) | obj.filter(shared__user_id__contains = user.username).get(dashboard_id = dashboard_id)
+            else:
+                return Response('Unauthorized', status = status.HTTP_401_UNAUTHORIZED)
+        except Dashboard.DoesNotExist:
+            raise Http404
+    
+    def get_dashboard_report_options_object(self,dashboard_id, report_id):
+        try:
+            return DashboardReportOptions.objects.filter(dashboard = dashboard_id).get(report_id = report_id)
+        except DashboardreportOptions.DoesNotExist:
+            raise Http404
+
+    def get_object(self,filter_id, user):
+        try:
+            return Filter.objects.filter(organization_id = user.organization_id).filter(user = user.username).get(filter_id = filter_id)
+        except Filter.DoesNotExist:
+            raise Http404
+
+    def get_for_reports(self,request):
+        filters = Filter.objects.filter(organization_id = request.user.organization_id).filter(user = request.user.username).filter(dataset = request.data['dataset_id'])
+        serializer  = FilterSerializer(filters, many = True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def get_for_dashboard(self,request):
+        filters = Filter.objects.filter(organization_id = request.user.organization_id).filter(user = request.user.username).filter(dashboard_reports__dashboard = request.data['dashboard'])
+        serializer = FilterSerializer(filters, many = True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def create_for_report(self,request):
+        data = request.data
+        data['organization_id'] = request.user.organization_id
+        data['user'] = request.user.username
+        report = self.get_report_object(request, data['report_id'], request.user)
+        serializer = FilterSerializer(data = data)
+
+        if serializer.is_valid():
+            serializer.save(report = report)
+            return Response(serializer.data,status = status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+    
+    def create_for_dashboard(self, request):
+        data = request.data
+        data['organization_id'] = request.user.organization_id
+        data['user'] = request.user.username
+        dashboard = self.get_dashboard_object(request, data['dashboard_id'],request.user)
+        for x in data['report_ids']:
+            dashboard_report = self.get_dashboard_report_options_object(data['dashboard_id'], x)
+            serializer = FilterSerializer(data = data)
+
+            if serializer.is_valid():
+                serializer.save(dashboard_report = dashboard_report)
+            else:
+                return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.data,status = status.HTTP_201_CREATED)
+        
+    def edit(self, request):
+        data = request.data
+        filter = self.get_object(data['filter_id'], request.user)
+        serializer = FilterSerializer(filter, data = data)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status = status.HTTP_202_ACCEPTED)
+        
+        return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+
+    def delete(self,request):
+        data = request.data
+        filter = self.get_object(data['filter_id'], request.user)
+        filter.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
