@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from app.models import Dataset,Field,Setting,Table,Join,Report, SharedReport, Dashboard, Filter, DashboardReportOptions
+from app.models import Dataset,Field,Setting,Table,Join,Report, SharedReport, Dashboard, Filter, DashboardReportOptions, SharedDashboard
 from django_celery_beat.models import PeriodicTask
 import uuid
 
@@ -101,10 +101,11 @@ class DashboardSerializer(serializers.ModelSerializer):
 
     dashboard_id = serializers.UUIDField(default = uuid.uuid4)
     reports = serializers.SlugRelatedField(many = True, slug_field='name',read_only = True)
+    dashboard_report_options = serializers.PrimaryKeyRelatedField(many=True, read_only = True)
 
     class Meta:
         model = Dashboard
-        fields = ('dashboard_id', 'organization_id','name', 'description', 'reports', 'user')
+        fields = ('dashboard_id', 'organization_id','name', 'description', 'reports', 'user','dashboard_report_options')
 
 class DashboardReportOptionsSerializer(serializers.ModelSerializer):
 
@@ -115,6 +116,14 @@ class DashboardReportOptionsSerializer(serializers.ModelSerializer):
     class Meta:
         model = DashboardReportOptions
         fields = ('dashboard','report', 'filters', 'reportOptions')
+
+class SharedDashboardSerializer(serializers.ModelSerializer):
+
+    dashboard = serializers.ReadOnlyField(source = 'dashbaord.name')
+
+    class Meta:
+        model = SharedDashboard
+        fields = ('dashbaoard', 'shared_user_id', 'user_id', 'view', 'edit', 'delete')
 
 class FilterSerializer(serializers.ModelSerializer):
 

@@ -59,7 +59,7 @@ class GridBackendAuthentication(authentication.BaseAuthentication):
         res_data = json.loads(status.text)['data']
         user = Profile(username = res_data['userId'],organization_id=res_data['organizationId'], role = res_data['role'])
         # res_data['role'] = res_data['role']
-        if res_data['role'] == 'admin':
+        if res_data['role'] == 'Admin':
             user.is_superuser = True
         else:
             user.is_staff = True
@@ -84,7 +84,7 @@ class GridBackendReportPermissions(permissions.BasePermission):
             if request.user.is_superuser:
                 return True
             elif request.user.role == 'Developer':
-                shared = Report.objects.filter(user = request.user.username).exists() or Report.objects.filter(organization_id = request.user.organization_id).filter(shared__user_id__contains = request.user.username).exists()
+                shared = Report.objects.filter(organization_id = request.user.organization_id).filter(user = request.user.username).exists() or Report.objects.filter(organization_id = request.user.organization_id).filter(shared__user_id__contains = request.user.username).exists()
                 return shared
             else:
                 shared = Report.objects.filter(organization_id = request.user.organization_id).filter(shared__user_id__contains = request.user.username).exists()
@@ -107,19 +107,62 @@ class GridBackendReportPermissions(permissions.BasePermission):
             if request.user.is_superuser:
                 True
             elif request.user.role == 'Developer':
-                return obj.filter(user = request.user.username).exists() or obj.get(report_id = request.data['report_id']).get(shared__user_id = request.user.username).edit
+                if obj.filter(user = request.user.username).exists():
+                    return True
+                if obj.filter(shared__user_id = request.user.username).exists():
+                    try:
+                        if obj.get(shared__user_id = request.user.username).edit:
+                            return True
+                    except:
+                        pass
             return False
 
         elif request.method == 'DELETE':
-
+            
             if request.user.is_superuser:
-                return True
+                True
             elif request.user.role == 'Developer':
-                return obj.filter(user=request.user.username).exists() or obj.get(report_id = request.data['report_id']).get(shared__user_id=request.user.username).delete
-            else: 
-                return False
+                if obj.filter(user = request.user.username).exists():
+                    return True
+                if obj.filter(shared__user_id = request.user.username).exists():
+                    try:
+                        if obj.get(shared__user_id = request.user.username).delete:
+                            return True
+                    except:
+                        pass
+            return False
         else:
             return False
+
+class GridBackendShareReportPermissions(permissions.BasePermission):
+
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        else:
+            if request.user.is_superuser or request.user.role == 'Developer':
+                return True
+        return False
+    
+    def has_object_permission(self, request, view, obj):
+
+        if request.method == 'POST':
+            
+            if request.user.is_superuser: 
+                return True
+            if request.user.role == 'Developer':
+                if obj.filter(user = request.user.username).exists():
+                    return True
+                if obj.filter(shared__user_id = request.user.username).exists():
+                    try:
+                        if obj.get(shared__user_id = request.user.username).edit:
+                            return True
+                        if obj.get(shared__user_id = request.user.username).delte:
+                            return True
+                    except:
+                        pass
+        return False
+        
 
 class GridBackendDashboardPermissions(permissions.BasePermission):
 
@@ -128,10 +171,10 @@ class GridBackendDashboardPermissions(permissions.BasePermission):
             if request.user.is_superuser:
                 return True
             elif request.user.role == 'Developer':
-                shared = Dashboard.objects.filter(user = request.user.username).exists() or Dashbaord.objects.filter(organization_id = request.user.organization_id).filter(reports__shared__user_id__contains = request.user.username).exists()
+                shared = Dashboard.objects.filter(organization_id = request.user.organization_id).filter(user = request.user.username).exists() or Dashbaord.objects.filter(organization_id = request.user.organization_id).filter(shared__user_id__contains = request.user.username).exists()
                 return shared
             else:
-                shared = Dashbaord.objects.filter(organization_id = request.user.organization_id).filter(reports__shared__user_id__contains = request.user.username).exists()
+                shared = Dashbaord.objects.filter(organization_id = request.user.organization_id).filter(shared__user_id__contains = request.user.username).exists()
                 return shared
         else:
             if request.user.is_superuser or request.user.role == 'Developer':
@@ -143,7 +186,7 @@ class GridBackendDashboardPermissions(permissions.BasePermission):
 
         if request.method == 'POST':
             
-            if request.user.is_superuser or request.role == 'Developer':
+            if request.user.is_superuser or request.user.role == 'Developer':
                 return True
             return False
         
@@ -152,17 +195,58 @@ class GridBackendDashboardPermissions(permissions.BasePermission):
             if request.user.is_superuser:
                 True
             elif request.user.role == 'Developer':
-                return obj.filter(user = request.user.username).exists() or obj.get(dashboard_id = request.data['dashboard_id']).get(reports__shared__user_id = request.user.username).edit
+                if obj.filter(user = request.user.username).exists():
+                    return True
+                if obj.filter(shared__user_id = request.user.username).exists():
+                    try:
+                        if obj.get(shared__user_id = request.user.username).edit:
+                            return True
+                    except:
+                        pass
             return False
 
-        elif request.method == 'DELETE':
-
+        elif request.method == 'PUT':
+            
             if request.user.is_superuser:
-                return True
+                True
             elif request.user.role == 'Developer':
-                return obj.filter(user = request.user.username).exists() or obj.get(dashboard_id = request.data['dashboard_id']).get(reports__shared__user_id=request.user.username).delete
-            else: 
-                return False
+                if obj.filter(user = request.user.username).exists():
+                    return True
+                if obj.filter(shared__user_id = request.user.username).exists():
+                    try:
+                        if obj.get(shared__user_id = request.user.username).delete:
+                            return True
+                    except:
+                        pass
+            return False
         else:
             return False
 
+class GridBackendShareDashboardPermissions(permissions.BasePermission):
+
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        else:
+            if request.user.is_superuser or request.user.role == 'Developer':
+                return True
+        return False
+    
+    def has_object_permission(self, request, view, obj):
+
+        if request.method == 'POST':
+            
+            if request.user.is_superuser: 
+                return True
+            if request.user.role == 'Developer':
+                if obj.filter(user = request.user.username).exists():
+                    return True
+                if obj.filter(shared__user_id = request.user.username).exists():
+                    try:
+                        if obj.get(shared__user_id = request.user.username).edit:
+                            return True
+                        if obj.get(shared__user_id = request.user.username).delte:
+                            return True
+                    except:
+                        pass
+        return False

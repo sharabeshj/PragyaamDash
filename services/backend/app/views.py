@@ -1,10 +1,27 @@
 from django.shortcuts import render
 
 from app.models import Dataset,Field,Setting,Table,Join,Report
-from app.serializers import DatasetSeraializer,FieldSerializer,SettingSerializer,GeneralSerializer,TableSerializer,JoinSerializer,DynamicFieldsModelSerializer,ReportSerializer, DashboardSerializer,SharedReportSerializer, FilterSerializer, DashboardReportOptions
+from app.serializers import (DatasetSeraializer,
+                                FieldSerializer,
+                                SettingSerializer,
+                                GeneralSerializer,
+                                TableSerializer,
+                                JoinSerializer,
+                                DynamicFieldsModelSerializer,
+                                ReportSerializer, 
+                                DashboardSerializer,
+                                SharedReportSerializer, 
+                                FilterSerializer, 
+                                DashboardReportOptionsSerializer,
+                                SharedDashboardSerializer)
 from app.utils import get_model,dictfetchall, getColumnList
 from app.tasks import datasetRefresh, load_data
-from app.Authentication import  GridBackendAuthentication,  GridBackendDatasetPermissions, GridBackendReportPermissions, GridBackendDashboardPermissions
+from app.Authentication import (GridBackendAuthentication,  
+                                GridBackendDatasetPermissions, 
+                                GridBackendReportPermissions, 
+                                GridBackendDashboardPermissions,
+                                GridBackendShareReportPermissions,
+                                GridBackendShareDashboardPermissions)
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -20,6 +37,7 @@ from django.core.cache import caches
 from django.db.migrations.recorder import MigrationRecorder
 from django.core.management.commands import sqlmigrate
 from django.urls import resolve
+from django.db.models import Q
 # from rq import Queue,Worker
 # from rq_scheduler import Scheduler
 from datetime import timedelta
@@ -76,9 +94,6 @@ class DatasetList(viewsets.ViewSet):
         data = request.data
         data['organization_id'] = request.user.organization_id
         data['user'] = request.user.username
-        with connections['rds'].cursor() as cursor:
-            cursor.execute('SELECT database_name from organizations where organization_id="{}"'.format(request.user.organization_id))
-            database_name = cursor.fetchone()
         if request.data['mode'] == 'VIZ':
             # -- Role Authorization -- #
             
@@ -90,33 +105,44 @@ class DatasetList(viewsets.ViewSet):
                     field_serializer = FieldSerializer(data = f)
                     if field_serializer.is_valid():
                         field_serializer.save(dataset = dataset)
+                    else:
+                        return Response(field_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
                     for s in f['settings']:
                         field = Field.objects.filter(dataset__name = data['name']).filter(worksheet = f['worksheet']).get(name = f['name'])
                         settings_serializer = SettingSerializer(data = s)
                         if settings_serializer.is_valid():
                             settings_serializer.save(field = field)
+                        else:
+                            return Response(settings_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
                 for t in data['tables']:
                     table_serializer = TableSerializer(data = t)
                     if table_serializer.is_valid():
                         table_serializer.save(dataset = dataset)
+                    else:
+                        return Response(table_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
                 for j in data['joins']:
                     join_serializer = JoinSerializer(data = j)
                     if join_serializer.is_valid():
                         join_serializer.save(dataset = dataset)
-                model = dataset.get_django_model()
-                admin.site.register(model)
-                call_command('makemigrations')
-                call_command('migrate', database = 'default',fake = True)
-                last_migration = MigrationRecorder.Migration.objects.latest('id')
-                last_migration_object = sqlmigrate.Command()
-                last_migration_sql = last_migration_object.handle(app_label = last_migration.app, migration_name = last_migration.name,database = 'default', backwards = False)
-                for item in last_migration_sql.split('\n'):
-                    if item.split(' ')[0] == 'CREATE':
-                        with connections['default'].cursor() as cursor:
-                            cursor.execute(item)
-                return Response({'message' : 'success'},status=status.HTTP_201_CREATED)
+                    else:
+                        return Response(join_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+                # model = dataset.get_django_model()
+                # admin.site.register(model)
+                # call_command('makemigrations')
+                # call_command('migrate', database = 'default',fake = True)
+                # last_migration = MigrationRecorder.Migration.objects.latest('id')
+                # last_migration_object = sqlmigrate.Command()
+                # last_migration_sql = last_migration_object.handle(app_label = last_migration.app, migration_name = last_migration.name,database = 'default', backwards = False)
+                # for item in last_migration_sql.split('\n'):
+                #     if item.split(' ')[0] == 'CREATE':
+                #         with connections['default'].cursor() as cursor:
+                #             cursor.execute(item)
+                return Response(serializer.data,status=status.HTTP_201_CREATED)
 
         else:
+            with connections['rds'].cursor() as cursor:
+                cursor.execute('SELECT database_name from organizations where organization_id="{}"'.format(request.user.organization_id))
+                database_name = cursor.fetchone()
             try:
                 # -- Role Authorization -- #
                 if request.user.organization_id not in connections.databases:
@@ -137,13 +163,13 @@ class DatasetList(viewsets.ViewSet):
                 del connections[user.organization_id]
                 call_command('makemigrations')
                 call_command('migrate', database='default', fake=True)
-                last_migration = MigrationRecorder.Migration.objects.latest('id')
-                last_migration_object = sqlmigrate.Command()
-                last_migration_sql = last_migration_object.handle(app_label = last_migration.app, migration_name = last_migration.name, database = 'default', backwards = False)
-                for item in last_migration_sql.split('\n'):
-                    if item.split(' ')[0] == 'CREATE':
-                       with connections['default'].cursor() as cur:
-                            cur.execute(item)
+                # last_migration = MigrationRecorder.Migration.objects.latest('id')
+                # last_migration_object = sqlmigrate.Command()
+                # last_migration_sql = last_migration_object.handle(app_label = last_migration.app, migration_name = last_migration.name, database = 'default', backwards = False)
+                # for item in last_migration_sql.split('\n'):
+                #     if item.split(' ')[0] == 'CREATE':
+                #        with connections['default'].cursor() as cur:
+                #             cur.execute(item)
             except Exception as e:
                 return Response("error", status = status.HTTP_400_BAD_REQUEST)
                 
@@ -156,6 +182,58 @@ class DatasetList(viewsets.ViewSet):
 
         return Response(serializer.errors,status = status.HTTP_400_BAD_REQUEST)
 
+    def edit(self, request, id):
+        dataset = self.get_object(id,request.user)
+        user = request.user
+        data = request.data
+        serializer = DatasetSerializer(dataset, data = data)
+        if dataset.mode == 'VIZ':
+            if serializer.is_valid():
+                serializer.save()
+                worksheets = [f['worksheet'] for f in data['fields'] if f['worksheet'] not in worksheets]
+                dataset.field_set.filter(~Q(name__in = data['fields']) & ~Q(worksheet__in = worksheets)).delete()
+                for f in data['fields']:
+                    if not dataset.field_set.filter(worksheet = f['worksheet']).filter(name = f['name']).exists():
+                        field_serializer = FieldSerializer(data = f)
+                        if field_serializer.is_valid():
+                            field_serializer.save(dataset = dataset)
+                        else:
+                            return Response(field_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+                    field = dataset.field_set.filter(worksheet = f['worksheet']).get(name = f['name'])
+                    for s in f['settings']:
+                        if not field.setting_set.filter(name = s['name']).exists():
+                            settings_serializer = SettingSerializer(data = s)
+                            if settings_serializer.is_valid():
+                                settings_serializer.save(field = field)
+                            else:
+                                return Response(settings_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+                dataset.table_set.filter(~Q(name__in = data['tables'])).delete()
+                for t in data['tables']:
+                    if not dataset.table_set.filter(name = t['name']).exists():
+                        table_serializer = TableSerializer(data = f)
+                        if table_serializer.is_valid():
+                            table_serializer.save(dataset = dataset)
+                        else:
+                            return Response(table_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+                return Response(serializer.data, status = status.HTTP_202_ACCEPTED)
+                fields = [t['field'] for t in data['tables']]
+                worksheet_1 = [t['worksheet_1'] for t in data['tables']]
+                worksheet_2 = [t['worksheet_2'] for t in data['tables']]
+                dataset.join_set.filter(~Q(type__in = data['joins']) | ~Q(field__in = fields) | ~Q(worksheet_1__in = worksheet_1) | ~Q(worksheet_2__in = worksheet_2 )).delete()
+                for t in data['joins']:
+                    if not dataset.join_set.filter(Q(type = t['type']) & Q(field = t['field']) & Q(worksheet_1 = t['worksheet_1']) & Q(worksheet_2 = t['worksheet_2'])).exists():
+                        join_serializer = JoinSerializer(data = f)
+                        if join_serializer.is_valid():
+                            join_serializer.save(dataset = dataset)
+                        else:
+                            return Response(table_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+                return Response(serializer.data, status = status.HTTP_202_ACCEPTED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status = status.HTTP_202_ACCEPTED)   
+            return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
     def add_refresh(self,request,id):
         dataset = self.get_object(id,request.user)
         user = request.user
@@ -167,11 +245,11 @@ class DatasetList(viewsets.ViewSet):
         # job = scheduler.cron(
         #     data['cron'],
         #     func = datasetRefresh,
-        #     args = [user.organization_id,'{}'.format(dataset.dataset_id)],
+        #     args = [user.organization_id,dataset.dataset_id],
         #     repeat=None,
         #     queue_name='default'
         # )
-        # # job = scheduler.enqueue_in(timedelta(minutes=1), datasetRefreshCron,user.organization_id,'{}'.format(dataset.dataset_id))
+        # # job = scheduler.enqueue_in(timedelta(minutes=1), datasetRefreshCron,user.organization_id,dataset.dataset_id)
         # data['job_id'] = job.id
 
         schedule,_ = CrontabSchedule.objects.get_or_create(
@@ -184,7 +262,7 @@ class DatasetList(viewsets.ViewSet):
             crontab=schedule,
             name='{}.{}'.format(user.organization_id, dataset.dataset_id),
             task='app.tasks.datasetRefresh',
-            args=json.dumps([user.organization_id, '{}'.format(dataset.dataset_id)])
+            args=json.dumps([user.organization_id, dataset.dataset_id])
         )
         data['scheduler'] = periodic_task
         serializer = DatasetSeraializer(dataset,data = data)
@@ -219,7 +297,7 @@ class DatasetList(viewsets.ViewSet):
         job_id = dataset.job_id
         scheduler = PeriodicTask.objects.get(name = dataset.scheduler.name)
         scheduler.delete()
-        return Response(status=HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class DatasetDetail(APIView):
 
@@ -261,18 +339,18 @@ class DatasetDetail(APIView):
                 r.flushdb()  
                 return Response(data,status=status.HTTP_200_OK)
             else:
-                datasetRefresh(user, dataset)
+                datasetRefresh(user.organization_id, dataset.dataset_id)
                 return Response(status=status.HTTP_201_CREATED)
 
         else:
             if request.data['view_mode'] == 'view':
+                r = redis.Redis(host='127.0.0.1', port=6379, db=0)
                 try:
                     load_data(os.path.join(BASE_DIR,'{}.rdb'.format(user.organization_id)),'127.0.0.1', 6379, 0)
                 except Exception as e:
                     print(e)
                     return Response(status=status.HTTP_204_NO_CONTENT)
                 data = []
-                print(r.dbsize())
                 edit = 1
                 for x in range(1,r.dbsize()+1):
                     if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
@@ -282,9 +360,7 @@ class DatasetDetail(APIView):
                 r.flushdb()  
                 return Response(data,status=status.HTTP_200_OK)
             else:
-                tables = Table.objects.filter(dataset = dataset)
-                joins = Join.objects.filter(dataset =  dataset)  
-                datasetRefresh(user, dataset, tables,joins) 
+                datasetRefresh(user.organization_id, dataset.dataset_id)
                 return Response(status=status.HTTP_201_CREATED)
         return Response({'message' : 'error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -357,16 +433,14 @@ class ReportGenerate(viewsets.ViewSet):
         if condition == 'between':
             return (df >= value_1) & (df <= value_2)
 
-    def report_generate(self,request):
-
-        report_type = request.data['type']
+    def dataFrameGenerate(self, request, user):
         data = []
         user = request.user
         r1 = redis.StrictRedis(host='127.0.0.1', port=6379, db=1)
-        if r1.exists('{}.{}'.format(user.organization_id,dataset.dataset_id)) != 0 and self.check(r1.hgetall('conf'),request) and request.data['dataset'] == r1.get('id'):
+        if r1.exists('{}.{}'.format(user.organization_id,request.data['dataset'])) != 0:
             print('hellloo')
-            df = pickle.loads(zlib.decompress(r1.get("{}.{}".format(user.organization_id,dataset.dataset_id))))
-            model_fields = [(k.decode('utf8').replace("'", '"'),v.decode('utf8').replace("'", '"')) for k,v in r1.hgetall('fields').items()]
+            df = pickle.loads(zlib.decompress(r1.get("{}.{}".format(user.organization_id,request.data['dataset']))))
+            model_fields = [(k.decode('utf8').replace("'", '"'),v.decode('utf8').replace("'", '"')) for k,v in r1.hgetall('{}.fields'.format(request.data['dataset'])).items()]
 
         else:
             EXPIRATION_SECONDS = 600
@@ -428,9 +502,7 @@ class ReportGenerate(viewsets.ViewSet):
 
             df = pd.DataFrame(data)
             r1.setex("{}.{}".format(user.organization_id,dataset.dataset_id), EXPIRATION_SECONDS, zlib.compress( pickle.dumps(df)))
-            r1.hmset('conf',request.data['options'])
-            r1.set('id', request.data['dataset'])
-            r1.hmset('fields', { x[0] : x[1] for x in model_fields })
+            r1.hmset('{}.fields'.format(dataset.dataset_id), { x[0] : x[1] for x in model_fields })
         
         for x in model_fields:
             if x[1] == 'FloatField':
@@ -441,6 +513,29 @@ class ReportGenerate(viewsets.ViewSet):
                 df = df.astype({ x[0] : 'object'})
             if x[1] == 'DateField':
                 df = df.astype({ x[0] : 'datetime64'})
+        
+        return df,model_fields
+    
+    def filter_options_generate(self,request):
+        
+        df,model_fields = self.dataFrameGenerate(request, request.user)
+
+        if request.data['optionRequested'] == 'fields':
+            return Response({ 'fields' : model_fields }, status = status.HTTP_200_OK )
+
+        if request.data['optionrequested'] == 'field_options':
+            
+            if type(df[request.data['field']]) == 'object':
+                return Response({ 'data' : df[request.data['field']].unique().toList()}, status = status.HTTP_200_OK )
+            else:
+                return Response({ 'data' : { 'min' : df[request.data['field']].min(), 'max' : df[request.data['field']].max() }}, status = status.HTTP_200_OK )
+            
+
+    def report_generate(self,request):
+
+        report_type = request.data['type']
+        
+        df, model_fields = dataFrameGenerate(request, request.user)
         
         dict_fields = dict(model_fields)
         for filter in request.data['filters']:
@@ -3539,7 +3634,7 @@ class ReportGenerate(viewsets.ViewSet):
             return Response({ 'data' : data }, status = status.HTTP_200_OK)
         return Response('error',status = status.HTTP_400_BAD_REQUEST)
 
-class ReportList(APIView):
+class ReportList(viewsets.ViewSet):
 
     permission_classes = (permissions.IsAuthenticated&GridBackendReportPermissions,)
     authentication_classes = (GridBackendAuthentication,)
@@ -3564,13 +3659,23 @@ class ReportList(APIView):
     
     def get_report_object(self,request,report_id,user):
         try:
-            obj = Report.objects.filter(organization_id=user.organization_id)
+            obj = Report.objects.filter(organization_id=user.organization_id).get(report_id = report_id)
             if self.check_object_permissions(self, request, obj):
-                return obj.filter(user=user.username).get(report_id=report_id) | obj.filter(shared__user_id__contains= user.username).get(report_id = report_id)
+                return obj
             else:
                 return Response('Unauthorized', status = status.HTTP_401_UNAUTHORIZED)
         except Report.DoesNotExist:
             raise Http404
+    
+    def report_list(self,request):
+        if request.is_superuser:
+            reports = Report.objects.filter(organization_id=request.user.organization_id).all()
+        if request.user.role == 'Developer':
+            reports = Report.objects.filter(organization_id=request.user.organization_id).filter(user=request.user.username)
+        else:
+            return Response(status = status.HTTP_204_NO_CONTENT)
+        serializer = ReportSerializer(reports, many = True)
+        return Response(serializer.data, status = status.HTTP_200_OK)
 
     def post(self, request):
         data = request.data
@@ -3590,7 +3695,7 @@ class ReportList(APIView):
         
         return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
     
-    def put(self,request):
+    def edit(self,request):
 
         data = request.data
         try:
@@ -3602,6 +3707,22 @@ class ReportList(APIView):
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status = status.HTTP_202_ACCEPTED)
+        
+        return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+    
+    def add_filter(self,request):
+        data = request.data
+        data['organization_id'] = request.user.organization_id
+        data['user'] = request.user.username
+        try:
+            report = self.get_report_object(request,data['report_id'], request.user)
+        except:
+            return Response('Unauthorized', status=status.HTTP_401_UNAUTHORIZED)
+        serializer = FilterSerializer(data = data)
+
+        if serializer.is_valid():
+            serializer.save(report = report)
+            return Response(serializer.data,status = status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
 
@@ -3618,7 +3739,7 @@ class ReportList(APIView):
             serializer.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
 
-class DashboardList(APIView):
+class DashboardList(viewsets.ViewSet): 
 
     permission_classes = (permissions.IsAuthenticated&GridBackendDashboardPermissions,)
     authentication_classes = (GridBackendAuthentication,)
@@ -3633,30 +3754,56 @@ class DashboardList(APIView):
         serializer = DashboardSerializer(dashboards, many = True)
         return Response(serializer.data, status = status.HTTP_200_OK)
     
-    def get_report_objects(self, organization_id, report_id_list):
-        try: 
+    def get_report_objects(self, organization_id, reports):
+        try:
+            report_id_list = [x['id'] for x in reports]
             return Report.objects.filter(organization_id=organization_id).filter(user = user.username).filter(report_id__in = report_id_list)
-        except:
-            return Http404
+        except Report.DoesNotExist:
+            raise Http404
 
     def get_object(self, request, dashboard_id, user):
         try:
-            obj = Dashboard.objects.filter(organization_id = user.organization_id)
+            obj = Dashboard.objects.filter(organization_id = user.organization_id),get(dashboard_id = dashboard_id)
             if self.check_object_permissions(self, request, obj):
-                return obj.filter(user = user.username).get(report_id = report_id) | obj.filter(shared__user_id__contains = user.username).get(dashboard_id = dashboard_id)
-            else:
-                return Response('Unauthorized', status = status.HTTP_401_UNAUTHORIZED)
+                return obj
+    
         except Dashboard.DoesNotExist:
             raise Http404
+
+    def get_dashboard_report_options_objects(self, dashboard, user):
+        try:
+            return DashboardReportOptions.objects.filter(organization_id = user.organization_id).filter(dashboard = dashboard)
+        except DashboardReportOptions.DoesNotExist:
+            raise Http404
+
+    def get_dashboard_report_options_object(self,dashboard_id, report_id):
+        try:
+            return DashboardReportOptions.objects.filter(dashboard = dashboard_id).get(report_id = report_id)
+        except DashboardreportOptions.DoesNotExist:
+            raise Http404
+
+    def dashboard_list(self,request):
+        if request.is_superuser:
+            dashboards = Dashboard.objects.filter(organization_id=request.user.organization_id).all()
+        if request.user.role == 'Developer':
+            dashboards = Dashboard.objects.filter(organization_id=request.user.organization_id).filter(user=request.user.username)
+        else:
+            return Response(status = status.HTTP_204_NO_CONTENT)
+        serializer = DashboardSerializer(dashboards, many = True)
+        return Response(serializer.data, status = status.HTTP_200_OK)
 
     def post(self, request):
         data = request.data
         data['organization_id'] = request.user.organization_id
         data['user'] = request.user.username
-        reports = self.get_report_objects(request.user.organization_id, data['report_id_list'])
+        reports = self.get_report_objects(request.user.organization_id, data['reports'])
         serializer = DashboardSerializer(data=data)
         if serializer.is_valid:
             serializer.save(reports = reports)
+            for x in reports:
+                dashboard_report_serilaizer = DashboardReportOptionsSerializer(data = data)
+                if dashboard_report_serilaizer.is_valid():
+                    dashboard_report_serilaizer.save(report = x)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -3673,9 +3820,31 @@ class DashboardList(APIView):
         serializer = DashboardSerializer(dashboard,data=data)
 
         if serializer.is_valid():
-            serializer.save()
+            for x in self.get_dashboard_report_options_objects(dashboard, request.user):
+                dashboard_report_serilaizer = DashboardReportOptionsSerializer(x, data = data['reports'])
+                if dashboard_report_serilaizer.is_valid():
+                    dashboard_report_serializer.save()
             return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def dashboard_filter(self, request):
+        data = request.data
+        data['organization_id'] = request.user.organization_id
+        data['user'] = request.user.username
+        try:
+            dashboard = self.get_object(request, data['dashboard_id'], request.user)
+        except:
+            return Response('Unauthorized', status=status.HTTP_401_UNAUTHORIZED)
+        
+        for x in data['report_ids']:
+            dashboard_report = self.get_dashboard_report_options_object(data['dashboard_id'], x)
+            serializer = FilterSerializer(data = data)
+
+            if serializer.is_valid():
+                serializer.save(dashboard_report = dashboard_report)
+            else:
+                return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.data,status = status.HTTP_201_CREATED)
 
     def delete(self, request):
 
@@ -3693,16 +3862,18 @@ class DashboardList(APIView):
 
 class SharingReports(viewsets.ViewSet):
 
-    permission_classes=(permissions.IsAuthenticated&GridBackendDatasetPermissions|GridBackendReportPermissions,)
+    permission_classes=(permissions.IsAuthenticated&GridBackendShareReportPermissions,)
     authentication_classes=(GridBackendAuthentication,)
 
-    def get_report_object(self, organization_id,report_id,user):
+    def get_report_object(self,request,report_id,user):
         try:
-            obj = Report.objects.filter(organization_id = organization_id).filter(user = user.username).get(report_id = report_id)
-            self.check_object_permissions(self, request, obj)
-            return obj
-        except:
-            return Http404
+            obj = Report.objects.filter(organization_id=user.organization_id)
+            if self.check_object_permissions(self, request, obj):
+                return obj.filter(user=user.username).get(report_id=report_id)
+            else:
+                return Response('Unauthorized', status = status.HTTP_401_UNAUTHORIZED)
+        except Report.DoesNotExist:
+            return Response('Unauthorized', status = status.HTTP_401_UNAUTHORIZED)
     
     def users_list(self,request):
         try:
@@ -3722,57 +3893,88 @@ class SharingReports(viewsets.ViewSet):
         data = request.data
         report = self.get_report_object(request.user.organization_id,data['report_id'], request.user)
         for x in data['user_id_list']:
+            data['view'] = True
+            if x['edit']:
+                data['edit'] = True
+            if x['delete']:
+                data['delete'] = True
             serializer = SharedReportSerializer(data=data)
             if serializer.is_valid():
                 serializer.save(report = report, shared_user_id=request.user.username, user_id = x)
             else:
                 return Response('error', status=status.HTTP_400_BAD_REQUEST)
+            data['edit'] = False
+            data['delete'] = False
         return Response('success', status = status.HTTP_201_CREATED)
+
+class SharedDashboards(viewsets.ViewSet):
+
+    permission_classes = (permissions.IsAuthenticated&GridBackendShareDashboardPermissions,)
+    authentication_classes = (GridBackendAuthentication,)
     
-    def dashboard_share(self, request):
-        
-        data = request.data
-        for x in data['report_id_list']:
-            report = self.get_report_object(request.user.organization_id, x, request.user)
-            for c in data['user_id_list']:
-                serializer = SharedReportSerializer(data=data)
-                if serializer.is_valid():
-                    serializer.save(report = report, shared_user_id=request.user.username, user_id = x)
-                else:
-                    return Response('error', status=status.HTTP_400_BAD_REQUEST)
-        return Response('success', status = status.HTTP_201_CREATED)
-
-class FilterList(viewsets.ViewSet):
-
-    authentication_classes = (GridBackendAuthentication, )
-    permission_classes = (permissions.IsAuthenticated|GridBackendReportPermissions|GridBackendDashboardPermissions,)
-
-    def get_report_object(self,reqeust,report_id, user):
+    def users_list(self,request):
         try:
-            obj = Report.objects.filter(organization_id=user.organization_id)
-            if self.check_object_permissions(self, request, obj):
-                return obj.filter(user=user.username).get(report_id=report_id) | obj.filter(shared__user_id__contains= user.username).get(report_id = report_id)
-            else:
-                return Response('Unauthorized', status = status.HTTP_401_UNAUTHORIZED)
+            status = requests.post('{}/user/allUsers'.format(os.environ['GRID_API']), headers={'Authorization':'Bearer {}'.format(request.user.token)})
+            res_data = json.loads(status.text)['data']
+            out_data = []
+            if request.user.role == 'Developer':
+                out_data = [i for i in res_data if (i['role'] == 'Developer')]
+            if request.user.role == 'admin':
+                out_data = res_data
+            return Response(out_data, status=status.HTTP_200_OK)
+        except:
+            return Response('error', status=status.HTTP_400_BAD_REQUEST)
+
+
+    def get_report_object(self,request,report_id,user):
+        try:
+            return Report.objects.filter(organization_id=user.organization_id).filter(user=user.username).get(report_id=report_id)
         except Report.DoesNotExist:
             raise Http404
-    
-    def get_dashboard_object(self, request, dashboard_id, user):
+    def get_object(self, request, dashboard_id, user):
         try:
             obj = Dashboard.objects.filter(organization_id = user.organization_id)
             if self.check_object_permissions(self, request, obj):
-                return obj.filter(user = user.username).get(dashboard_id = dashboard_id) | obj.filter(shared__user_id__contains = user.username).get(dashboard_id = dashboard_id)
+                return obj.filter(user = user.username).get(dashboard_id = dashboard_id)
             else:
                 return Response('Unauthorized', status = status.HTTP_401_UNAUTHORIZED)
         except Dashboard.DoesNotExist:
             raise Http404
     
-    def get_dashboard_report_options_object(self,dashboard_id, report_id):
-        try:
-            return DashboardReportOptions.objects.filter(dashboard = dashboard_id).get(report_id = report_id)
-        except DashboardreportOptions.DoesNotExist:
-            raise Http404
+    def dashboard_share(self, request):
+        
+        data = request.data
+        dashbaord = self.get_object(request,data['dashboard_id'], request.user)
+        
+        for c in data['user_id_list']:
+            data['view'] = True
+            if c['edit']:
+                data['edit'] = True
+            if c['delete']:
+                data['delete'] = True
+            share_serializer = SharedDashboardSerializer(data = data)
+            if share_serializer.is_valid():
+                share_serializer.save(dashbaord = dashbaord,shared_user_id = request.user.username, user_id = c['id'])
+                if share_serializer.data['edit'] or share_serializer.data['delete']: 
 
+                    for x in dashbaord.report_set.all():
+                        report = self.get_report_object(request.user.organization_id, x.report_id, request.user)
+                        serializer = SharedReportSerializer(data=data)
+                        if serializer.is_valid():
+                            serializer.save(report = report, shared_user_id=request.user.username, user_id = c['id'])
+                        else:
+                            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            data['edit'] = False
+            data['delete'] = False
+        return Response('success', status = status.HTTP_201_CREATED)
+        return Response(share_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class FilterList(viewsets.ViewSet):
+
+    authentication_classes = (GridBackendAuthentication, )
+    permission_classes = (permissions.IsAuthenticated,)
+    
+    
     def get_object(self,filter_id, user):
         try:
             return Filter.objects.filter(organization_id = user.organization_id).filter(user = user.username).get(filter_id = filter_id)
@@ -3780,42 +3982,14 @@ class FilterList(viewsets.ViewSet):
             raise Http404
 
     def get_for_reports(self,request):
-        filters = Filter.objects.filter(organization_id = request.user.organization_id).filter(user = request.user.username).filter(dataset = request.data['dataset_id'])
+        filters = Filter.objects.filter(organization_id = request.user.organization_id).filter(user = request.user.username).filter(reports__report_id = request.data['report_id'])
         serializer  = FilterSerializer(filters, many = True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def get_for_dashboard(self,request):
-        filters = Filter.objects.filter(organization_id = request.user.organization_id).filter(user = request.user.username).filter(dashboard_reports__dashboard = request.data['dashboard'])
+        filters = Filter.objects.filter(organization_id = request.user.organization_id).filter(user = request.user.username).filter(dashboard_reports__dashboard__dashboard_id = request.data['dashboard'])
         serializer = FilterSerializer(filters, many = True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def create_for_report(self,request):
-        data = request.data
-        data['organization_id'] = request.user.organization_id
-        data['user'] = request.user.username
-        report = self.get_report_object(request, data['report_id'], request.user)
-        serializer = FilterSerializer(data = data)
-
-        if serializer.is_valid():
-            serializer.save(report = report)
-            return Response(serializer.data,status = status.HTTP_201_CREATED)
-        
-        return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
-    
-    def create_for_dashboard(self, request):
-        data = request.data
-        data['organization_id'] = request.user.organization_id
-        data['user'] = request.user.username
-        dashboard = self.get_dashboard_object(request, data['dashboard_id'],request.user)
-        for x in data['report_ids']:
-            dashboard_report = self.get_dashboard_report_options_object(data['dashboard_id'], x)
-            serializer = FilterSerializer(data = data)
-
-            if serializer.is_valid():
-                serializer.save(dashboard_report = dashboard_report)
-            else:
-                return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
-        return Response(serializer.data,status = status.HTTP_201_CREATED)
         
     def edit(self, request):
         data = request.data

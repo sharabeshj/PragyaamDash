@@ -110,13 +110,14 @@ class DashboardReportOptions(models.Model):
 
     dashboard = models.ForeignKey(Dashboard, related_name='reportOption', on_delete=models.CASCADE)
     report = models.ForeignKey(Report, related_name = 'dashboardOption', on_delete = models.CASCADE)
+    organization_id = models.CharField(max_length = 30)
     reportOptions = JSONField()
 
 class Filter(models.Model):
 
     filter_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable = False)
     dataset = models.TextField()
-    reports = models.ManyToManyField(Report, related_name='filters')
+    reports = models.ForeignKey(Report, related_name='filters',on_delete = models.CASCADE)
     dashboard_reports = models.ManyToManyField(DashboardReportOptions, related_name = 'dashboards')
     user = models.CharField(max_length=30)
     organization_id = models.CharField(max_length = 30)
@@ -127,6 +128,15 @@ class Filter(models.Model):
 class SharedReport(models.Model):
 
     report = models.ForeignKey(Report, related_name = 'shared', on_delete= models.CASCADE)
+    shared_user_id = models.CharField(max_length=30)
+    user_id = models.CharField(max_length=30)
+    view = models.BooleanField(default= False)
+    edit = models.BooleanField(default=False)
+    delete = models.BooleanField(default=False)
+
+class SharedDashboard(models.Model):
+
+    dashboard = models.ForeignKey(Dashboard, related_name = 'shared', on_delete = models.CASCADE)
     shared_user_id = models.CharField(max_length=30)
     user_id = models.CharField(max_length=30)
     view = models.BooleanField(default= False)
