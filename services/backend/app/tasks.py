@@ -118,7 +118,7 @@ def datasetRefresh(organization_id,dataset_id):
             for x in model_data:
                 for a in x['data']:
                     id_count +=1
-                    p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), {**dict(a)})
+                    p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)),{ k : (v or 0) for k,v in {**dict(a)}.items()})
 
         else:
             for join in joins:
@@ -144,7 +144,7 @@ def datasetRefresh(organization_id,dataset_id):
                                         if check != []:
                                             for z in check:
                                                 id_count += 1
-                                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), {**X,**z}) 
+                                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)),{ k : (v or 0) for k,v in {{**X,**z}}.items()}) 
                                         break
                     
                     continue
@@ -168,7 +168,7 @@ def datasetRefresh(organization_id,dataset_id):
                                         else:
                                             for z in check:
                                                 id_count += 1
-                                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), {**X,**z})
+                                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), { k : (v or 0) for k,v in {{**X,**z}}.items()})
                                         break       
                     continue
                 if join.type == 'Right-Join':
@@ -191,7 +191,7 @@ def datasetRefresh(organization_id,dataset_id):
                                             for z in check:
                                                 print({**z,**X})
                                                 id_count += 1
-                                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), {**z,**X})
+                                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), { k : (v or 0) for k,v in {{**X,**z}}.items()})
                                         break
                     continue
                 if join.type == 'Outer-Join':
@@ -210,7 +210,7 @@ def datasetRefresh(organization_id,dataset_id):
                                         
                                         for z in check:
                                             id_count += 1
-                                            p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), {**X,**z})
+                                            p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), { k : (v or 0) for k,v in {{**X,**z}}.items()})
                                         break
                         break
                             
@@ -228,12 +228,12 @@ def datasetRefresh(organization_id,dataset_id):
                                     break
                             if f == 0:
                                 id_count+=1
-                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), {**X})
+                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), { k : (v or 0) for k,v in {{**X,**z}}.items()})
 
                     continue
         try:
             p.execute()
-        except Exception as e:        
+        except Exception as e:
             logger.info(e)
         for x in range(1,id_count+1):
             for c in model_fields:

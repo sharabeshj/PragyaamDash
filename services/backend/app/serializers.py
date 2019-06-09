@@ -3,16 +3,6 @@ from app.models import Dataset,Field,Setting,Table,Join,Report, SharedReport, Da
 from django_celery_beat.models import PeriodicTask
 import uuid
 
-class DatasetSeraializer(serializers.ModelSerializer):
-
-    scheduler = serializers.ReadOnlyField(source='periodicTask.last_run_at')
-    fields = serializers.SlugRelatedField(many = True, slug_field='name',read_only = True)
-    dataset_id = serializers.UUIDField(default = uuid.uuid4)
-
-    class Meta:
-        model = Dataset
-        fields = ('dataset_id','organization_id','name','fields','user', 'sql', 'mode', 'scheduler')
-
 class FieldSerializer(serializers.ModelSerializer):
 
     dataset = serializers.ReadOnlyField(source = 'dataset.name')
@@ -21,6 +11,16 @@ class FieldSerializer(serializers.ModelSerializer):
     class Meta:
         model = Field
         fields = ('dataset','name','worksheet','type','settings')
+
+class DatasetSeraializer(serializers.ModelSerializer):
+
+    scheduler = serializers.ReadOnlyField(source='periodicTask.last_run_at')
+    fields = FieldSerializer(many = True,read_only = True)
+    dataset_id = serializers.UUIDField(default = uuid.uuid4)
+
+    class Meta:
+        model = Dataset
+        fields = ('dataset_id','organization_id','name','fields','user', 'sql', 'mode', 'scheduler')
 
 class SettingSerializer(serializers.ModelSerializer):
 
