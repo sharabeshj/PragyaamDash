@@ -107,8 +107,8 @@ def datasetRefresh(organization_id,dataset_id):
                 dynamic_serializer = DynamicFieldsModelSerializer(table_data,many = True,fields = set(model_fields))
                 model_data.append({ 'name' : t.name,'data' : dynamic_serializer.data})
             del connections[organization_id]
-            call_command('makemigrations')
-            call_command('migrate', database = 'default',fake = True)
+            call_command('makemigrations',interactive=False)
+            call_command('migrate', database = 'default',fake = True,interactive=False)
              
         join_model_data=[]
         
@@ -130,26 +130,22 @@ def datasetRefresh(organization_id,dataset_id):
                         if d['name'] == join.worksheet_1:
                             
                             for x in d['data']:
-                                # logger.info(d['table_data'])
                                 check = []
                                 for a in model_data:
                                     if a['name'] == join.worksheet_2:
                                         X = dict(x)
-                                        # print(a['table_data'])
                                         for c in a['data']:
                                             C = dict(c)
-                                            if C[join.field] == X[join.field]:
+                                            if C[join.field_2] == X[join.field_1]:
                                                 check.append(C)
-                                                # print(check)
                                         if check != []:
                                             for z in check:
                                                 id_count += 1
-                                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)),{ k : (v or 0) for k,v in {{**X,**z}}.items()}) 
+                                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)),{ k : (v or 0) for k,v in {**X,**z}.items()}) 
                                         break
                     
                     continue
                 if join.type == 'Left-Join':
-                    print(model_data)
                     for d in model_data:
                         if d['name'] == join.worksheet_1:
                             
@@ -160,15 +156,15 @@ def datasetRefresh(organization_id,dataset_id):
                                         X = dict(x)
                                         for c in a['data']:
                                             C = dict(c)
-                                            if C[join.field] == X[join.field]:
+                                            if C[join.field_2] == X[join.field_1]:
                                                 check.append(C)
                                         if check == []:
                                             id_count += 1
-                                            join_model_data.append({**X, 'id' : id_count})
+                                            p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), { k : (v or 0) for k,v in {**X}.items()})
                                         else:
                                             for z in check:
                                                 id_count += 1
-                                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), { k : (v or 0) for k,v in {{**X,**z}}.items()})
+                                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), { k : (v or 0) for k,v in {**X,**z}.items()})
                                         break       
                     continue
                 if join.type == 'Right-Join':
@@ -182,16 +178,16 @@ def datasetRefresh(organization_id,dataset_id):
                                         X = dict(x)
                                         for c in a['data']:
                                             C = dict(c)
-                                            if C[join.field] == X[join.field]:
+                                            if C[join.field_1] == X[join.field_2]:
                                                 check.append(C)
                                         if check == []:
                                             id_count += 1
-                                            join_model_data.append({**X, 'id' : id_count})
+                                            p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), { k : (v or 0) for k,v in {**X}.items()})
                                         else:
                                             for z in check:
                                                 print({**z,**X})
                                                 id_count += 1
-                                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), { k : (v or 0) for k,v in {{**X,**z}}.items()})
+                                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), { k : (v or 0) for k,v in {**X,**z}.items()})
                                         break
                     continue
                 if join.type == 'Outer-Join':
@@ -205,12 +201,13 @@ def datasetRefresh(organization_id,dataset_id):
                                         X = dict(x)
                                         for c in a['data']:
                                             C = dict(c)
-                                            if C[join.field] == X[join.field]:
+                                            if C[join.field_2] == X[join.field_1]:
                                                 check.append(C)
                                         
                                         for z in check:
                                             id_count += 1
-                                            p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), { k : (v or 0) for k,v in {{**X,**z}}.items()})
+                                            p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), { k : (v or 0) for k,v in {**X,**z}.items()})
+                                            join_model_data.append({**X,**z, 'id' : id_count})
                                         break
                         break
                             
@@ -228,7 +225,7 @@ def datasetRefresh(organization_id,dataset_id):
                                     break
                             if f == 0:
                                 id_count+=1
-                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), { k : (v or 0) for k,v in {{**X,**z}}.items()})
+                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), { k : (v or 0) for k,v in {**X}.items()})
 
                     continue
         try:

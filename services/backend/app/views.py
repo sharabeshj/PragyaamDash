@@ -140,29 +140,29 @@ class DatasetList(viewsets.ViewSet):
                 return Response(serializer.data,status=status.HTTP_201_CREATED)
 
         else:
-            with connections['rds'].cursor() as cursor:
-                cursor.execute('SELECT database_name from organizations where organization_id="{}"'.format(request.user.organization_id))
-                database_name = cursor.fetchone()
-            try:
-                # -- Role Authorization -- #
-                if request.user.organization_id not in connections.databases:
-                    connections.databases[user.organization_id] = {
-                        'ENGINE' : 'django.db.backends.mysql',
-                        'NAME' : database_name,
-                        'OPTIONS' : {
-                            'read_default_file' : os.path.join(BASE_DIR, 'cred_dynamic.cnf'),
-                        }
-                    }
-                with connections[request.user.organization_id].cursor() as cursor:
+            # with connections['rds'].cursor() as cursor:
+            #     cursor.execute('SELECT database_name from organizations where organization_id="{}"'.format(request.user.organization_id))
+            #     database_name = cursor.fetchone()
+            # try:
+            #     # -- Role Authorization -- #
+            #     if request.user.organization_id not in connections.databases:
+            #         connections.databases[user.organization_id] = {
+            #             'ENGINE' : 'django.db.backends.mysql',
+            #             'NAME' : database_name,
+            #             'OPTIONS' : {
+            #                 'read_default_file' : os.path.join(BASE_DIR, 'cred_dynamic.cnf'),
+            #             }
+            #         }
+            #     with connections[request.user.organization_id].cursor() as cursor:
                     # sql = data['sql'][:-1]
                     # createSql = 'CREATE TABLE "{}" AS select * from dblink({}dbname={}{}, {}{}{});'.format(data['name'], "'",os.environ['RDS_DB_NAME'], "'","'",sql.replace('`','"'),"'")
                     # cursor.execute(data['sql'][:-1])
                     # print(resolve(request.path).app_name)
-                    dataset_model = get_model(data['name'],Dataset._meta.app_label,cursor, 'CREATE', data['sql'][:-1])
-                    admin.site.register(dataset_model)
-                del connections[user.organization_id]
-                call_command('makemigrations')
-                call_command('migrate', database='default', fake=True)
+                #     dataset_model = get_model(data['name'],Dataset._meta.app_label,cursor, 'CREATE', data['sql'][:-1])
+                #     admin.site.register(dataset_model)
+                # del connections[user.organization_id]
+                # call_command('makemigrations')
+                # call_command('migrate', database='default', fake=True)
                 # last_migration = MigrationRecorder.Migration.objects.latest('id')
                 # last_migration_object = sqlmigrate.Command()
                 # last_migration_sql = last_migration_object.handle(app_label = last_migration.app, migration_name = last_migration.name, database = 'default', backwards = False)
@@ -170,8 +170,8 @@ class DatasetList(viewsets.ViewSet):
                 #     if item.split(' ')[0] == 'CREATE':
                 #        with connections['default'].cursor() as cur:
                 #             cur.execute(item)
-            except Exception as e:
-                return Response("error", status = status.HTTP_400_BAD_REQUEST)
+            # except Exception as e:
+            #     return Response("error", status = status.HTTP_400_BAD_REQUEST)
                 
             user = user.objects.get(user = request.user)
             data['mode'] = 'SQL'
@@ -352,13 +352,14 @@ class DatasetDetail(APIView):
                     return Response(status=status.HTTP_204_NO_CONTENT)
                 data = []
                 edit = 1
-                for x in range(1,r.dbsize()+1):
+                for x in range(request.data['start'],request.data['end']+1):
                     if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
                         data.append(json.dumps(r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
                     else:
                         data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
+                count = r.dbsize()
                 r.flushdb()  
-                return Response(data,status=status.HTTP_200_OK)
+                return Response({'data' : data, 'length': count},status=status.HTTP_200_OK)
             else:
                 datasetRefresh(user.organization_id, dataset.dataset_id)
                 return Response(status=status.HTTP_201_CREATED)
@@ -898,13 +899,13 @@ class ReportList(viewsets.ViewSet):
     
     def get(self,request):
         if request.user.is_superuser:
-            reports = Report.objects.filter(organization_id=request.user.organization_id).all()
-        if request.user.role == 'Developer':
+            reports = Report.objects.filter(organization_id=request.user.organization_id)
+        elif request.user.role == 'Developer':
             reports = Report.objects.filter(organization_id=request.user.organization_id).filter(user = request.user.username) | Report.objects.filter(organization_id = request.user.organization_id).filter(shared__user_id__contains = request.user.username)
         else:
             reports =Report.objects.filter(organization_id = request.user.organization_id).filter(shared__user_id__contains = request.user.username)
         serializer = ReportSerializer(reports, many=True)
-
+        print(reports)
         return Response(serializer.data, status = status.HTTP_200_OK)
     
     def get_object(self,dataset_id,user):

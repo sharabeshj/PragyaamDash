@@ -85,7 +85,8 @@ class Join(models.Model):
 
     dataset = models.ForeignKey(Dataset,related_name = 'joins',on_delete = models.CASCADE)
     type = models.CharField(max_length = 50)
-    field = models.CharField(max_length = 50)
+    field_1 = models.CharField(max_length = 50)
+    field_2 = models.CharField(max_length = 50)
     worksheet_1 = models.CharField(max_length = 50)
     worksheet_2 = models.CharField(max_length = 50)
 

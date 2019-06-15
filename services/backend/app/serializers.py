@@ -44,7 +44,7 @@ class JoinSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Join
-        fields = ('dataset','type','field','worksheet_1','worksheet_2')
+        fields = ('dataset','type','field_1','field_2','worksheet_1','worksheet_2')
 
 class GeneralSerializer(serializers.ModelSerializer):
 
@@ -73,16 +73,25 @@ class DynamicFieldsModelSerializer(serializers.ModelSerializer):
         model = None
         fields = '__all__'
 
+class FilterSerializer(serializers.ModelSerializer):
+
+    filter_id = serializers.UUIDField(default = uuid.uuid4)
+
+    class Meta:
+        model = Filter
+        fields = ('filter_id', 'field_name', 'field_operation', 'options')
+
 
 class ReportSerializer(serializers.ModelSerializer):
 
     dataset = serializers.ReadOnlyField(source = 'dataset.name')
+    dataset_id = serializers.ReadOnlyField(source = 'dataset.dataset_id')
     report_id = serializers.UUIDField(default = uuid.uuid4)
-    filters = serializers.SlugRelatedField(many=True, slug_field = 'field_name', read_only=True)
+    filters = FieldSerializer(many=True, read_only=True)
 
     class Meta:
         model = Report
-        fields = ('report_id','dataset','user','organization_id','data', 'filters')
+        fields = ('report_id','dataset','dataset_id','user','organization_id','data', 'filters')
 
 
 class SharedReportSerializer(serializers.ModelSerializer):
@@ -100,7 +109,7 @@ class SharedReportSerializer(serializers.ModelSerializer):
 class DashboardSerializer(serializers.ModelSerializer):
 
     dashboard_id = serializers.UUIDField(default = uuid.uuid4)
-    reports = serializers.SlugRelatedField(many = True, slug_field='name',read_only = True)
+    reports = ReportSerializer(many=True, read_only=True)
     dashboard_report_options = serializers.PrimaryKeyRelatedField(many=True, read_only = True)
 
     class Meta:
@@ -124,12 +133,4 @@ class SharedDashboardSerializer(serializers.ModelSerializer):
     class Meta:
         model = SharedDashboard
         fields = ('dashbaoard', 'shared_user_id', 'user_id', 'view', 'edit', 'delete')
-
-class FilterSerializer(serializers.ModelSerializer):
-
-    filter_id = serializers.UUIDField(default = uuid.uuid4)
-
-    class Meta:
-        model = Filter
-        fields = ('filter_id', 'field_name', 'field_operation', 'options')
 
