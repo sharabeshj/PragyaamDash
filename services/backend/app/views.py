@@ -61,6 +61,8 @@ import shutil
 import subprocess
 import pickle
 import zlib
+import arrow
+import datetime
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Create your views here.
@@ -458,7 +460,6 @@ class ReportGenerate(viewsets.ViewSet):
                     print(e)
                     return Response(status=status.HTTP_204_NO_CONTENT)
                 data = []
-                print(r.dbsize())
                 for x in range(1,r.dbsize()+1):
                     if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
                         data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))).items()})
@@ -500,20 +501,34 @@ class ReportGenerate(viewsets.ViewSet):
                 r.flushdb()
                 r.config_set('dbfilename', 'dump.rdb')
                 r.config_rewrite() 
-
             df = pd.DataFrame(data)
             r1.setex("{}.{}".format(user.organization_id,dataset.dataset_id), EXPIRATION_SECONDS, zlib.compress( pickle.dumps(df)))
             r1.hmset('{}.fields'.format(dataset.dataset_id), { x[0] : x[1] for x in model_fields })
         for x in model_fields:
-            if x[1] == 'FloatField':
-                df = df.astype({ x[0] : 'float64'})
-            if x[1] == 'IntegerField':
-                df = df.astype({ x[0] : 'int64'})
-            if x[1] == 'CharField' or x[1] == 'TextField':
-                df = df.astype({ x[0] : 'object'})
-            if x[1] == 'DateField':
-                df = df.astype({ x[0] : 'datetime64'})
+            if x[0] not in df.columns:
         
+                if x[1] == 'FloatField':
+                    df[x[0]] = 0
+                if x[1] == 'IntegerField':
+                    df[x[0]] = 0
+                if x[1] == 'CharField' or x[1] == 'TextField':
+                    df[x[0]] = ''
+                if x[1] == 'DateField' or x[1] == 'DateTimeField':
+                    print('yess')
+                    df[x[0]] = arrow.get('01-01-1990').datetime
+            else:
+                if x[1] == 'FloatField':
+                    df[x[0]] = df[x[0]].apply(pd.to_numeric,errors='coerce')
+                    df.fillna(0,downcast='infer')
+                if x[1] == 'IntegerField':
+                    df[x[0]] = df[x[0]].apply(pd.to_numeric,errors='coerce')
+                    df.fillna(0,downcast='infer')
+                if x[1] == 'CharField' or x[1] == 'TextField':
+                    df = df.astype({ x[0] : 'object'})
+                if x[1] == 'DateField':
+                    df = df.astype({ x[0] : 'datetime64'})
+                    df.fillna(arrow.get('01-01-1990').datetime)
+        print(df)
         return df,model_fields
     
     def filter_options_generate(self,request):
@@ -532,7 +547,7 @@ class ReportGenerate(viewsets.ViewSet):
             
     def graphDataGenerate(self,df,report_type,field,value=None,group_by=None):
         all_fields = []
-        df = df.dropna()
+        # df = df.dropna()
         if report_type in ["scatter","bubble"]:
             data = {
                 'datasets' : []
@@ -637,7 +652,6 @@ class ReportGenerate(viewsets.ViewSet):
                     else:
                         for x in data['labels']:
                             new_add.append(op_dict[group][x])
-                    print(new_add)
                     if report_type in ["horizontalBar","bar","pie","doughnut","scatter","polarArea"]:
                         data['datasets'].append({ 'label' : group, 'backgroundColor' : color_chosen, 'data' : new_add })
                     elif report_type in ["line"]:

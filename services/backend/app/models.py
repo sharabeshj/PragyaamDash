@@ -77,6 +77,7 @@ class Table(models.Model):
 
     dataset = models.ForeignKey(Dataset,related_name = 'tables',on_delete = models.CASCADE)
     name = models.CharField(max_length = 50)
+    key = models.CharField(max_length = 50)
 
     def __str__(self):
         return self.name

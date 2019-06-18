@@ -3,25 +3,6 @@ from app.models import Dataset,Field,Setting,Table,Join,Report, SharedReport, Da
 from django_celery_beat.models import PeriodicTask
 import uuid
 
-class FieldSerializer(serializers.ModelSerializer):
-
-    dataset = serializers.ReadOnlyField(source = 'dataset.name')
-    settings = serializers.SlugRelatedField(many = True, slug_field='name',read_only = True)
-
-    class Meta:
-        model = Field
-        fields = ('dataset','name','worksheet','type','settings')
-
-class DatasetSeraializer(serializers.ModelSerializer):
-
-    scheduler = serializers.ReadOnlyField(source='periodicTask.last_run_at')
-    fields = FieldSerializer(many = True,read_only = True)
-    dataset_id = serializers.UUIDField(default = uuid.uuid4)
-
-    class Meta:
-        model = Dataset
-        fields = ('dataset_id','organization_id','name','fields','user', 'sql', 'mode', 'scheduler')
-
 class SettingSerializer(serializers.ModelSerializer):
 
     field = serializers.ReadOnlyField(source = 'field.name')
@@ -36,7 +17,7 @@ class TableSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Table
-        fields = ('dataset','name')
+        fields = ('dataset','name','key')
 
 class JoinSerializer(serializers.ModelSerializer):
 
@@ -45,6 +26,27 @@ class JoinSerializer(serializers.ModelSerializer):
     class Meta:
         model = Join
         fields = ('dataset','type','field_1','field_2','worksheet_1','worksheet_2')
+
+class FieldSerializer(serializers.ModelSerializer):
+
+    dataset = serializers.ReadOnlyField(source = 'dataset.name')
+    settings = SettingSerializer(many = True,read_only = True)
+
+    class Meta:
+        model = Field
+        fields = ('dataset','name','worksheet','type','settings')
+
+class DatasetSeraializer(serializers.ModelSerializer):
+
+    scheduler = serializers.ReadOnlyField(source='periodicTask.last_run_at')
+    fields = FieldSerializer(many = True,read_only = True)
+    joins = JoinSerializer(many=True, read_only = True)
+    tables = TableSerializer(many=True,read_only=True)
+    dataset_id = serializers.UUIDField(default = uuid.uuid4)
+
+    class Meta:
+        model = Dataset
+        fields = ('dataset_id','organization_id','name','fields','joins','tables','user', 'sql', 'mode', 'scheduler')
 
 class GeneralSerializer(serializers.ModelSerializer):
 
