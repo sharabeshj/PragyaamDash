@@ -36,17 +36,18 @@ class FieldSerializer(serializers.ModelSerializer):
         model = Field
         fields = ('dataset','name','worksheet','type','settings')
 
-class DatasetSeraializer(serializers.ModelSerializer):
+class DatasetSerializer(serializers.ModelSerializer):
 
     scheduler = serializers.ReadOnlyField(source='periodicTask.last_run_at')
     fields = FieldSerializer(many = True,read_only = True)
     joins = JoinSerializer(many=True, read_only = True)
     tables = TableSerializer(many=True,read_only=True)
     dataset_id = serializers.UUIDField(default = uuid.uuid4)
+    model = serializers.JSONField()
 
     class Meta:
         model = Dataset
-        fields = ('dataset_id','organization_id','name','fields','joins','tables','user', 'sql', 'mode', 'scheduler')
+        fields = ('dataset_id','organization_id','name','fields','joins','tables','user', 'sql', 'mode','model', 'scheduler')
 
 class GeneralSerializer(serializers.ModelSerializer):
 

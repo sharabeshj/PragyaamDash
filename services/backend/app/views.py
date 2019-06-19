@@ -1,7 +1,7 @@
 from django.shortcuts import render
 
 from app.models import Dataset,Field,Setting,Table,Join,Report
-from app.serializers import (DatasetSeraializer,
+from app.serializers import (DatasetSerializer,
                                 FieldSerializer,
                                 SettingSerializer,
                                 GeneralSerializer,
@@ -84,7 +84,7 @@ class DatasetList(viewsets.ViewSet):
     def get(self,request):
         
         datasets = Dataset.objects.filter(user=request.user.username)
-        serializer = DatasetSeraializer(datasets, many = True)
+        serializer = DatasetSerializer(datasets, many = True)
         for x in serializer.data:
             if x['mode'] == 'SQL':
                 with connections['default'].cursor() as cursor:
@@ -99,7 +99,7 @@ class DatasetList(viewsets.ViewSet):
         if request.data['mode'] == 'VIZ':
             # -- Role Authorization -- #
             
-            serializer = DatasetSeraializer(data = data)
+            serializer = DatasetSerializer(data = data)
             if serializer.is_valid():
                 serializer.save(user = request.user.username)
                 dataset = Dataset.objects.get(name = data['name'])
@@ -177,54 +177,57 @@ class DatasetList(viewsets.ViewSet):
                 
             user = user.objects.get(user = request.user)
             data['mode'] = 'SQL'
-            serializer = DatasetSeraializer(data = data)
+            serializer = DatasetSerializer(data = data)
             if serializer.is_valid():
                 serializer.save(user = user)
             return Response({'message' : 'success'},status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors,status = status.HTTP_400_BAD_REQUEST)
 
-    def edit(self, request, id):
-        dataset = self.get_object(id,request.user)
-        user = request.user
+    def edit(self, request):
         data = request.data
+        dataset = self.get_object(data['dataset_id'],request.user)
+        user = request.user
+        data['organization_id'] = request.user.organization_id
+        data['user'] = request.user.username
         serializer = DatasetSerializer(dataset, data = data)
         if dataset.mode == 'VIZ':
             if serializer.is_valid():
                 serializer.save()
-                worksheets = [f['worksheet'] for f in data['fields'] if f['worksheet'] not in worksheets]
-                dataset.field_set.filter(~Q(name__in = data['fields']) & ~Q(worksheet__in = worksheets)).delete()
+                worksheets = [f['worksheet'] for f in data['fields']]
+                Field.objects.filter(dataset__dataset_id = dataset.dataset_id).filter(~Q(name__in = [f['name'] for f in data['fields']]) & ~Q(worksheet__in = worksheets)).delete()
                 for f in data['fields']:
-                    if not dataset.field_set.filter(worksheet = f['worksheet']).filter(name = f['name']).exists():
+                    if not Field.objects.filter(dataset__dataset_id = dataset.dataset_id).filter(worksheet = f['worksheet']).filter(name = f['name']).exists():
                         field_serializer = FieldSerializer(data = f)
                         if field_serializer.is_valid():
                             field_serializer.save(dataset = dataset)
                         else:
                             return Response(field_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
-                    field = dataset.field_set.filter(worksheet = f['worksheet']).get(name = f['name'])
+                    field = Field.objects.filter(dataset__dataset_id = dataset.dataset_id).filter(worksheet = f['worksheet']).get(name = f['name'])
                     for s in f['settings']:
-                        if not field.setting_set.filter(name = s['name']).exists():
+                        if not Field.objects.filter(dataset__dataset_id  = dataset.dataset_id).filter(settings__name = s['name']).exists():
                             settings_serializer = SettingSerializer(data = s)
                             if settings_serializer.is_valid():
                                 settings_serializer.save(field = field)
                             else:
                                 return Response(settings_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
-                dataset.table_set.filter(~Q(name__in = data['tables'])).delete()
+                Table.objects.filter(dataset__dataset_id = dataset.dataset_id).filter(~Q(name__in = [t['key'] for t in data['tables']])).delete()
                 for t in data['tables']:
-                    if not dataset.table_set.filter(name = t['name']).exists():
-                        table_serializer = TableSerializer(data = f)
+                    if not Table.objects.filter(dataset__dataset_id = dataset.dataset_id).filter(name = t['key']).exists():
+                        table_serializer = TableSerializer(data = t)
                         if table_serializer.is_valid():
                             table_serializer.save(dataset = dataset)
                         else:
                             return Response(table_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
-                return Response(serializer.data, status = status.HTTP_202_ACCEPTED)
-                fields = [t['field'] for t in data['tables']]
-                worksheet_1 = [t['worksheet_1'] for t in data['tables']]
-                worksheet_2 = [t['worksheet_2'] for t in data['tables']]
-                dataset.join_set.filter(~Q(type__in = data['joins']) | ~Q(field__in = fields) | ~Q(worksheet_1__in = worksheet_1) | ~Q(worksheet_2__in = worksheet_2 )).delete()
+                fields_1 = [t['field_1'] for t in data['joins']]
+                fields_2 = [t['field_2'] for t in data['joins']]
+                worksheet_1 = [t['worksheet_1'] for t in data['joins']]
+                worksheet_2 = [t['worksheet_2'] for t in data['joins']]
+                Join.objects.filter(dataset__dataset_id = dataset.dataset_id).filter(~Q(type__in = data['joins']) | ~Q(field_1__in = fields_1) | ~Q(field_2__in = fields_2) | ~Q(worksheet_1__in = worksheet_1) | ~Q(worksheet_2__in = worksheet_2 )).delete()
                 for t in data['joins']:
-                    if not dataset.join_set.filter(Q(type = t['type']) & Q(field = t['field']) & Q(worksheet_1 = t['worksheet_1']) & Q(worksheet_2 = t['worksheet_2'])).exists():
-                        join_serializer = JoinSerializer(data = f)
+                    print(t)
+                    if not Join.objects.filter(dataset__dataset_id = dataset.dataset_id).filter(Q(type = t['type']) & Q(field_1 = t['field_1']) & Q(field_2 = t['field_2']) & Q(worksheet_1 = t['worksheet_1']) & Q(worksheet_2 = t['worksheet_2'])).exists():
+                        join_serializer = JoinSerializer(data = t)
                         if join_serializer.is_valid():
                             join_serializer.save(dataset = dataset)
                         else:
@@ -267,7 +270,7 @@ class DatasetList(viewsets.ViewSet):
             args=json.dumps([user.organization_id, dataset.dataset_id])
         )
         data['scheduler'] = periodic_task
-        serializer = DatasetSeraializer(dataset,data = data)
+        serializer = DatasetSerializer(dataset,data = data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status = status.HTTP_202_ACCEPTED)
@@ -287,7 +290,7 @@ class DatasetList(viewsets.ViewSet):
         )
         scheduler.update(crontab = schedule)
 
-        serializer = DatasetSeraializer(dataset,data = data)
+        serializer = DatasetSerializer(dataset,data = data)
         if serializer.is_valid():
             serializer.save(scheduler = scheduler)
             return Response(serializer.data, status = status.HTTP_202_ACCEPTED)
@@ -693,8 +696,6 @@ class ReportGenerate(viewsets.ViewSet):
                     for c in curr:
                         op_dict[c[0]] = c[1]
                         
-                    data['datasets'].append({ 'label' : Y_field['name'], 'backgroundColor' : colors, 'data' : new_add })
-
                 if value['aggregate']['value'] == "count":
                     curr = []
                     curr.extend(df.groupby([field['name']])[value['name']].count().reset_index().values)

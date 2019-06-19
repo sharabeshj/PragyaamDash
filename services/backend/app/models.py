@@ -24,6 +24,7 @@ class Dataset(models.Model):
     dataset_id = models.UUIDField(primary_key = True, default = uuid.uuid4, editable = False)
     sql = models.TextField(null=True)
     mode = models.CharField(max_length = 3, choices = mode_choices, default = 'VIZ')
+    model = JSONField()
     scheduler = models.ForeignKey(PeriodicTask, null=True,related_name = 'datasets', on_delete = models.SET_NULL)
 
     def __str__(self):
