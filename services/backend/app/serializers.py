@@ -21,11 +21,11 @@ class TableSerializer(serializers.ModelSerializer):
 
 class JoinSerializer(serializers.ModelSerializer):
 
-    dataset = serializers.ReadOnlyField(source = 'dataset.name')
+    dataset = serializers.ReadOnlyField(source = 'dataset.dataset_id')
 
     class Meta:
         model = Join
-        fields = ('dataset','type','field_1','field_2','worksheet_1','worksheet_2')
+        fields = ('dataset','key','type','field_1','field_2','worksheet_1','worksheet_2')
 
 class FieldSerializer(serializers.ModelSerializer):
 
@@ -38,7 +38,7 @@ class FieldSerializer(serializers.ModelSerializer):
 
 class DatasetSerializer(serializers.ModelSerializer):
 
-    scheduler = serializers.ReadOnlyField(source='periodicTask.last_run_at')
+    scheduler = serializers.ReadOnlyField(source='periodicTask.id')
     fields = FieldSerializer(many = True,read_only = True)
     joins = JoinSerializer(many=True, read_only = True)
     tables = TableSerializer(many=True,read_only=True)
@@ -47,7 +47,7 @@ class DatasetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Dataset
-        fields = ('dataset_id','organization_id','name','fields','joins','tables','user', 'sql', 'mode','model', 'scheduler')
+        fields = ('dataset_id','organization_id','name','fields','joins','tables','user', 'sql', 'mode','model', 'scheduler','last_refreshed_at')
 
 class GeneralSerializer(serializers.ModelSerializer):
 
@@ -79,22 +79,23 @@ class DynamicFieldsModelSerializer(serializers.ModelSerializer):
 class FilterSerializer(serializers.ModelSerializer):
 
     filter_id = serializers.UUIDField(default = uuid.uuid4)
+    activate = serializers.BooleanField(default = True)
+    options = serializers.JSONField()
 
     class Meta:
         model = Filter
-        fields = ('filter_id', 'field_name', 'field_operation', 'options')
+        fields = ('filter_id', 'field_name', 'options','activate')
 
 
 class ReportSerializer(serializers.ModelSerializer):
 
-    dataset = serializers.ReadOnlyField(source = 'dataset.name')
-    dataset_id = serializers.ReadOnlyField(source = 'dataset.dataset_id')
+    dataset = serializers.ReadOnlyField(source='dataset.dataset_id')
     report_id = serializers.UUIDField(default = uuid.uuid4)
     filters = FieldSerializer(many=True, read_only=True)
 
     class Meta:
         model = Report
-        fields = ('report_id','dataset','dataset_id','user','organization_id','data', 'filters')
+        fields = ('report_id','worksheet','dataset','user','organization_id','data', 'filters','last_updated_at')
 
 
 class SharedReportSerializer(serializers.ModelSerializer):
@@ -117,7 +118,7 @@ class DashboardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Dashboard
-        fields = ('dashboard_id', 'organization_id','name', 'description', 'reports', 'user','dashboard_report_options')
+        fields = ('dashboard_id', 'organization_id','name', 'description', 'reports', 'user','dashboard_report_options','last_updated_at')
 
 class DashboardReportOptionsSerializer(serializers.ModelSerializer):
 

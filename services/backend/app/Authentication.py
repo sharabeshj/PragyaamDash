@@ -1,10 +1,13 @@
 from __future__ import unicode_literals
 from django.db import models
 from rest_framework import authentication, exceptions, permissions
-from app.models import Report, Dashboard
+from app.models import Report, Dashboard, SharedReport
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.utils.translation import ugettext_lazy as _
 from django.http import parse_cookie
+from django.db import close_old_connections
+from urllib.parse import urlparse,parse_qs
+
 import time
 import requests
 import json
@@ -36,6 +39,25 @@ class Profile(AbstractBaseUser):
     
 
 class GridBackendAuthentication(authentication.BaseAuthentication):
+
+    def socket_authentication(self, scope):
+        data = parse_qs(scope['query_string'].decode('UTF-8'))
+        login_data = { 'organization_id': data['orgId'], 'email': data['username'], 'password': '*Shara1234', 'source' : 'web', 'timestamp' : time.time() }
+        status = requests.post('http://dev-blr-b.pragyaam.in/api/login', data = login_data)
+        if status.status_code != 200:
+            raise exceptions.AuthenticationFailed('UnAuthorized')
+        print(json.loads(status.text))
+        res_data = json.loads(status.text)['data']
+        user = Profile(username = res_data['userId'],organization_id=res_data['organizationId'], role = res_data['role'])
+        # res_data['role'] = res_data['role']
+        if res_data['role'] == 'Admin':
+            user.is_superuser = True
+        else:
+            user.is_staff = True
+            user.is_active = True
+        user.token = res_data['token']
+        return user
+
 
     def authenticate(self,request):
         # request_data = request.COOKIES.get('info')
@@ -107,7 +129,7 @@ class GridBackendReportPermissions(permissions.BasePermission):
             if request.user.is_superuser:
                 True
             elif request.user.role == 'Developer':
-                if obj.filter(user = request.user.username).exists():
+                if obj.user == request.user.username:
                     return True
                 if obj.filter(shared__user_id = request.user.username).exists():
                     try:
@@ -151,19 +173,18 @@ class GridBackendShareReportPermissions(permissions.BasePermission):
             if request.user.is_superuser: 
                 return True
             if request.user.role == 'Developer':
-                if obj.filter(user = request.user.username).exists():
+                if obj.user == request.user.username:
                     return True
-                if obj.filter(shared__user_id = request.user.username).exists():
+                if SharedReport.objects.select_related().filter(report = obj).exists():
                     try:
-                        if obj.get(shared__user_id = request.user.username).edit:
+                        if SharedReport.objects.select_related().filter(report = obj).get(user_id = request.user.username).edit:
                             return True
-                        if obj.get(shared__user_id = request.user.username).delte:
+                        if SharedReport.objects.select_related().filter(report = obj).get(user_id = request.user.username).delte:
                             return True
                     except:
                         pass
         return False
         
-
 class GridBackendDashboardPermissions(permissions.BasePermission):
 
     def has_permission(self, request, view):
@@ -205,7 +226,7 @@ class GridBackendDashboardPermissions(permissions.BasePermission):
                         pass
             return False
 
-        elif request.method == 'PUT':
+        elif request.method == 'DELETE':
             
             if request.user.is_superuser:
                 True
@@ -250,3 +271,15 @@ class GridBackendShareDashboardPermissions(permissions.BasePermission):
                     except:
                         pass
         return False
+
+
+class GridAuthMiddleware:
+
+    def __init__(self,inner):
+        self.inner = inner
+    
+    def __call__(self,scope):
+        close_old_connections()
+        auth = GridBackendAuthentication()
+        user = auth.socket_authentication(scope)
+        return self.inner(dict(scope,user = user))

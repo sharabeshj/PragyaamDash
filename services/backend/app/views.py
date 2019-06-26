@@ -1,6 +1,6 @@
 from django.shortcuts import render
 
-from app.models import Dataset,Field,Setting,Table,Join,Report
+from app.models import Dataset,Field,Setting,Table,Join,Report, SharedDashboard, SharedReport
 from app.serializers import (DatasetSerializer,
                                 FieldSerializer,
                                 SettingSerializer,
@@ -318,7 +318,6 @@ class DatasetDetail(APIView):
 
     def post(self,request):
         
-        # -- Role Authorization -- #
         dataset = self.get_object(request.data['dataset_id'],request.user)
         user = request.user
         with connections['rds'].cursor() as cursor:
@@ -326,48 +325,38 @@ class DatasetDetail(APIView):
             database_name = cursor.fetchone()
         
         if dataset.mode == 'SQL':
-            
-            if request.data['view_mode'] == 'view':
-                r = redis.Redis(host='127.0.0.1', port=6379, db=0)
-                try:
-                    load_data(os.path.join(BASE_DIR,'{}.rdb'.format(user.organization_id)),'127.0.0.1', 6379, 0)
-                except Exception as e:
-                    print(e)
-                    return Response(status=status.HTTP_204_NO_CONTENT)
-                data = []
-                print(r.dbsize())
-                for x in range(1,r.dbsize()+1):
-                    if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
-                        data.append(json.dumps(r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
-                    else:
-                        data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
-                r.flushdb()  
-                return Response(data,status=status.HTTP_200_OK)
-            else:
-                datasetRefresh(user.organization_id, dataset.dataset_id)
-                return Response(status=status.HTTP_201_CREATED)
+            r = redis.Redis(host='127.0.0.1', port=6379, db=0)
+            try:
+                load_data(os.path.join(BASE_DIR,'{}/{}.rdb'.format(user.organization_id,dataset.dataset_id)),'127.0.0.1', 6379, 0)
+            except Exception as e:
+                print(e)
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            data = []
+            for x in range(1,r.dbsize()+1):
+                if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
+                    data.append(json.dumps(r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
+                else:
+                    data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
+            r.flushdb()  
+            return Response(data,status=status.HTTP_200_OK)
 
         else:
-            if request.data['view_mode'] == 'view':
-                r = redis.Redis(host='127.0.0.1', port=6379, db=0)
-                try:
-                    load_data(os.path.join(BASE_DIR,'{}.rdb'.format(user.organization_id)),'127.0.0.1', 6379, 0)
-                except Exception as e:
-                    print(e)
-                    return Response(status=status.HTTP_204_NO_CONTENT)
-                data = []
-                edit = 1
-                for x in range(request.data['start'],request.data['end']+1):
-                    if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
-                        data.append(json.dumps(r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
-                    else:
-                        data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
-                count = r.dbsize()
-                r.flushdb()  
-                return Response({'data' : data, 'length': count},status=status.HTTP_200_OK)
-            else:
-                datasetRefresh(user.organization_id, dataset.dataset_id)
-                return Response(status=status.HTTP_201_CREATED)
+            r = redis.Redis(host='127.0.0.1', port=6379, db=0)
+            try:
+                load_data(os.path.join(BASE_DIR,'{}/{}.rdb'.format(user.organization_id,dataset.dataset_id)),'127.0.0.1', 6379, 0)
+            except Exception as e:
+                print(e)
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            data = []
+            edit = 1
+            for x in range(request.data['start'],request.data['end']+1):
+                if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
+                    data.append(json.dumps(r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
+                else:
+                    data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
+            count = r.dbsize()
+            r.flushdb()  
+            return Response({'data' : data, 'length': count},status=status.HTTP_200_OK)
         return Response({'message' : 'error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def put(self,request):
@@ -458,7 +447,7 @@ class ReportGenerate(viewsets.ViewSet):
                 model_fields = [(f.name, f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
                 r = redis.Redis(host='127.0.0.1', port=6379, db=0)
                 try:
-                    load_data(os.path.join(BASE_DIR,'{}.rdb'.format(user.organization_id)),'127.0.0.1', 6379, 0)
+                    load_data(os.path.join(BASE_DIR,'{}/{}.rdb'.format(user.organization_id,dataset.dataset_id)),'127.0.0.1', 6379, 0)
                 except Exception as e:
                     print(e)
                     return Response(status=status.HTTP_204_NO_CONTENT)
@@ -487,6 +476,7 @@ class ReportGenerate(viewsets.ViewSet):
                     call_command('migrate', database = 'default',fake = True)
                 serializer_data = dynamic_serializer.data
                 p = r.pipeline()
+                id_count = 0
                 for a in serializer_data:
                     id_count +=1
                     p.hmset('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), {**dict(a)})
@@ -1029,16 +1019,16 @@ class DashboardList(viewsets.ViewSet):
     
     def get_report_objects(self, organization_id, reports):
         try:
-            report_id_list = [x['id'] for x in reports]
-            return Report.objects.filter(organization_id=organization_id).filter(user = user.username).filter(report_id__in = report_id_list)
+            report_id_list = [x['report_id'] for x in reports]
+            return Report.objects.filter(organization_id=organization_id).filter(report_id__in = report_id_list)
         except Report.DoesNotExist:
             raise Http404
 
-    def get_object(self, request, dashboard_id, user):
+    def get_object(self, dashboard_id):
         try:
-            obj = Dashboard.objects.filter(organization_id = user.organization_id),get(dashboard_id = dashboard_id)
-            if self.check_object_permissions(self, request, obj):
-                return obj
+            obj = Dashboard.objects.filter(organization_id = self.request.user.organization_id).get(dashboard_id = dashboard_id)
+            self.check_object_permissions(self.request, obj)
+            return obj
     
         except Dashboard.DoesNotExist:
             raise Http404
@@ -1138,47 +1128,66 @@ class SharingReports(viewsets.ViewSet):
     permission_classes=(permissions.IsAuthenticated&GridBackendShareReportPermissions,)
     authentication_classes=(GridBackendAuthentication,)
 
-    def get_report_object(self,request,report_id,user):
-        try:
-            obj = Report.objects.filter(organization_id=user.organization_id)
-            if self.check_object_permissions(self, request, obj):
-                return obj.filter(user=user.username).get(report_id=report_id)
-            else:
-                return Response('Unauthorized', status = status.HTTP_401_UNAUTHORIZED)
-        except Report.DoesNotExist:
-            return Response('Unauthorized', status = status.HTTP_401_UNAUTHORIZED)
+    def get_report_object(self,report_id):
+        obj = Report.objects.filter(organization_id=self.request.user.organization_id).get(report_id = report_id)
+        self.check_object_permissions(self.request, obj)
+        return obj
+    
+    def get_shared_users(self,request):
+        data = request.data
+        report = self.get_report_object(data['report_id'])
+        shared_users = SharedReport.objects.select_related().filter(report = report)
+        serializer = SharedReportSerializer(shared_users, many=True)
+        return Response(data=serializer.data,status= status.HTTP_200_OK)
     
     def users_list(self,request):
         try:
-            status = requests.post('{}/user/allUsers'.format(os.environ['GRID_API']), headers={'Authorization':'Bearer {}'.format(request.user.token)})
+            data = json.dumps({ 'organization_id' : request.user.organization_id })
+            status = requests.post('{}/user/view'.format(os.environ['GRID_API']),headers={ 'Content-Type' : 'application/json' , 'Authorization':'Bearer {}'.format(request.user.token)},  data = data)
             res_data = json.loads(status.text)['data']
-            out_data = []
-            if request.user.role == 'Developer':
-                out_data = [i for i in res_data if (i['role'] == 'Developer')]
-            if request.user.role == 'admin':
-                out_data = res_data
-            return Response(out_data, status=status.HTTP_200_OK)
+            return Response(res_data)
         except:
             return Response('error', status=status.HTTP_400_BAD_REQUEST)
 
     def report_share(self, request):
 
         data = request.data
-        report = self.get_report_object(request.user.organization_id,data['report_id'], request.user)
+        report = self.get_report_object(data['report_id'])
+        print(report)
         for x in data['user_id_list']:
             data['view'] = True
-            if x['edit']:
+            if data['delete']:
                 data['edit'] = True
-            if x['delete']:
-                data['delete'] = True
+            data['shared_user_id'] = request.user.username
+            data['user_id'] = x
             serializer = SharedReportSerializer(data=data)
             if serializer.is_valid():
-                serializer.save(report = report, shared_user_id=request.user.username, user_id = x)
+                serializer.save(report = report)
             else:
                 return Response('error', status=status.HTTP_400_BAD_REQUEST)
-            data['edit'] = False
-            data['delete'] = False
         return Response('success', status = status.HTTP_201_CREATED)
+    
+    def edit_share(self, request):
+
+        data = request.data
+        data['view'] = True
+        if data['delete']:
+            data['edit'] = True
+        report = self.get_report_object(request, data['report_id'], request.user)
+        shared_report_object = SharedReport.objects.filter(report = report).get(user_id = data['user_id'])
+        serializer = SharedReportSerializer(shared_report_object, data = data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
+        return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+    
+    def remove_share(self, request):
+
+        data = request.data
+        report = self.get_report_object(request, data['report_id'], request.user)
+        shared_report_object = SharedReport.objects.filter(report = report).get(user_id = data['user_id'])
+        shared_report_object.delete()
+        return Response(status = status.HTTP_204_NO_CONTENT)
 
 class SharedDashboards(viewsets.ViewSet):
 
@@ -1246,7 +1255,6 @@ class FilterList(viewsets.ViewSet):
 
     authentication_classes = (GridBackendAuthentication, )
     permission_classes = (permissions.IsAuthenticated,)
-    
     
     def get_object(self,filter_id, user):
         try:

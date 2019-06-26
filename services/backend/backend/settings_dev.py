@@ -43,7 +43,7 @@ INSTALLED_APPS = [
     'django_mysql',
     'django_celery_beat', 
     # "django_rq",
-    # 'channels'
+    'channels'
 ]
 
 MIDDLEWARE = [
@@ -77,6 +77,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'backend.wsgi.application'
 
+ASGI_APPLICATION = 'backend.routing.application'
 
 # Database
 # https://docs.djangoproject.com/en/2.0/ref/settings/#databases
@@ -123,6 +124,9 @@ CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'Asia/Kolkata'
+CELERY_IGNORE_RESULT = True
+CELERY_TRACK_STARTED = True
+CELERY_SEND_EVENTS = True
 
 APPEND_SLASH=False
 
@@ -180,12 +184,12 @@ CORS_ORIGIN_ALLOW_ALL = True
 
 # ASGI_APPLICATION = 'backend.routing.application'
 
-# CHANNEL_LAYERS = {
-#     'default' : {
-#         'BACKEND' : 'channels_redis.core.RedisChahnnelLayer',
-#         'CONFIG' : {
-#             "hosts" : [('127.0.0.1',6379)]
-#         }
-#     }
-# }
+CHANNEL_LAYERS = {
+    'default' : {
+        'BACKEND' : 'channels_redis.core.RedisChannelLayer',
+        'CONFIG' : {
+            "hosts" : ['redis://{}/5'.format(os.environ['REDIS_URL'])]
+        }
+    }
+}
 

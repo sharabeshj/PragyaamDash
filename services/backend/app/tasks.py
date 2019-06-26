@@ -3,6 +3,7 @@ from django.db import connections
 from app.utils import get_model,dictfetchall  
 from celery.task.schedules import crontab
 from celery.decorators import task
+from celery.signals import after_task_publish,task_failure,task_success
 from celery.utils.log import get_task_logger
 
 from app.models import Dataset,Table,Join
@@ -31,9 +32,8 @@ def check_equal(field_1,type_1,field_2,type_2):
         return field_1 == field_2
 
 @task
-def datasetRefresh(organization_id,dataset_id):
+def datasetRefresh(organization_id,dataset_id,channel_name=None):
     id_count = 0
-    logger.info('hii')
     with connections['rds'].cursor() as cursor:
         cursor.execute('select database_name from organizations where organization_id="{}";'.format(organization_id))
         database_name = cursor.fetchone()
@@ -41,10 +41,10 @@ def datasetRefresh(organization_id,dataset_id):
     dataset = Dataset.objects.get(dataset_id = dataset_id)
     if dataset.mode == 'SQL':
         
-        r.config_set('dbfilename', '{}.rdb'.format(organization_id))
+        r.config_set('dbfilename', '{}.rdb'.format(dataset.dataset_id))
         r.config_rewrite()
         try:
-            load_data(os.path.join(BASE_DIR, '{}.rdb'.format(organization_id)),'127.0.0.1',6379,0)
+            load_data(os.path.join(BASE_DIR, '{}.rdb'.format(dataset.dataset_id)),'127.0.0.1',6379,0)
         except:
             pass
         if organization_id not in connections.databases:
@@ -64,36 +64,18 @@ def datasetRefresh(organization_id,dataset_id):
         for a in table_data:
             id_count +=1
             p.hmset('{}.{}.{}'.format(organization_id, dataset_id ,str(id_count)), {**dict(a)})
-        try:
-            p.execute()
-        except Exception as e:        
-            logger.info(e)
-        del connections[organization_id]
-        for x in range(1,id_count+1):
-            for c in model_fields:
-                r.hsetnx('{}.{}.{}'.format(organization_id, dataset_id ,str(x)),c[0],"")
-        r.save()
-        dataset.last_refreshed = datetime.datetime.now()
-        dataset.save()
-        try:
-            shutil.copy(os.path.join('/var/lib/redis/6379', '{}.rdb'.format(organization_id)),BASE_DIR)
-        except Exception as e:
-            logger.info(e)
-        r.flushdb()
-        r.config_set('dbfilename', 'dump.rdb')
-        r.config_rewrite()   
+   
     else:
-        logger.info('check1')
         tables = Table.objects.filter(dataset = dataset)
         joins = Join.objects.filter(dataset =  dataset) 
         model = dataset.get_django_model()
         model_fields = [(f.name,f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
         model_data = []
         data = []  
-        r.config_set('dbfilename', '{}.rdb'.format(organization_id))
+        r.config_set('dbfilename', '{}.rdb'.format(dataset.dataset_id))
         r.config_rewrite()
         try:
-            load_data(os.path.join(BASE_DIR, '{}.rdb'.format(organization_id)),'127.0.0.1',6379,0)
+            load_data(os.path.join(BASE_DIR, '{}/{}.rdb'.format(organization_id,dataset_id)),'127.0.0.1',6379,0)
         except Exception as e:
             logger.info(e)
             pass
@@ -241,17 +223,28 @@ def datasetRefresh(organization_id,dataset_id):
                                 p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), {**X})
 
                     continue
-        try:
-            p.execute()
-        except Exception as e:
-            logger.info(e)
-    
-        r.save()
-        try:
-            shutil.copy(os.path.join('/var/lib/redis/6379', '{}.rdb'.format(organization_id)),BASE_DIR)
-        except Exception as e:
-            logger.info(e)
-        r.flushdb()
-        r.config_set('dbfilename', 'dump.rdb')
-        r.config_rewrite()
+
+    try:
+        p.execute()
+    except Exception as e:        
+        logger.info(e)
+    # for x in range(1,id_count+1):
+    #     for c in model_fields:
+    #         r.hsetnx('{}.{}.{}'.format(organization_id, dataset_id ,str(x)),c[0],"")
+    r.save()
+    try:
+        path = os.path.join(BASE_DIR,'{}/'.format(organization_id))
+        if not os.path.isdir(path):
+            os.mkdir(path)
+        else:
+            if os.path.exists(os.path.join(path,'{}.rdb'.format(dataset.dataset_id))):
+                os.remove(os.path.join(path,'{}.rdb'.format(dataset_id)))
+        logger.info('ok')
+        shutil.copyfile(os.path.join('/var/lib/redis/6379', '{}.rdb'.format(dataset.dataset_id)),os.path.join(path,'{}.rdb'.format(dataset.dataset_id)))
+        os.remove(os.path.join('/var/lib/redis/6379', '{}.rdb'.format(dataset.dataset_id)))
+    except Exception as e:
+        logger.info(e)
+    r.flushdb()
+    r.config_set('dbfilename', 'dump.rdb')
+    r.config_rewrite()
     logger.info("Complete")
