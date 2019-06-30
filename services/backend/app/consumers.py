@@ -51,7 +51,7 @@ class DatasetConsumer(AsyncJsonWebsocketConsumer):
     
     def get_object(self,dataset_id,user):
         try:
-            return Dataset.objects.filter(user = user.username).get(dataset_id = dataset_id)
+            return Dataset.objects.filter(userId = user.username).get(dataset_id = dataset_id)
 
         except Dataset.DoesNotexist:
             raise Http404
@@ -112,7 +112,7 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
 
     def get_object(self,dataset_id,user):
         try:
-            return Dataset.objects.filter(user = user.username).get(dataset_id = dataset_id)
+            return Dataset.objects.filter(userId = user.username).get(dataset_id = dataset_id)
 
         except Dataset.DoesNotexist:
             raise Http404
@@ -138,33 +138,34 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
     async def dataFrameGenerate(self, request_data, user):
         data = []
         r1 = redis.StrictRedis(host='127.0.0.1', port=6379, db=1)
-        if r1.exists('{}.{}'.format(user.organization_id,request_data['dataset_id'])) != 0:
-            df = await sync_to_async(pickle.loads)(zlib.decompress(r1.get("{}.{}".format(user.organization_id,request_data['dataset_id']))))
-            model_fields = [(k.decode('utf8').replace("'", '"'),v.decode('utf8').replace("'", '"')) for k,v in r1.hgetall('{}.fields'.format(request_data['dataset_id'])).items()]
+        dataset_id = request_data['dataset_id'] or request_data['worksheet']
+        model_fields = []
+        if r1.exists('{}.{}'.format(user.organization_id,dataset_id)) != 0:
+            df = await sync_to_async(pickle.loads)(zlib.decompress(r1.get("{}.{}".format(user.organization_id,dataset_id))))
+            model_fields = [(k.decode('utf8').replace("'", '"'),v.decode('utf8').replace("'", '"')) for k,v in r1.hgetall('{}.fields'.format(dataset_id)).items()]
 
         else:
             EXPIRATION_SECONDS = 600
             r = redis.Redis(host='127.0.0.1', port=6379, db=0)
             if request_data['op_table'] == 'dataset':
-                dataset_id = request_data['dataset_id']
                 dataset = await database_sync_to_async(self.get_object)(dataset_id,user)
                 model = dataset.get_django_model()
                 model_fields = [(f.name, f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
                 r = redis.Redis(host='127.0.0.1', port=6379, db=0)
                 try:
-                    await sync_to_async(load_data)(os.path.join(BASE_DIR,'{}/{}.rdb'.format(user.organization_id,dataset.dataset_id)),'127.0.0.1', 6379, 0)
+                    await sync_to_async(load_data)(os.path.join(BASE_DIR,'{}/{}.rdb'.format(user.organization_id,dataset_id)),'127.0.0.1', 6379, 0)
                 except Exception as e:
                     print(e)
                 for x in range(1,r.dbsize()+1):
                     if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
-                        data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))).items()})
+                        data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
                     else:
-                        data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))).items()})
+                        data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
                     
                 r.flushdb(True) 
             else:
                 with connections['rds'].cursor() as cursor:
-                    await database_sync_to_async(cursor.execute)('select SQL_NO_CACHE * from "{}"'.format(request_data['worksheet']))
+                    await database_sync_to_async(cursor.execute)('select SQL_NO_CACHE * from "{}"'.format(dataset_id))
                     table_data = await sync_to_async(dictfetchall)(cursor)
                     table_model = get_model(t.name,model._meta.app_label,cursor, 'READ')
                     model_fields = [(f.name, f.get_internal_type()) for f in table_model._meta.get_fields() if f.name is not 'id']
@@ -178,7 +179,7 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                 id_count = 0
                 for a in serializer_data:
                     id_count +=1
-                    p.hmset('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), {**dict(a)})
+                    p.hmset('{}.{}.{}'.format(user.organization_id, dataset_id ,str(id_count)), {**dict(a)})
                 try:
                     await sync_to_async(p.execute)()
                 except Exception as e:        
@@ -187,15 +188,15 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                 data = []
                 for x in range(1,id_count+1):
                     for c in model_fields:
-                        r.hsetnx('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(x)),c,"")
-                    data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))).items()})
+                        r.hsetnx('{}.{}.{}'.format(user.organization_id, dataset_id ,str(x)),c,"")
+                    data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
     
                 r.flushdb(True)
                 r.config_set('dbfilename', 'dump.rdb')
                 r.config_rewrite() 
             df = await sync_to_async(pd.DataFrame)(data)
-            r1.setex("{}.{}".format(user.organization_id,dataset.dataset_id), EXPIRATION_SECONDS, zlib.compress( pickle.dumps(df)))
-            r1.hmset('{}.fields'.format(dataset.dataset_id), { x[0] : x[1] for x in model_fields })
+            r1.setex("{}.{}".format(user.organization_id,dataset_id), EXPIRATION_SECONDS, zlib.compress( pickle.dumps(df)))
+            r1.hmset('{}.fields'.format(dataset_id), { x[0] : x[1] for x in model_fields })
         for x in model_fields:
             if x[0] not in df.columns:
         
@@ -1115,9 +1116,9 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                 else:
                      df = df[self.check_filter_value_condition(df[fil['field_name']], options['rangeBy'], options['rangeValue'])]
         
-        field = data['options']['X_field']
-        value = data['options']['Y_field']
-        group_by = data['options']['group_by']
+        field = data['X_field']
+        value = data['Y_field']
+        group_by = data['group_by']
 
         try:
             await self.graphDataGenerate(df,report_type, field, value, group_by)
@@ -1138,7 +1139,7 @@ class FilterConsumer(AsyncJsonWebsocketConsumer):
 
     def get_object(self,dataset_id,user):
         try:
-            return Dataset.objects.filter(user = user.username).get(dataset_id = dataset_id)
+            return Dataset.objects.filter(userId = user.username).get(dataset_id = dataset_id)
 
         except Dataset.DoesNotexist:
             raise Http404
@@ -1146,63 +1147,65 @@ class FilterConsumer(AsyncJsonWebsocketConsumer):
     async def dataFrameGenerate(self, request_data, user):
         data = []
         r1 = redis.StrictRedis(host='127.0.0.1', port=6379, db=1)
-        if r1.exists('{}.{}'.format(user.organization_id,request_data['dataset_id'])) != 0:
-            df = await sync_to_async(pickle.loads)(zlib.decompress(r1.get("{}.{}".format(user.organization_id,request_data['dataset_id']))))
-            model_fields = [(k.decode('utf8').replace("'", '"'),v.decode('utf8').replace("'", '"')) for k,v in r1.hgetall('{}.fields'.format(request_data['dataset_id'])).items()]
+        dataset_id = request_data['dataset_id'] or request_data['worksheet']
+        model_fields = []
+        if r1.exists('{}.{}'.format(user.organization_id,dataset_id)) != 0:
+            df = await sync_to_async(pickle.loads)(zlib.decompress(r1.get("{}.{}".format(user.organization_id,dataset_id))))
+            model_fields = [(k.decode('utf8').replace("'", '"'),v.decode('utf8').replace("'", '"')) for k,v in r1.hgetall('{}.fields'.format(dataset_id)).items()]
 
         else:
             EXPIRATION_SECONDS = 600
             r = redis.Redis(host='127.0.0.1', port=6379, db=0)
-            dataset_id = request_data['dataset_id']
-            dataset = await database_sync_to_async(self.get_object)(dataset_id,user)
-            model = dataset.get_django_model()
-            model_fields = [(f.name, f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
-            r = redis.Redis(host='127.0.0.1', port=6379, db=0)
-            try:
-                await sync_to_async(load_data)(os.path.join(BASE_DIR,'{}/{}.rdb'.format(user.organization_id,dataset.dataset_id)),'127.0.0.1', 6379, 0)
-            except Exception as e:
-                print(e)
-            for x in range(1,r.dbsize()+1):
-                if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
-                    data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))).items()})
-                else:
-                    data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))).items()})
-                
-            r.flushdb(True) 
-            # else:
-            #     with connections['rds'].cursor() as cursor:
-            #         await database_sync_to_async(cursor.execute)('select SQL_NO_CACHE * from "{}"'.format(request_data['worksheet']))
-            #         table_data = await sync_to_async(dictfetchall)(cursor)
-            #         table_model = get_model(t.name,model._meta.app_label,cursor, 'READ')
-            #         model_fields = [(f.name, f.get_internal_type()) for f in table_model._meta.get_fields() if f.name is not 'id']
-            #         GeneralSerializer.Meta.model = table_model
+            if request_data['op_table'] == 'dataset':
+                dataset = await database_sync_to_async(self.get_object)(dataset_id,user)
+                model = dataset.get_django_model()
+                model_fields = [(f.name, f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
+                r = redis.Redis(host='127.0.0.1', port=6379, db=0)
+                try:
+                    await sync_to_async(load_data)(os.path.join(BASE_DIR,'{}/{}.rdb'.format(user.organization_id,dataset_id)),'127.0.0.1', 6379, 0)
+                except Exception as e:
+                    print(e)
+                for x in range(1,r.dbsize()+1):
+                    if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
+                        data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
+                    else:
+                        data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
+                    
+                r.flushdb(True) 
+            else:
+                with connections['rds'].cursor() as cursor:
+                    await database_sync_to_async(cursor.execute)('select SQL_NO_CACHE * from "{}"'.format(dataset_id))
+                    table_data = await sync_to_async(dictfetchall)(cursor)
+                    table_model = get_model(t.name,model._meta.app_label,cursor, 'READ')
+                    model_fields = [(f.name, f.get_internal_type()) for f in table_model._meta.get_fields() if f.name is not 'id']
+                    GeneralSerializer.Meta.model = table_model
 
-            #         dynamic_serializer = GeneralSerializer(table_data,many = True)
-            #         await sync_to_async(call_command)('makemigrations')
-            #         await sync_to_async(call_command)('migrate', database = 'default',fake = True)
-            #     serializer_data = dynamic_serializer.data
-            #     p = r.pipeline()
-            #     id_count = 0
-            #     for a in serializer_data:
-            #         id_count +=1
-            #         p.hmset('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), {**dict(a)})
-            #     try:
-            #         await sync_to_async(p.execute)()
-            #     except Exception as e:        
-            #         print(e)
-            #     del connections[user.organization_id]
-            #     data = []
-            #     for x in range(1,id_count+1):
-            #         for c in model_fields:
-            #             r.hsetnx('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(x)),c,"")
-            #         data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))).items()})
+                    dynamic_serializer = GeneralSerializer(table_data,many = True)
+                    await sync_to_async(call_command)('makemigrations')
+                    await sync_to_async(call_command)('migrate', database = 'default',fake = True)
+                serializer_data = dynamic_serializer.data
+                p = r.pipeline()
+                id_count = 0
+                for a in serializer_data:
+                    id_count +=1
+                    p.hmset('{}.{}.{}'.format(user.organization_id, dataset_id ,str(id_count)), {**dict(a)})
+                try:
+                    await sync_to_async(p.execute)()
+                except Exception as e:        
+                    print(e)
+                del connections[user.organization_id]
+                data = []
+                for x in range(1,id_count+1):
+                    for c in model_fields:
+                        r.hsetnx('{}.{}.{}'.format(user.organization_id, dataset_id ,str(x)),c,"")
+                    data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
     
-            #     r.flushdb(True)
-            #     r.config_set('dbfilename', 'dump.rdb')
-            #     r.config_rewrite() 
+                r.flushdb(True)
+                r.config_set('dbfilename', 'dump.rdb')
+                r.config_rewrite() 
             df = await sync_to_async(pd.DataFrame)(data)
-            r1.setex("{}.{}".format(user.organization_id,dataset.dataset_id), EXPIRATION_SECONDS, zlib.compress( pickle.dumps(df)))
-            r1.hmset('{}.fields'.format(dataset.dataset_id), { x[0] : x[1] for x in model_fields })
+            r1.setex("{}.{}".format(user.organization_id,dataset_id), EXPIRATION_SECONDS, zlib.compress( pickle.dumps(df)))
+            r1.hmset('{}.fields'.format(dataset_id), { x[0] : x[1] for x in model_fields })
         for x in model_fields:
             if x[0] not in df.columns:
         

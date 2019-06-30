@@ -14,6 +14,7 @@ import json
 
 class Profile(AbstractBaseUser):
     username = models.CharField(max_length=50, unique=True)
+    user_alias = models.CharField(max_length=100)
     is_active = models.BooleanField(_('active'), default=True)
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
@@ -48,7 +49,7 @@ class GridBackendAuthentication(authentication.BaseAuthentication):
             raise exceptions.AuthenticationFailed('UnAuthorized')
         print(json.loads(status.text))
         res_data = json.loads(status.text)['data']
-        user = Profile(username = res_data['userId'],organization_id=res_data['organizationId'], role = res_data['role'])
+        user = Profile(username = res_data['userId'],user_alias = res_data['username'],organization_id=res_data['organizationId'], role = res_data['role'])
         # res_data['role'] = res_data['role']
         if res_data['role'] == 'Admin':
             user.is_superuser = True
@@ -79,7 +80,7 @@ class GridBackendAuthentication(authentication.BaseAuthentication):
             raise exceptions.AuthenticationFailed('UnAuthorized')
         print(json.loads(status.text))
         res_data = json.loads(status.text)['data']
-        user = Profile(username = res_data['userId'],organization_id=res_data['organizationId'], role = res_data['role'])
+        user = Profile(username = res_data['userId'],user_alias = res_data['username'],organization_id=res_data['organizationId'], role = res_data['role'])
         # res_data['role'] = res_data['role']
         if res_data['role'] == 'Admin':
             user.is_superuser = True
@@ -93,7 +94,8 @@ class GridBackendDatasetPermissions(permissions.BasePermission):
 
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
-            return True
+            if request.user.is_superuser or request.user.role == 'Developer':
+                return True
         else:
             if request.user.is_superuser or request.user.role == 'Developer':
                 return True
@@ -103,11 +105,8 @@ class GridBackendReportPermissions(permissions.BasePermission):
 
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
-            if request.user.is_superuser:
+            if request.user.is_superuser or request.user.role == 'Developer':
                 return True
-            elif request.user.role == 'Developer':
-                shared = Report.objects.filter(organization_id = request.user.organization_id).filter(user = request.user.username).exists() or Report.objects.filter(organization_id = request.user.organization_id).filter(shared__user_id__contains = request.user.username).exists()
-                return shared
             else:
                 shared = Report.objects.filter(organization_id = request.user.organization_id).filter(shared__user_id__contains = request.user.username).exists()
                 return shared
@@ -132,11 +131,8 @@ class GridBackendReportPermissions(permissions.BasePermission):
                 if obj.user == request.user.username:
                     return True
                 if obj.filter(shared__user_id = request.user.username).exists():
-                    try:
-                        if obj.get(shared__user_id = request.user.username).edit:
-                            return True
-                    except:
-                        pass
+                    if obj.get(shared__user_id = request.user.username).edit:
+                        return True
             return False
 
         elif request.method == 'DELETE':
@@ -147,11 +143,8 @@ class GridBackendReportPermissions(permissions.BasePermission):
                 if obj.filter(user = request.user.username).exists():
                     return True
                 if obj.filter(shared__user_id = request.user.username).exists():
-                    try:
-                        if obj.get(shared__user_id = request.user.username).delete:
-                            return True
-                    except:
-                        pass
+                    if obj.get(shared__user_id = request.user.username).delete:
+                        return True
             return False
         else:
             return False
@@ -175,25 +168,14 @@ class GridBackendShareReportPermissions(permissions.BasePermission):
             if request.user.role == 'Developer':
                 if obj.user == request.user.username:
                     return True
-                if SharedReport.objects.select_related().filter(report = obj).exists():
-                    try:
-                        if SharedReport.objects.select_related().filter(report = obj).get(user_id = request.user.username).edit:
-                            return True
-                        if SharedReport.objects.select_related().filter(report = obj).get(user_id = request.user.username).delte:
-                            return True
-                    except:
-                        pass
         return False
         
 class GridBackendDashboardPermissions(permissions.BasePermission):
 
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
-            if request.user.is_superuser:
+            if request.user.is_superuser or request.user.role == 'Developer':
                 return True
-            elif request.user.role == 'Developer':
-                shared = Dashboard.objects.filter(organization_id = request.user.organization_id).filter(user = request.user.username).exists() or Dashbaord.objects.filter(organization_id = request.user.organization_id).filter(shared__user_id__contains = request.user.username).exists()
-                return shared
             else:
                 shared = Dashbaord.objects.filter(organization_id = request.user.organization_id).filter(shared__user_id__contains = request.user.username).exists()
                 return shared
@@ -219,11 +201,8 @@ class GridBackendDashboardPermissions(permissions.BasePermission):
                 if obj.filter(user = request.user.username).exists():
                     return True
                 if obj.filter(shared__user_id = request.user.username).exists():
-                    try:
-                        if obj.get(shared__user_id = request.user.username).edit:
-                            return True
-                    except:
-                        pass
+                    if obj.get(shared__user_id = request.user.username).edit:
+                        return True
             return False
 
         elif request.method == 'DELETE':
@@ -234,11 +213,8 @@ class GridBackendDashboardPermissions(permissions.BasePermission):
                 if obj.filter(user = request.user.username).exists():
                     return True
                 if obj.filter(shared__user_id = request.user.username).exists():
-                    try:
-                        if obj.get(shared__user_id = request.user.username).delete:
-                            return True
-                    except:
-                        pass
+                    if obj.get(shared__user_id = request.user.username).delete:
+                        return True
             return False
         else:
             return False
@@ -262,14 +238,6 @@ class GridBackendShareDashboardPermissions(permissions.BasePermission):
             if request.user.role == 'Developer':
                 if obj.filter(user = request.user.username).exists():
                     return True
-                if obj.filter(shared__user_id = request.user.username).exists():
-                    try:
-                        if obj.get(shared__user_id = request.user.username).edit:
-                            return True
-                        if obj.get(shared__user_id = request.user.username).delte:
-                            return True
-                    except:
-                        pass
         return False
 
 

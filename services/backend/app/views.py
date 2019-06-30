@@ -1,6 +1,6 @@
 from django.shortcuts import render
 
-from app.models import Dataset,Field,Setting,Table,Join,Report, SharedDashboard, SharedReport
+from app.models import Dataset,Field,Setting,Table,Join,Report, Dashboard, SharedDashboard, SharedReport
 from app.serializers import (DatasetSerializer,
                                 FieldSerializer,
                                 SettingSerializer,
@@ -22,13 +22,13 @@ from app.Authentication import (GridBackendAuthentication,
                                 GridBackendDashboardPermissions,
                                 GridBackendShareReportPermissions,
                                 GridBackendShareDashboardPermissions)
+from app.filters import DatasetFilterBackend, ReportFilterBackend,DashboardFilterBackend
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
 from django.http import Http404
-from rest_framework import permissions,exceptions
-from rest_framework import viewsets
+from rest_framework import permissions,exceptions,viewsets,status
+from rest_framework.decorators import action
 
 from django.contrib import admin
 from django.core.management import call_command
@@ -69,22 +69,19 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # @job
 
-class DatasetList(viewsets.ViewSet):
+class DatasetViewSet(viewsets.GenericViewSet):
 
     permission_classes = (permissions.IsAuthenticated&GridBackendDatasetPermissions,)
     authentication_classes = (GridBackendAuthentication,)
-    
-    def get_object(self,dataset_id,user):
-        try:
-            return Dataset.objects.filter(user = user.username).get(dataset_id = dataset_id)
+    filter_backends = (DatasetFilterBackend,)
 
-        except Dataset.DoesNotexist:
-            raise Http404
+    queryset = Dataset.objects.all()
+    serializer_class = DatasetSerializer
 
-    def get(self,request):
+    def list(self,request):
         
-        datasets = Dataset.objects.filter(user=request.user.username)
-        serializer = DatasetSerializer(datasets, many = True)
+        datasets = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(datasets, many = True)
         for x in serializer.data:
             if x['mode'] == 'SQL':
                 with connections['default'].cursor() as cursor:
@@ -92,17 +89,18 @@ class DatasetList(viewsets.ViewSet):
 
         return Response(serializer.data,status = status.HTTP_200_OK)
 
-    def post(self,request):
+    def create(self,request):
         data = request.data
         data['organization_id'] = request.user.organization_id
-        data['user'] = request.user.username
+        data['user'] = request.user.user_alias
+        data['userId'] = request.user.username
         if request.data['mode'] == 'VIZ':
             # -- Role Authorization -- #
             
-            serializer = DatasetSerializer(data = data)
+            serializer = self.get_serializer(data = data)
             if serializer.is_valid():
-                serializer.save(user = request.user.username)
-                dataset = Dataset.objects.get(name = data['name'])
+                serializer.save()
+                dataset = Dataset.objects.get(dataset_id = serializer.data['dataset_id'])
                 for f in data['fields']:
                     field_serializer = FieldSerializer(data = f)
                     if field_serializer.is_valid():
@@ -110,7 +108,7 @@ class DatasetList(viewsets.ViewSet):
                     else:
                         return Response(field_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
                     for s in f['settings']:
-                        field = Field.objects.filter(dataset__name = data['name']).filter(worksheet = f['worksheet']).get(name = f['name'])
+                        field = Field.objects.filter(dataset__dataset_id = serializer.data['dataset_id']).filter(worksheet = f['worksheet']).get(name = f['name'])
                         settings_serializer = SettingSerializer(data = s)
                         if settings_serializer.is_valid():
                             settings_serializer.save(field = field)
@@ -175,22 +173,22 @@ class DatasetList(viewsets.ViewSet):
             # except Exception as e:
             #     return Response("error", status = status.HTTP_400_BAD_REQUEST)
                 
-            user = user.objects.get(user = request.user)
             data['mode'] = 'SQL'
-            serializer = DatasetSerializer(data = data)
+            data['user'] = request.user.username
+            serializer = self.get_serializer(data = data)
             if serializer.is_valid():
-                serializer.save(user = user)
+                serializer.save()
             return Response({'message' : 'success'},status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors,status = status.HTTP_400_BAD_REQUEST)
 
-    def edit(self, request):
+    def update(self, request,pk=None):
         data = request.data
-        dataset = self.get_object(data['dataset_id'],request.user)
+        dataset = self.get_object()
         user = request.user
         data['organization_id'] = request.user.organization_id
         data['user'] = request.user.username
-        serializer = DatasetSerializer(dataset, data = data)
+        serializer = self.get_serializer(dataset, data = data)
         if dataset.mode == 'VIZ':
             if serializer.is_valid():
                 serializer.save()
@@ -239,8 +237,83 @@ class DatasetList(viewsets.ViewSet):
                 serializer.save()
                 return Response(serializer.data, status = status.HTTP_202_ACCEPTED)   
             return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
-    def add_refresh(self,request,id):
-        dataset = self.get_object(id,request.user)
+    
+    def retrieve(self,request,pk=None):
+        dataset = self.get_object()
+        user = request.user
+        with connections['rds'].cursor() as cursor:
+            cursor.execute('select database_name from organizations where organization_id="{}";'.format(request.user.organization_id))
+            database_name = cursor.fetchone()
+        
+        if dataset.mode == 'SQL':
+            r = redis.Redis(host='127.0.0.1', port=6379, db=0)
+            try:
+                load_data(os.path.join(BASE_DIR,'{}/{}.rdb'.format(user.organization_id,dataset.dataset_id)),'127.0.0.1', 6379, 0)
+            except Exception as e:
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            data = []
+            for x in range(1,r.dbsize()+1):
+                if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
+                    data.append(json.dumps(r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
+                else:
+                    data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
+            r.flushdb()  
+            return Response(data,status=status.HTTP_200_OK)
+
+        else:
+            r = redis.Redis(host='127.0.0.1', port=6379, db=0)
+            try:
+                load_data(os.path.join(BASE_DIR,'{}/{}.rdb'.format(user.organization_id,dataset.dataset_id)),'127.0.0.1', 6379, 0)
+            except Exception as e:
+                print(e)
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            data = []
+            edit = 1
+            for x in range(request.data['start'],request.data['end']+1):
+                if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
+                    data.append(json.dumps(r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
+                else:
+                    data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
+            count = r.dbsize()
+            r.flushdb()  
+            return Response({'data' : data, 'length': count},status=status.HTTP_200_OK)
+        return Response({'message' : 'error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(methods=['POST'],detail=True)
+    def add_data(self,request,pk=None):
+        data = request.data
+        dataset = self.get_object()
+        r = redis.Redis(host='127.0.0.1', port=6379, db=0)
+        r.config_set('dbfilename', '{}.rdb'.format(user.organization_id))
+        r.config_rewrite()
+        try:
+            load_data(os.path.join(BASE_DIR, '{}.rdb'.format(user.organization_id)), '127.0.0.1', 6379, 0)
+        except:
+            pass
+        edit_data = json.loads(data['data'])
+        p = r.pipeline()
+        id_count = 0
+        for a in edit_data:
+            id_count +=1
+            p.hmset('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), a)
+        try:
+            p.execute()
+        except Exception as e:        
+            print(e)
+        r.save()
+        dataset.last_refreshed = datetime.datetime.now()
+        dataset.save()
+        try:
+            shutil.copy(os.path.join('/var/lib/redis/6379', '{}.rdb'.format(user.organization_id)),BASE_DIR)
+        except Exception as e:
+            print(e)
+        r.flushdb()
+        r.config_set('dbfilename', 'dump.rdb')
+        r.config_rewrite()
+
+    @action(methods=["PUT"],detail=True)
+    def add_refresh(self,request,pk=None):
+        dataset = self.get_object()
         user = request.user
         data = request.data
         # # queue = Queue(user.organization_id, connection=redis.StrictRedis(host='127.0.0.1', port=6379, db=3))
@@ -277,8 +350,9 @@ class DatasetList(viewsets.ViewSet):
         
         return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)        
 
-    def edit_refresh(self,request,id):
-        dataset = self.get_object(id,request.user)
+    @action(methods=["PUT"],detail=True)
+    def edit_refresh(self,request,pk=None):
+        dataset = self.get_object()
         data = request.data
         job_id = dataset.job_id
         scheduler = PeriodicTask.objects.get(name = dataset.scheduler.name)
@@ -290,681 +364,71 @@ class DatasetList(viewsets.ViewSet):
         )
         scheduler.update(crontab = schedule)
 
-        serializer = DatasetSerializer(dataset,data = data)
+        serializer = self.get_serializer(dataset,data = data)
         if serializer.is_valid():
             serializer.save(scheduler = scheduler)
             return Response(serializer.data, status = status.HTTP_202_ACCEPTED)
         
         return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
 
-    def delete_refresh(self,request,id):
+    @action(methods=["DELETE"],detail=True)
+    def delete_refresh(self,request,pk=None):
         dataset = self.get_object(id,request.user)
         job_id = dataset.job_id
         scheduler = PeriodicTask.objects.get(name = dataset.scheduler.name)
         scheduler.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-class DatasetDetail(APIView):
-
-    permission_classes = (permissions.IsAuthenticated&GridBackendDatasetPermissions,)
-    authentication_classes = (GridBackendAuthentication,)
-
-    def get_object(self,dataset_id,user):
-        try:
-            return Dataset.objects.filter(user = user.username).get(dataset_id = dataset_id)
-
-        except Dataset.DoesNotexist:
-            raise Http404
-
-    def post(self,request):
-        
-        dataset = self.get_object(request.data['dataset_id'],request.user)
-        user = request.user
-        with connections['rds'].cursor() as cursor:
-            cursor.execute('select database_name from organizations where organization_id="{}";'.format(request.user.organization_id))
-            database_name = cursor.fetchone()
-        
-        if dataset.mode == 'SQL':
-            r = redis.Redis(host='127.0.0.1', port=6379, db=0)
-            try:
-                load_data(os.path.join(BASE_DIR,'{}/{}.rdb'.format(user.organization_id,dataset.dataset_id)),'127.0.0.1', 6379, 0)
-            except Exception as e:
-                print(e)
-                return Response(status=status.HTTP_204_NO_CONTENT)
-            data = []
-            for x in range(1,r.dbsize()+1):
-                if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
-                    data.append(json.dumps(r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
-                else:
-                    data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
-            r.flushdb()  
-            return Response(data,status=status.HTTP_200_OK)
-
-        else:
-            r = redis.Redis(host='127.0.0.1', port=6379, db=0)
-            try:
-                load_data(os.path.join(BASE_DIR,'{}/{}.rdb'.format(user.organization_id,dataset.dataset_id)),'127.0.0.1', 6379, 0)
-            except Exception as e:
-                print(e)
-                return Response(status=status.HTTP_204_NO_CONTENT)
-            data = []
-            edit = 1
-            for x in range(request.data['start'],request.data['end']+1):
-                if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
-                    data.append(json.dumps(r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
-                else:
-                    data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
-            count = r.dbsize()
-            r.flushdb()  
-            return Response({'data' : data, 'length': count},status=status.HTTP_200_OK)
-        return Response({'message' : 'error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    def put(self,request):
-        data = request.data
-        dataset = self.get_object(request.data['dataset_id'],request.user)
-        r = redis.Redis(host='127.0.0.1', port=6379, db=0)
-        r.config_set('dbfilename', '{}.rdb'.format(user.organization_id))
-        r.config_rewrite()
-        try:
-            load_data(os.path.join(BASE_DIR, '{}.rdb'.format(user.organization_id)), '127.0.0.1', 6379, 0)
-        except:
-            pass
-        edit_data = json.loads(data['data'])
-        p = r.pipeline()
-        id_count = 0
-        for a in edit_data:
-            id_count +=1
-            p.hmset('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), a)
-        try:
-            p.execute()
-        except Exception as e:        
-            print(e)
-        r.save()
-        dataset.last_refreshed = datetime.datetime.now()
-        dataset.save()
-        try:
-            shutil.copy(os.path.join('/var/lib/redis/6379', '{}.rdb'.format(user.organization_id)),BASE_DIR)
-        except Exception as e:
-            print(e)
-        r.flushdb()
-        r.config_set('dbfilename', 'dump.rdb')
-        r.config_rewrite()
-
-class ReportGenerate(viewsets.ViewSet):
-
-    permission_classes = (permissions.IsAuthenticated,)
-    authentication_classes = (GridBackendAuthentication,)
-    color_choices = ["#3e95cd", "#8e5ea2","#3cba9f","#e8c3b9","#c45850","#66FF66","#FB4D46", "#00755E", "#FFEB00", "#FF9933"]
-
-    def get_object(self,dataset_id,user):
-        try:
-            return Dataset.objects.filter(user = user.username).get(dataset_id = dataset_id)
-
-        except Dataset.DoesNotexist:
-            raise Http404
-    
-    def func(self, pct, allvals):
-        absolute = int(pct/100.*np.sum(allvals))
-        return "{:.1f}%\n({:d})".format(pct, absolute)
-    
-    def check(self,options,request):
-        decode_options = {k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in options.items()}
-        for k,v in decode_options.items():
-            if decode_options[k] != request.data['options'][k]:
-                return False
-        return True
-    
-    def check_filter_value_condition(self, df, condition,value_1, value_2=0):
-        if condition == 'equals':
-            return df == value_1
-        if condition == 'greater_than':
-            return df > value_1
-        if condition == 'less than':
-            return df < value_1
-        if condition == 'greater_than_or_equals':
-            return df >= value_1
-        if condition == 'less_than_or_equals':
-            return df <= value_1
-        if condition == 'between':
-            return (df >= value_1) & (df <= value_2)
-
-    def dataFrameGenerate(self, request, user):
-        data = []
-        user = request.user
-        r1 = redis.StrictRedis(host='127.0.0.1', port=6379, db=1)
-        if r1.exists('{}.{}'.format(user.organization_id,request.data['dataset'])) != 0:
-            print('hellloo')
-            df = pickle.loads(zlib.decompress(r1.get("{}.{}".format(user.organization_id,request.data['dataset']))))
-            model_fields = [(k.decode('utf8').replace("'", '"'),v.decode('utf8').replace("'", '"')) for k,v in r1.hgetall('{}.fields'.format(request.data['dataset'])).items()]
-
-        else:
-            EXPIRATION_SECONDS = 600
-            r = redis.Redis(host='127.0.0.1', port=6379, db=0)
-            if request.data['op_table'] == 'dataset':
-                dataset_id = request.data['dataset']
-                dataset = self.get_object(dataset_id,request.user)
-                model = dataset.get_django_model()
-                model_fields = [(f.name, f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
-                r = redis.Redis(host='127.0.0.1', port=6379, db=0)
-                try:
-                    load_data(os.path.join(BASE_DIR,'{}/{}.rdb'.format(user.organization_id,dataset.dataset_id)),'127.0.0.1', 6379, 0)
-                except Exception as e:
-                    print(e)
-                    return Response(status=status.HTTP_204_NO_CONTENT)
-                data = []
-                for x in range(1,r.dbsize()+1):
-                    if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
-                        data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))).items()})
-                    else:
-                        data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))).items()})
-                    
-                r.flushdb() 
-            else:
-                with connections['rds'].cursor() as cursor:
-                    cursor.execute('select SQL_NO_CACHE * from "{}"'.format(request.data['dataset']))
-                    table_data = dictfetchall(cursor)
-                    table_model = get_model(t.name,model._meta.app_label,cursor, 'READ')
-                    model_fields = [(f.name, f.get_internal_type()) for f in table_model._meta.get_fields() if f.name is not 'id']
-                    GeneralSerializer.Meta.model = table_model
-                    
-                    context = {
-                        "request" : request,
-                    }
-                    
-                    dynamic_serializer = GeneralSerializer(table_data,many = True)
-                    call_command('makemigrations')
-                    call_command('migrate', database = 'default',fake = True)
-                serializer_data = dynamic_serializer.data
-                p = r.pipeline()
-                id_count = 0
-                for a in serializer_data:
-                    id_count +=1
-                    p.hmset('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(id_count)), {**dict(a)})
-                try:
-                    p.execute()
-                except Exception as e:        
-                    print(e)
-                del connections[user.organization_id]
-                data = []
-                for x in range(1,id_count+1):
-                    for c in model_fields:
-                        r.hsetnx('{}.{}.{}'.format(user.organization_id, dataset.dataset_id ,str(x)),c,"")
-                    data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))).items()})
-    
-                r.flushdb()
-                r.config_set('dbfilename', 'dump.rdb')
-                r.config_rewrite() 
-            df = pd.DataFrame(data)
-            r1.setex("{}.{}".format(user.organization_id,dataset.dataset_id), EXPIRATION_SECONDS, zlib.compress( pickle.dumps(df)))
-            r1.hmset('{}.fields'.format(dataset.dataset_id), { x[0] : x[1] for x in model_fields })
-        for x in model_fields:
-            if x[0] not in df.columns:
-        
-                if x[1] == 'FloatField':
-                    df[x[0]] = 0
-                if x[1] == 'IntegerField':
-                    df[x[0]] = 0
-                if x[1] == 'CharField' or x[1] == 'TextField':
-                    df[x[0]] = ''
-                if x[1] == 'DateField' or x[1] == 'DateTimeField':
-                    print('yess')
-                    df[x[0]] = arrow.get('01-01-1990').datetime
-            else:
-                if x[1] == 'FloatField':
-                    df[x[0]] = df[x[0]].apply(pd.to_numeric,errors='coerce')
-                    df.fillna(0,downcast='infer')
-                if x[1] == 'IntegerField':
-                    df[x[0]] = df[x[0]].apply(pd.to_numeric,errors='coerce')
-                    df.fillna(0,downcast='infer')
-                if x[1] == 'CharField' or x[1] == 'TextField':
-                    df = df.astype({ x[0] : 'object'})
-                if x[1] == 'DateField':
-                    df = df.astype({ x[0] : 'datetime64'})
-                    df.fillna(arrow.get('01-01-1990').datetime)
-        print(df)
-        return df,model_fields
-    
-    def filter_options_generate(self,request):
-        
-        df,model_fields = self.dataFrameGenerate(request, request.user)
-
-        if request.data['optionRequested'] == 'fields':
-            return Response({ 'fields' : model_fields }, status = status.HTTP_200_OK )
-
-        if request.data['optionrequested'] == 'field_options':
-            
-            if type(df[request.data['field']]) == 'object':
-                return Response({ 'data' : df[request.data['field']].unique().toList()}, status = status.HTTP_200_OK )
-            else:
-                return Response({ 'data' : { 'min' : df[request.data['field']].min(), 'max' : df[request.data['field']].max() }}, status = status.HTTP_200_OK )
-            
-    def graphDataGenerate(self,df,report_type,field,value=None,group_by=None):
-        all_fields = []
-        # df = df.dropna()
-        if report_type in ["scatter","bubble"]:
-            data = {
-                'datasets' : []
-            }
-        else:
-            if field['type'] in ["DateTimeField","DateField"]:
-                df.loc[:,field['name']] = df[field['name']].map(pd.Timestamp.isoformat)
-                data = {
-                    'labels' : np.unique(np.array(df.loc[:,field['name']])),
-                    'datasets' : []
-                }
-            else:
-                df = df.astype({ field['name'] : 'str' })
-                data = {
-                    'labels' : np.unique(np.array(df.loc[:,field['name']])),
-                    'datasets' : []
-                }
-        add = []
-        curr = []
-        if value == None:
-            
-            colors=[]
-            if report_type in ["bubble","scatter"]:
-                colors.extend([random.choice(self.color_choices) for _ in range(len(np.unique(np.array(df.loc[:,field['name']]))))])  
-            elif report_type == "radar":
-                border_color_chosen = random.choice(self.color_choices)
-                background_color = '{}66'.format(border_color_chosen)
-            else:
-                colors.extend([random.choice(self.color_choices) for _ in range(len(data['labels']))])
-            if group_by == None:
-                op_dict = collections.defaultdict(int)
-                op_dict.update(df.groupby([field['name']])[field['name']].count().to_dict())
-                new_add = []
-                if report_type == "scatter" or field['type'] in ["DateField","DateTimeField"]:
-                    for d in np.unique(np.array(df.loc[:,field['name']])):
-                        new_add.append({
-                            'x' : d,
-                            'y' : op_dict[d]})
-                elif report_type == "bubble":
-                    background_colors = ['{}66'.format(x) for x in colors]
-                    for d in np.unique(np.array(df.loc[:,field['name']])):
-                        new_add.append({
-                            'x' : d,
-                            'y' : op_dict[d],
-                            'r' : random.randint(15,30)})
-                else:
-                    for d in data['labels']:
-                        new_add.append(op_dict[d])
-
-                if report_type in ["horizontalBar","bar","pie","doughnut","scatter","polarArea"]:
-                    data['datasets'].append({ 'label' : field['name'], 'backgroundColor' : colors, 'data' : new_add })
-                elif report_type in ["line"]:
-                    data['datasets'].append({ 'label' : field['name'], 'fill' : False,'borderColor' : random.choice(self.color_choices), 'data' : new_add })
-                elif report_type == "bubble":
-                    data['datasets'].append({ 'label' : field['name'], 'borderColor' : colors,'hoverBackgroundColor' : background_colors,'backgroundColor' : background_colors, 'data' : new_add })
-                elif report_type == "radar":
-                    data['datasets'].append({ 'label' : field['name'], 'fill' : True,'borderColor' : border_color_chosen, 'backgroundColor' : background_color , 'data' : new_add })
-                elif report_type == "bar_mix":
-                    color_chosen = random.choice(self.color_choices)
-                    data['datasets'].append({ 'type' : 'bar','label' : field['name'], 'backgroundColor' : color_chosen, 'data' : new_add })
-                    data['datasets'].append({ 'type' : 'line','label' : field['name'], 'fill' : True,'backgroundColor' : '{}66'.format(color_chosen),'borderColor' : color_chosen , 'data' : new_add })  
-                else:
-                    pass  
-            else:
-                op_dict = collections.defaultdict(lambda: collections.defaultdict(int))
-                df_required = df.groupby([group_by['name'], field['name']]).agg({
-                    field['name'] : {
-                        "count" : "count"
-                    }
-                })
-                df_required.columns = df_required.columns.droplevel(0)
-                df_group_count = df_required.reset_index()
-                for x in df_group_count.groupby([group_by['name']]).groups.keys():
-                    
-                    curr = np.array(df_group_count[[field['name'],'count',group_by['name']]])
-                    for c in curr:
-                        op_dict[c[2]][c[0]] = c[1]
-                for group in op_dict.keys():        
-    
-                    if report_type == "bubble":
-                        border_color_chosen = random.choice(colors)
-                        color_chosen = '{}66'.format(border_color_chosen)
-                        r_chosen = random.choice(r)
-                    elif report_type == "radar":
-                        color_chosen = random.choice(colors)    
-                        background_color = '{}66'.format(color_chosen)
-                    else:
-                        color_chosen = random.choice(colors)
-
-                    new_add = []
-                    if report_type == "scatter" or field['type'] in ["DateField", "DateTimeField"]:
-                        for x in data['labels']:
-                            new_add.append({
-                                'x' : x,
-                                'y' : op_dict[group][x]})
-                    elif report_type == "bubble":
-                        for x in np.unique(np.array(df.loc[:,field['name']])):
-                            new_add.append({
-                                'x' : x,
-                                'y' : op_dict[group][x],
-                                'r' : r_chosen })
-                    else:
-                        for x in data['labels']:
-                            new_add.append(op_dict[group][x])
-                    if report_type in ["horizontalBar","bar","pie","doughnut","scatter","polarArea"]:
-                        data['datasets'].append({ 'label' : group, 'backgroundColor' : color_chosen, 'data' : new_add })
-                    elif report_type in ["line"]:
-                        data['datasets'].append({ 'label' : group, 'fill' : False,'borderColor' : color_chosen, 'data' : new_add })
-                    elif report_type == "bubble":
-                        data['datasets'].append({ 'label' : group, 'borderColor' : border_color_chosen,'hoverBackgroundColor' : color_chosen,'backgroundColor' : color_chosen, 'data' : new_add })
-                    elif report_type == "radar":
-                        data['datasets'].append({ 'label' : group, 'fill' : True,'backgroundColor' : background_color,'borderColor' : color_chosen, 'data' : new_add })
-                    elif report_type == "bar_mix":
-                        data['datasets'].append({ 'type' : 'bar','label' : group, 'backgroundColor' : color_chosen, 'data' : new_add })
-                        data['datasets'].append({ 'type': 'line','label' : group, 'fill' : True,'backgroundColor' : '{}66'.format(color_chosen),'borderColor' : color_chosen, 'data' : new_add })
-                    else:
-                        pass
-
-                    if len(colors) > 1:
-                        colors.remove(color_chosen)    
-        else:
-            if group_by == None:
-                op_dict = collections.defaultdict(int)
-                colors=[]
-                if report_type in ["bubble","scatter"]:
-                    colors.extend([random.choice(self.color_choices) for _ in range(len(np.unique(np.array(df_required.loc[:,field['name']]))))])  
-                elif report_type == "radar":
-                    border_color_chosen = random.choice(self.color_choices)
-                    background_color = '{}66'.format(border_color_chosen)
-                else:
-                    colors.extend([random.choice(self.color_choices) for _ in range(len(data['labels']))])  
-                if value['aggregate']['value'] == 'none':
-                    curr = []
-                    curr.extend(df.loc[:,[field['name'],value['name']]].values)
-
-                    for c in curr:
-                        op_dict[c[0]] = c[1]
-            
-                if value['aggregate']['value'] == 'sum':
-                    curr = []
-                    curr.extend(df.groupby([field['name']])[value['name']].sum().reset_index().values)
-                    
-                    for c in curr:
-                        op_dict[c[0]] = c[1]
-                        
-                if value['aggregate']['value'] == "count":
-                    curr = []
-                    curr.extend(df.groupby([field['name']])[value['name']].count().reset_index().values)
-                    for c in curr:
-                        op_dict['{}'.format(c[0])] = c[1]
-
-                if value['aggregate']['value'] == "count distinct":
-                    curr = []
-                    curr.extend(df.groupby([field['name']])[value['name']].nunique().reset_index().values)
-                    for c in curr:
-                        op_dict['{}'.format(c[0])] = c[1]
-
-                if value['aggregate']['value'] == "max":
-                    curr = []
-                    curr.extend(df.groupby([field['name']])[value['name']].max().reset_index().values)
-                    for c in curr:
-                        op_dict[c[0]] = c[1]
-
-                if value['aggregate']['value'] == "min":
-                    curr = []
-                    curr.extend(df.groupby([field['name']])[value['name']].min().reset_index().values)
-                    for c in curr:
-                        op_dict[c[0]] = c[1]
-
-                if value['aggregate']['value'] == "average":
-                    curr = []
-                    curr.extend(df.groupby([field['name']])[value['name']].mean().reset_index().values)
-                    for c in curr:
-                        op_dict[c[0]] = c[1]
-                      
-                new_add = []
-                if report_type == "scatter" or field['type'] in ["DateTimeField","DateField"]:
-                    for d in np.unique(np.array(df.loc[:,field['name']])):
-                        new_add.append({
-                            'x' : d,
-                            'y' : op_dict[d]})
-                elif report_type == "bubble":
-                    background_colors = ['{}66'.format(x) for x in colors]
-                    for d in np.unique(np.array(df.loc[:,field['name']])):
-                        new_add.append({
-                            'x' : d,
-                            'y' : op_dict[d],
-                            'r' : random.randint(15,30)})
-                else:
-                    for d in data['labels']:
-                        new_add.append(op_dict[d])
-
-                if report_type in ["horizontalBar","bar","pie","doughnut","scatter","polarArea"]:
-                    data['datasets'].append({ 'label' : value['name'], 'backgroundColor' : colors, 'data' : new_add })
-                elif report_type in ["line"]:
-                    data['datasets'].append({ 'label' : value['name'], 'fill' : False,'borderColor' : random.choice(self.color_choices), 'data' : new_add })
-                elif report_type == "bubble":
-                    data['datasets'].append({ 'label' : value['name'], 'borderColor' : colors,'hoverBackgroundColor' : background_colors,'backgroundColor' : background_colors, 'data' : new_add })
-                elif report_type == "radar":
-                    data['datasets'].append({ 'label' : value['name'], 'fill' : True,'borderColor' : border_color_chosen, 'backgroundColor' : background_color , 'data' : new_add })
-                elif report_type == "bar_mix":
-                    color_chosen = random.choice(self.color_choices)
-                    data['datasets'].append({ 'type' : 'bar','label' : value['name'], 'backgroundColor' : color_chosen, 'data' : new_add })
-                    data['datasets'].append({ 'type' : 'line','label' : value['name'], 'fill' : True,'backgroundColor' : '{}66'.format(color_chosen),'borderColor' : color_chosen , 'data' : new_add })  
-                else:
-                    pass          
-                
-            else:
-                op_dict = collections.defaultdict(lambda: collections.defaultdict(int))
-                colors=[]
-                colors.extend([random.choice(self.color_choices) for _ in range(len(df.groupby([group_by['name']]).groups.keys()))])
-                if report_type == "bubble":
-                    r = []
-                    r.extend([random.randint(15,30) for _ in range(len(df.groupby([group_by['name']]).groups.keys()))])
-                if value['aggregate']['value'] == 'none':
-                    for x in df.groupby([group_by['name']]).groups.keys():
-                        
-                        df_group = df.groupby([group_by['name']]).get_group(x)
-                        
-                        curr = np.array(df_group[[field['name'],value['name'],group_by['name']]])
-                        for c in curr:
-                            op_dict[c[2]][c[0]] = c[1]
-                    
-                if value['aggregate']['value'] == 'sum':
-                    df_group_sum = df.groupby([group_by['name'], field['name']],as_index=False)[value['name']].sum()
-                    for x in df_group_sum.groupby([group_by['name']]).groups.keys():
-                        
-                        curr = np.array(df_group_sum[[field['name'],value['name'],group_by['name']]])
-                        for c in curr:
-                            op_dict[c[2]][c[0]] = c[1]
-                    
-                
-                    for group in op_dict.keys():        
-                        color_chosen = random.choice(colors)    
-                        new_add = []
-                        for x in data['labels']:
-                            new_add.append(op_dict[group][x])
-                        data['datasets'].append({ 'label' : group, 'backgroundColor' : color_chosen, 'data' : new_add })
-                        if len(colors) > 1:
-                            colors.remove(color_chosen)
-                
-                if value['aggregate']['value'] == "count":
-                    df_group_sum = df.groupby([group_by['name'], field['name']],as_index=False)[value['name']].count()
-                    for x in df_group_sum.groupby([group_by['name']]).groups.keys():
-                        
-                        curr = np.array(df_group_sum[[field['name'],value['name'],group_by['name']]])
-                        for c in curr:
-                            op_dict['{}'.format(c[2])]['{}'.format(c[0])] = c[1]
-
-                if value['aggregate']['value'] == "count distinct":
-                    df_group_sum = df.groupby([group_by['name'], field['name']],as_index=False).agg({ value['name'] : pd.Series.nunique})
-                    for x in df_group_sum.groupby([group_by['name']]).groups.keys():
-                        curr = np.array(df_group_sum[[field['name'],value['name'],group_by['name']]])
-                        for c in curr:
-                            op_dict['{}'.format(c[2])]['{}'.format(c[0])] = c[1]
-
-                if value['aggregate']['value'] == "max":
-                    df_group_sum = df.groupby([group_by['name'], field['name']],as_index=False)[value['name']].max()
-                    for x in df_group_sum.groupby([group_by['name']]).groups.keys():
-                        
-                        curr = np.array(df_group_sum[[field['name'],value['name'],group_by['name']]])
-                        for c in curr:
-                            op_dict[c[2]][c[0]] = c[1]
-
-                if value['aggregate']['value'] == "min":
-                    df_group_sum = df.groupby([group_by['name'], field['name']],as_index=False)[value['name']].min()
-                    for x in df_group_sum.groupby([group_by['name']]).groups.keys():    
-                        curr = np.array(df_group_sum[[field['name'],value['name'],group_by['name']]])
-                        for c in curr:
-                            op_dict[c[2]][c[0]] = c[1]
-
-                if value['aggregate']['value'] == "average":
-                    df_group_sum = df.groupby([group_by['name'], field['name']],as_index=False)[value['name']].mean()
-                    for x in df_group_sum.groupby([group_by['name']]).groups.keys():
-                        curr = np.array(df_group_sum[[field['name'],value['name'],group_by['name']]])
-                        for c in curr:
-                            op_dict[c[2]][c[0]] = c[1]
-                for group in op_dict.keys():        
-    
-                    if report_type == "bubble":
-                        border_color_chosen = random.choice(colors)
-                        color_chosen = '{}66'.format(border_color_chosen)
-                        r_chosen = random.choice(r)
-                    elif report_type == "radar":
-                        color_chosen = random.choice(colors)    
-                        background_color = '{}66'.format(color_chosen)
-                    else:
-                        color_chosen = random.choice(colors)
-
-                    new_add = []
-                    if report_type == "scatter" or field['type'] in ["DateTimeField","DateField"]:
-                        for x in np.unique(np.array(df.loc[:,field['name']])):
-                            new_add.append({
-                                'x' : x,
-                                'y' : op_dict[group][x]})
-                    elif report_type == "bubble":
-                        for x in np.unique(np.array(df.loc[:,field['name']])):
-                            new_add.append({
-                                'x' : x,
-                                'y' : op_dict[group][x],
-                                'r' : r_chosen })
-                    else:
-                        for x in data['labels']:
-                            new_add.append(op_dict[group][x])
-                    if report_type in ["horizontalBar","bar","pie","doughnut","scatter","polarArea"]:
-                        data['datasets'].append({ 'label' : group, 'backgroundColor' : color_chosen, 'data' : new_add })
-                    elif report_type in ["line"]:
-                        data['datasets'].append({ 'label' : group, 'fill' : False,'borderColor' : color_chosen, 'data' : new_add })
-                    elif report_type == "bubble":
-                        data['datasets'].append({ 'label' : group, 'borderColor' : border_color_chosen,'hoverBackgroundColor' : color_chosen,'backgroundColor' : color_chosen, 'data' : new_add })
-                    elif report_type == "radar":
-                        data['datasets'].append({ 'label' : group, 'fill' : True,'backgroundColor' : background_color,'borderColor' : color_chosen, 'data' : new_add })
-                    elif report_type == "bar_mix":
-                        data['datasets'].append({ 'type' : 'bar','label' : group, 'backgroundColor' : color_chosen, 'data' : new_add })
-                        data['datasets'].append({ 'type': 'line','label' : group, 'fill' : True,'backgroundColor' : '{}66'.format(color_chosen),'borderColor' : color_chosen, 'data' : new_add })
-                    else:
-                        pass
-
-                    if len(colors) > 1:
-                        colors.remove(color_chosen)
-        return Response({ 'data' : data }, status = status.HTTP_200_OK)
-
-    def report_generate(self,request):
-
-        report_type = request.data['type']
-        
-        df, model_fields= self.dataFrameGenerate(request, request.user)
-        dict_fields = dict(model_fields)
-        for filter in request.data['filters']:
-            options = json.loads(filter.options)
-            if filter.field_operation == 'filter_by_name':
-                condition = df[filter.field_name] in options['values']
-                df = df[condition]
-            if filter.field_operation == 'filter_by_date':
-                df = df[(df[filter.field_name] > options['start_date']) & (df[filter.field_name] < options['end_date'])]
-            if filter.field_operation == 'last':
-                df = df[self.check_filter_value_condition(df[filter.field_name], options['condition'], options['value'])]
-            if filter.field_operation == 'sum':
-                df = df[self.check_filter_value_condition(df[filter.field_name].sum(), options['condition'], options['value'])]
-            if filter.field_operation == 'count':
-                df = df[self.check_filter_value_condition(df[filter.field_name].count(), options['condition'], options['value'])]
-            if filter.field_operation == 'min':
-                df = df[self.check_filter_value_condition(df[filter.field_name].max(), options['condition'], options['value'])]
-            if filter.field_operation == 'max':
-                df = df[self.check_filter_value_condition(df[filter.field_name].min(), options['condition'], options['value'])]
-        
-        field = request.data['options']['X_field']
-        value = request.data['options']['Y_field']
-        group_by = request.data['options']['group_by']
-
-        try:
-            return self.graphDataGenerate(df,report_type, field, value, group_by)
-        except Exception as e:
-            print(e)
-            return Response('error',status = status.HTTP_400_BAD_REQUEST)
-
-class ReportList(viewsets.ViewSet):
+class ReportViewSet(viewsets.GenericViewSet):
 
     permission_classes = (permissions.IsAuthenticated&GridBackendReportPermissions,)
     authentication_classes = (GridBackendAuthentication,)
+    filter_backends = (ReportFilterBackend,)
+
+    queryset = Report.objects.all()
+    serializer_class = ReportSerializer
     
-    def get(self,request):
-        if request.user.is_superuser:
-            reports = Report.objects.filter(organization_id=request.user.organization_id)
-        elif request.user.role == 'Developer':
-            reports = Report.objects.filter(organization_id=request.user.organization_id).filter(user = request.user.username) | Report.objects.filter(organization_id = request.user.organization_id).filter(shared__user_id__contains = request.user.username)
-        else:
-            reports =Report.objects.filter(organization_id = request.user.organization_id).filter(shared__user_id__contains = request.user.username)
-        serializer = ReportSerializer(reports, many=True)
-        print(reports)
+    def list(self,request):
+        
+        reports = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(reports, many=True)
         return Response(serializer.data, status = status.HTTP_200_OK)
     
-    def get_object(self,dataset_id,user):
+    def get_dataset_object(self,dataset_id,user):
         try:
-            return Dataset.objects.filter(user = user.username).get(dataset_id = dataset_id)
-        except:
+            return Dataset.objects.filter(userId = user.username).get(dataset_id = dataset_id)
+        except Dataset.DoesNotExist:
             return Http404
 
-    
-    def get_report_object(self,request,report_id,user):
-        try:
-            obj = Report.objects.filter(organization_id=user.organization_id).get(report_id = report_id)
-            if self.check_object_permissions(self, request, obj):
-                return obj
-            else:
-                return Response('Unauthorized', status = status.HTTP_401_UNAUTHORIZED)
-        except Report.DoesNotExist:
-            raise Http404
-    
-    def report_list(self,request):
-        if request.is_superuser:
-            reports = Report.objects.filter(organization_id=request.user.organization_id).all()
-        if request.user.role == 'Developer':
-            reports = Report.objects.filter(organization_id=request.user.organization_id).filter(user=request.user.username)
-        else:
-            return Response(status = status.HTTP_204_NO_CONTENT)
-        serializer = ReportSerializer(reports, many = True)
-        return Response(serializer.data, status = status.HTTP_200_OK)
-
-    def post(self, request):
+    def create(self, request):
         data = request.data
         data['organization_id'] = request.user.organization_id
-        data['user'] = request.user.username
+        data['user'] = request.user.user_alias
+        data['userId'] = request.user.username
         if data['op_table'] == 'dataset':
-            dataset = self.get_object(data['dataset_id'],request.user)
-        serializer = ReportSerializer(data = data)
+            dataset = self.get_dataset_object(data['dataset_id'],request.user)
+        serializer = self.get_serializer(data = data)
 
         if serializer.is_valid():
             if data['op_table'] == 'dataset':
-                serializer.save(user = request.user.username, dataset = dataset)
+                serializer.save(dataset = dataset)
             else:
-                serializer.save(user_id = request.user.user_id, worksheet = data['worksheet_id'])
-
+                serializer.save(worksheet = data['worksheet_id'])
+            for x in data['filters']:
+                report = self.get_report_object(request,serializer.data['report_id'],request.user)
+                filter_serializer = FilterSerializer(data = x)
+                if filter_serializer.is_valid():
+                    filter_serializer.save(report = report)
+                else:
+                    return Response(filter_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
             return Response(serializer.data,status = status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
     
-    def edit(self,request):
+    def update(self,request,pk=None):
 
         data = request.data
-        try:
-            report = self.get_report_object(request,data['report_id'], request.user)
-        except:
-            return Response('Unauthorized', status=status.HTTP_401_UNAUTHORIZED)
+        report = self.get_object()
         serializer = ReportSerializer(report, data = data)
 
         if serializer.is_valid():
@@ -972,152 +436,105 @@ class ReportList(viewsets.ViewSet):
             return Response(serializer.data, status = status.HTTP_202_ACCEPTED)
         
         return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
-    
-    def add_filter(self,request):
-        data = request.data
-        data['organization_id'] = request.user.organization_id
-        data['user'] = request.user.username
-        try:
-            report = self.get_report_object(request,data['report_id'], request.user)
-        except:
-            return Response('Unauthorized', status=status.HTTP_401_UNAUTHORIZED)
-        serializer = FilterSerializer(data = data)
 
-        if serializer.is_valid():
-            serializer.save(report = report)
-            return Response(serializer.data,status = status.HTTP_201_CREATED)
-        
-        return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
-
-    def delete(self,request):
+    def destroy(self,request,pk=None):
 
         data = request.data
-        try:
-            report = self.get_report_object(request,data['report_id'], request.user)
-        except:
-            return Response('Unauthorized', status=status.HTTP_401_UNAUTHORIZED)
-        serializer = ReportSerializer(report, data = data)
+        report = self.get_object()
+        serializer = self.get_serializer(report, data = data)
 
         if serializer.is_valid():
             serializer.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
 
-class DashboardList(viewsets.ViewSet): 
+class DashboardViewSet(viewsets.GenericViewSet): 
 
     permission_classes = (permissions.IsAuthenticated&GridBackendDashboardPermissions,)
     authentication_classes = (GridBackendAuthentication,)
+    filter_backends = (DashboardFilterBackend,)
 
-    def get(self,request):
-        if request.is_superuser:
-            dashboards = Dashboard.objects.filter(organization_id=request.user.organization_id).all()
-        if request.user.role == 'Developer':
-            dashboards = Dashboard.objects.filter(organization_id=request.user.organization_id).filter(user=request.user.username) | Dashboard.objects.filter(organization_id=organization_id).filter(reports__shared__user_id__contains = request.user.username)
-        else:
-            Dashboard.objects.filter(organization_id=request.user.organization_id).filter(reports__shared__user_id__contains=request.user.username)    
-        serializer = DashboardSerializer(dashboards, many = True)
+    queryset = Dashboard.objects.all()
+    serializer_class = DashboardSerializer
+
+    def list(self,request):
+        
+        dashboards = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(dashboards,many = True)
         return Response(serializer.data, status = status.HTTP_200_OK)
     
-    def get_report_objects(self, organization_id, reports):
+    def get_report_objects(self, user, reports):
         try:
             report_id_list = [x['report_id'] for x in reports]
-            return Report.objects.filter(organization_id=organization_id).filter(report_id__in = report_id_list)
+            return Report.objects.filter(organization_id=user.organization_id).filter(userId = user.username).filter(report_id__in = report_id_list)
         except Report.DoesNotExist:
             raise Http404
-
-    def get_object(self, dashboard_id):
-        try:
-            obj = Dashboard.objects.filter(organization_id = self.request.user.organization_id).get(dashboard_id = dashboard_id)
-            self.check_object_permissions(self.request, obj)
-            return obj
     
-        except Dashboard.DoesNotExist:
+    def get_report_object(self,report_id,user):
+        try:
+            return Report.objects.filter(organization_id=user.organization_id).filter(userId = user.username).get(report_id = report_id)
+        except Report.DoesNotExist:
             raise Http404
 
     def get_dashboard_report_options_objects(self, dashboard, user):
         try:
-            return DashboardReportOptions.objects.filter(organization_id = user.organization_id).filter(dashboard = dashboard)
-        except DashboardReportOptions.DoesNotExist:
+            return DashboardReportOption.objects.filter(organization_id = user.organization_id).filter(dashboard = dashboard)
+        except DashboardReportOption.DoesNotExist:
             raise Http404
 
     def get_dashboard_report_options_object(self,dashboard_id, report_id):
         try:
-            return DashboardReportOptions.objects.filter(dashboard = dashboard_id).get(report_id = report_id)
+            return DashboardReportOption.objects.filter(dashboard = dashboard_id).get(report_id = report_id)
         except DashboardreportOptions.DoesNotExist:
             raise Http404
 
-    def dashboard_list(self,request):
-        if request.is_superuser:
-            dashboards = Dashboard.objects.filter(organization_id=request.user.organization_id).all()
-        if request.user.role == 'Developer':
-            dashboards = Dashboard.objects.filter(organization_id=request.user.organization_id).filter(user=request.user.username)
-        else:
-            return Response(status = status.HTTP_204_NO_CONTENT)
-        serializer = DashboardSerializer(dashboards, many = True)
-        return Response(serializer.data, status = status.HTTP_200_OK)
 
-    def post(self, request):
+    def create(self, request):
         data = request.data
         data['organization_id'] = request.user.organization_id
-        data['user'] = request.user.username
-        reports = self.get_report_objects(request.user.organization_id, data['reports'])
-        serializer = DashboardSerializer(data=data)
-        if serializer.is_valid:
+        data['user'] = request.user.user_alias
+        data['userId'] = request.user.username
+        reports = self.get_report_objects(request.user, data['reports'])
+        serializer = self.get_serializer(data=data)
+        if serializer.is_valid():
             serializer.save(reports = reports)
-            for x in reports:
-                dashboard_report_serilaizer = DashboardReportOptionsSerializer(data = data)
-                if dashboard_report_serilaizer.is_valid():
-                    dashboard_report_serilaizer.save(report = x)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        
+            for x in data['reports']:
+                report = self.get_report_object(x['report_id'],request.user)
+                dashboard_report_serializer = DashboardReportOptionsSerializer(data = x['dashReportOptions'])
+                if dashboard_report_serializer.is_valid():
+                    dashboard = Dashboard.objects.get(dashboard_id = serializer.data['dashboard_id'])
+                    dashboard_report_serializer.save(report = report, dashboard = dashboard)
+
+                    for f in x['dashReportFilters']:
+                        dashboard_report_options = self.get_dashboard_report_options_objects(dashboard_report_serializer.data['dashboard'])
+                        filter_serializer = FilterSerializer(data = f)
+                        if filter_serializer.is_valid():
+                            filter_serializer.save(dashboard_reports = dashboard_report_options)
+                        else:
+                            return Response(filter_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+                    return Response(serializer.data, status=status.HTTP_201_CREATED)
+                else:
+                    return Response(dashboard_report_serializer.errors,status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    def put(self, request):
+    def update(self, request, pk=None):
 
         data = request.data
-
-        try:
-            dashboard = self.get_object(request, data['dashboard_id'], request.user)
-        except:
-            return Response('Unauthorized', status=status.HTTP_401_UNAUTHORIZED)
-        
-        serializer = DashboardSerializer(dashboard,data=data)
+        dashboard = self.get_object()
+        serializer = self.get_serializer(dashboard,data=data)
 
         if serializer.is_valid():
             for x in self.get_dashboard_report_options_objects(dashboard, request.user):
-                dashboard_report_serilaizer = DashboardReportOptionsSerializer(x, data = data['reports'])
-                if dashboard_report_serilaizer.is_valid():
+                dashboard_report_serializer = DashboardReportOptionsSerializer(x, data = data['reports'])
+                if dashboard_report_serializer.is_valid():
                     dashboard_report_serializer.save()
             return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def dashboard_filter(self, request):
-        data = request.data
-        data['organization_id'] = request.user.organization_id
-        data['user'] = request.user.username
-        try:
-            dashboard = self.get_object(request, data['dashboard_id'], request.user)
-        except:
-            return Response('Unauthorized', status=status.HTTP_401_UNAUTHORIZED)
-        
-        for x in data['report_ids']:
-            dashboard_report = self.get_dashboard_report_options_object(data['dashboard_id'], x)
-            serializer = FilterSerializer(data = data)
-
-            if serializer.is_valid():
-                serializer.save(dashboard_report = dashboard_report)
-            else:
-                return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
-        return Response(serializer.data,status = status.HTTP_201_CREATED)
-
-    def delete(self, request):
+    def destroy(self, request,pk=None):
 
         data = request.data
-        try:
-            dashboard = self.get_object(request, data['dashboard_id'], request.user)
-        except:
-            return Response('Unauthorized', status=status.HTTP_401_UNAUTHORIZED)
-
-        serializer = DashboardSerializer(dashboard, data= data)
+        dashboard = self.get_object()
+        serializer = self.get_serializer(dashboard, data= data)
         if serializer.is_valid():
             serializer.delete()
             return Response(status= status.HTTP_204_NO_CONTENT)
@@ -1217,7 +634,7 @@ class SharedDashboards(viewsets.ViewSet):
         try:
             obj = Dashboard.objects.filter(organization_id = user.organization_id)
             if self.check_object_permissions(self, request, obj):
-                return obj.filter(user = user.username).get(dashboard_id = dashboard_id)
+                return obj.filter(userId = user.username).get(dashboard_id = dashboard_id)
             else:
                 return Response('Unauthorized', status = status.HTTP_401_UNAUTHORIZED)
         except Dashboard.DoesNotExist:
@@ -1258,7 +675,7 @@ class FilterList(viewsets.ViewSet):
     
     def get_object(self,filter_id, user):
         try:
-            return Filter.objects.filter(organization_id = user.organization_id).filter(user = user.username).get(filter_id = filter_id)
+            return Filter.objects.filter(organization_id = user.organization_id).filter(userId = user.username).get(filter_id = filter_id)
         except Filter.DoesNotExist:
             raise Http404
 

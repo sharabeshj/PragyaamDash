@@ -13,7 +13,7 @@ class SettingSerializer(serializers.ModelSerializer):
 
 class TableSerializer(serializers.ModelSerializer):
 
-    dataset = serializers.ReadOnlyField(source = 'dataset.name')
+    dataset = serializers.ReadOnlyField(source = 'dataset.dataset_id')
 
     class Meta:
         model = Table
@@ -29,7 +29,7 @@ class JoinSerializer(serializers.ModelSerializer):
 
 class FieldSerializer(serializers.ModelSerializer):
 
-    dataset = serializers.ReadOnlyField(source = 'dataset.name')
+    dataset = serializers.ReadOnlyField(source = 'dataset.dataset_id')
     settings = SettingSerializer(many = True,read_only = True)
 
     class Meta:
@@ -47,7 +47,7 @@ class DatasetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Dataset
-        fields = ('dataset_id','organization_id','name','fields','joins','tables','user', 'sql', 'mode','model', 'scheduler','last_refreshed_at')
+        fields = ('dataset_id','organization_id','name','fields','joins','tables','user', 'userId', 'sql', 'mode','model', 'scheduler','last_refreshed_at')
 
 class GeneralSerializer(serializers.ModelSerializer):
 
@@ -81,21 +81,23 @@ class FilterSerializer(serializers.ModelSerializer):
     filter_id = serializers.UUIDField(default = uuid.uuid4)
     activate = serializers.BooleanField(default = True)
     options = serializers.JSONField()
+    report = serializers.ReadOnlyField(source='report.report_id',allow_null = True)
+    dashboard_reports = serializers.ReadOnlyField(source='dashboard_report_options.dashboard.dashboard_id',allow_null = True)
 
     class Meta:
         model = Filter
-        fields = ('filter_id', 'field_name', 'options','activate')
+        fields = ('filter_id', 'field_name', 'options','activate','report','dashboard_reports')
 
 
 class ReportSerializer(serializers.ModelSerializer):
 
     dataset = serializers.ReadOnlyField(source='dataset.dataset_id')
     report_id = serializers.UUIDField(default = uuid.uuid4)
-    filters = FieldSerializer(many=True, read_only=True)
+    filters = FilterSerializer(many=True, read_only=True)
 
     class Meta:
         model = Report
-        fields = ('report_id','worksheet','dataset','user','organization_id','data', 'filters','last_updated_at')
+        fields = ('report_id','worksheet','dataset','user','userId','organization_id','data', 'filters','last_updated_at')
 
 
 class SharedReportSerializer(serializers.ModelSerializer):
@@ -110,31 +112,35 @@ class SharedReportSerializer(serializers.ModelSerializer):
         fields = ('report', 'shared_user_id','user_id','view','edit','delete')
 
 
+class DashboardReportOptionsSerializer(serializers.ModelSerializer):
+
+    filters = FilterSerializer(many=True, read_only=True)
+    dashboard = serializers.ReadOnlyField(source = 'dashboard.dashboard_id')
+    report = serializers.ReadOnlyField(source = 'report.report_id')
+    reportOptions = serializers.JSONField()
+
+    class Meta:
+        model = DashboardReportOptions
+        fields = '__all__'
+
+class SharedDashboardSerializer(serializers.ModelSerializer):
+
+    dashboard = serializers.ReadOnlyField(source = 'dashboard.dashboard_id')
+
+    class Meta:
+        model = SharedDashboard
+        fields = ('dashboard', 'shared_user_id', 'user_id', 'view', 'edit', 'delete')
+
+
 class DashboardSerializer(serializers.ModelSerializer):
 
     dashboard_id = serializers.UUIDField(default = uuid.uuid4)
     reports = ReportSerializer(many=True, read_only=True)
-    dashboard_report_options = serializers.PrimaryKeyRelatedField(many=True, read_only = True)
+    dashboard_report_options = DashboardReportOptionsSerializer(many=True, read_only = True)
+    shared_users = SharedDashboardSerializer(many=True,read_only = True)
+    description = serializers.JSONField()
 
     class Meta:
         model = Dashboard
-        fields = ('dashboard_id', 'organization_id','name', 'description', 'reports', 'user','dashboard_report_options','last_updated_at')
-
-class DashboardReportOptionsSerializer(serializers.ModelSerializer):
-
-    filters = serializers.SlugRelatedField(many = True, slug_field = 'field_name', read_only=True)
-    dashboard = serializers.ReadOnlyField(source = 'dashboard.name')
-    report = serializers.ReadOnlyField(source = 'report.report_id')
-
-    class Meta:
-        model = DashboardReportOptions
-        fields = ('dashboard','report', 'filters', 'reportOptions')
-
-class SharedDashboardSerializer(serializers.ModelSerializer):
-
-    dashboard = serializers.ReadOnlyField(source = 'dashbaord.name')
-
-    class Meta:
-        model = SharedDashboard
-        fields = ('dashbaoard', 'shared_user_id', 'user_id', 'view', 'edit', 'delete')
+        fields = '__all__'
 
