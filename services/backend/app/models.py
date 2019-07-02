@@ -38,9 +38,6 @@ class Dataset(models.Model):
         fields.append(tuple(('id',getattr(models,'IntegerField')(**dict([('primary_key' ,True)])))))
 
         return create_model(self.name, dict(fields), self._meta.app_label,options={'db_table' : self.name})
-
-    class Meta:
-        unique_together = (('user','name'),)
     
 def is_valid_field(field_data):
 

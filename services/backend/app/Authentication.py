@@ -20,7 +20,8 @@ class Profile(AbstractBaseUser):
     is_superuser = models.BooleanField(default=False)
     organization_id = models.CharField(max_length = 50)
     role = models.CharField(max_length = 10)
-    token = models.TextField()
+    team=models.CharField(max_length=30)
+    token=models.TextField()
 
     USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = []
@@ -43,51 +44,37 @@ class GridBackendAuthentication(authentication.BaseAuthentication):
 
     def socket_authentication(self, scope):
         data = parse_qs(scope['query_string'].decode('UTF-8'))
-        login_data = { 'organization_id': data['orgId'], 'email': data['username'], 'password': '*Shara1234', 'source' : 'web', 'timestamp' : time.time() }
-        status = requests.post('http://dev-blr-b.pragyaam.in/api/login', data = login_data)
+        login_data = { 'organization_id': data['orgId'], 'token' : data['token'] }
+        status = requests.post('http://dev-blr-b.pragyaam.in/api/validate_token', json = { "organization_id" : login_data['organization_id'][0]}, headers = {'Content-Type' : 'application/json','Authorization' : 'Bearer {}'.format(login_data['token'][0])})
         if status.status_code != 200:
             raise exceptions.AuthenticationFailed('UnAuthorized')
-        print(json.loads(status.text))
-        res_data = json.loads(status.text)['data']
-        user = Profile(username = res_data['userId'],user_alias = res_data['username'],organization_id=res_data['organizationId'], role = res_data['role'])
-        # res_data['role'] = res_data['role']
+        res_data = json.loads(status.text)
+        user = Profile(username = res_data['userid'],user_alias = res_data['username'],organization_id=login_data['organization_id'][0], role = res_data['role'],team=res_data['team'])
         if res_data['role'] == 'Admin':
             user.is_superuser = True
         else:
             user.is_staff = True
             user.is_active = True
-        user.token = res_data['token']
+        user.token = login_data['token'][0]
         return user
 
 
     def authenticate(self,request):
-        # request_data = request.COOKIES.get('info')
-        print(request.headers)
-        # cookies = requests.utils.dict_parse_cookie(request_data)
-        # cookies = {}
-        # for key,morsel in cookie.items():
-        #     cookies[key] = morsel.value
-        # print(cookies)
-        # data = {
-        #     'key' : 'wd33ry8r7',
-        #     'token' : request_data['token'],
-        #     'organization_id' : request_data['organizationId']
-        # }
+        
         data = json.loads(request.headers['Authorization'])
-        data = { 'organization_id': data['organization_id'], 'email': data['username'], 'password': '*Shara1234', 'source' : 'web', 'timestamp' : time.time() }
-        status = requests.post('http://dev-blr-b.pragyaam.in/api/login', data = data)
+        login_data = { 'organization_id': data['organization_id'], 'token' : data['token'] }
+        status = requests.post('http://dev-blr-b.pragyaam.in/api/validate_token', json = { "organization_id" : login_data['organization_id']}, headers={'Content-Type' : 'application/json', 'Authorization' : 'Bearer {}'.format(data['token'])})
         if status.status_code != 200:
             raise exceptions.AuthenticationFailed('UnAuthorized')
-        print(json.loads(status.text))
-        res_data = json.loads(status.text)['data']
-        user = Profile(username = res_data['userId'],user_alias = res_data['username'],organization_id=res_data['organizationId'], role = res_data['role'])
+        res_data = json.loads(status.text)
+        user = Profile(username = res_data['userid'],user_alias = res_data['username'],organization_id=login_data['organization_id'], role = res_data['role'],team=res_data['team'])
         # res_data['role'] = res_data['role']
         if res_data['role'] == 'Admin':
             user.is_superuser = True
         else:
             user.is_staff = True
             user.is_active = True
-        user.token = res_data['token']
+        user.token = login_data['token']
         return (user, None) 
     
 class GridBackendDatasetPermissions(permissions.BasePermission):

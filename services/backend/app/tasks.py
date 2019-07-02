@@ -16,13 +16,15 @@ import shutil
 import subprocess
 import datetime
 import timestring
+import boto3
 
 logger = get_task_logger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def load_data(location, host, port, db):
-    subprocess.call('rdb --c protocol {} | redis-cli -h {} -p {} -n {} --pipe'.format(location,host,port,db), shell=True)
+    print(location,flush=True)
+    subprocess.run('/home/ubuntu/grid_dashboarding/services/backend/env/bin/rdb --c protocol {} | redis-cli -h {} -p {} -n {} --pipe'.format(location,host,port,db), shell=True)
 
 def check_equal(field_1,type_1,field_2,type_2):
 
@@ -30,6 +32,22 @@ def check_equal(field_1,type_1,field_2,type_2):
         return timestring.Date(field_1) == timestring.Date(field_2)
     else:
         return field_1 == field_2
+
+def create_bucket(organization_id,s3_connection):
+    session = boto3.session.Session()
+    current_region = session.region_name
+    bucket_name = '{}-datasets'.format(organization_id)
+    try:
+        bucket_response = s3_connection.create_bucket(
+            Bucket=bucket_name,
+            CreateBucketConfiguration = {
+                'LocationConstraint': current_region
+            }
+        )
+        return bucket_name, bucket_response
+    except Exception as e:
+        return None,e
+
 
 @task
 def datasetRefresh(organization_id,dataset_id,channel_name=None):
@@ -39,6 +57,7 @@ def datasetRefresh(organization_id,dataset_id,channel_name=None):
         database_name = cursor.fetchone()
     r = redis.Redis(host='127.0.0.1', port=6379, db=0)
     dataset = Dataset.objects.get(dataset_id = dataset_id)
+    s3_resource= boto3.resource('s3')
     if dataset.mode == 'SQL':
         
         r.config_set('dbfilename', '{}.rdb'.format(dataset.dataset_id))
@@ -72,13 +91,14 @@ def datasetRefresh(organization_id,dataset_id,channel_name=None):
         model_fields = [(f.name,f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
         model_data = []
         data = []  
-        r.config_set('dbfilename', '{}.rdb'.format(dataset.dataset_id))
-        r.config_rewrite()
-        try:
-            load_data(os.path.join(BASE_DIR, '{}/{}.rdb'.format(organization_id,dataset_id)),'127.0.0.1',6379,0)
-        except Exception as e:
-            logger.info(e)
-            pass
+        # r.config_set('dbfilename', '{}.rdb'.format(dataset.dataset_id))
+        # r.config_rewrite()
+        # try:
+        #     s3_resource.Object('pragyaam-dash-dev','{}/{}.rdb'.format(organization_id,str(dataset.dataset_id))).download_file(f'/tmp/{dataset.dataset_id}.rdb')
+        #     load_data('/tmp/{}.rdb'.format(dataset.dataset_id),'127.0.0.1',6379,0)
+        # except Exception as e:
+        #     logger.info(e)
+        #     pass
         
         for t in tables:
             if organization_id not in connections.databases:
@@ -98,7 +118,7 @@ def datasetRefresh(organization_id,dataset_id,channel_name=None):
                 dynamic_serializer = DynamicFieldsModelSerializer(table_data,many = True,fields = set([x[0] for x in model_fields]))
                 model_data.append({ 'name' : t.key,'data' : dynamic_serializer.data})
             del connections[organization_id]
-            call_command('makemigrations',interactive=False)
+            call_command('makemigrations',model._meta.app_label,'--merge','--empty',interactive=False)
             call_command('migrate', database = 'default',fake = True,interactive=False)
              
         join_model_data=[]
@@ -226,25 +246,24 @@ def datasetRefresh(organization_id,dataset_id,channel_name=None):
 
     try:
         p.execute()
-    except Exception as e:        
+    except Exception as e:   
+        logger.info('redis')     
         logger.info(e)
     # for x in range(1,id_count+1):
     #     for c in model_fields:
     #         r.hsetnx('{}.{}.{}'.format(organization_id, dataset_id ,str(x)),c[0],"")
     r.save()
     try:
-        path = os.path.join(BASE_DIR,'{}/'.format(organization_id))
-        if not os.path.isdir(path):
-            os.mkdir(path)
-        else:
-            if os.path.exists(os.path.join(path,'{}.rdb'.format(dataset.dataset_id))):
-                os.remove(os.path.join(path,'{}.rdb'.format(dataset_id)))
-        logger.info('ok')
-        shutil.copyfile(os.path.join('/var/lib/redis/6379', '{}.rdb'.format(dataset.dataset_id)),os.path.join(path,'{}.rdb'.format(dataset.dataset_id)))
-        os.remove(os.path.join('/var/lib/redis/6379', '{}.rdb'.format(dataset.dataset_id)))
+         s3_resource.Object('pragyaam-dash-dev','{}/{}.rdb'.format(organization_id,str(dataset.dataset_id))).delete()
     except Exception as e:
+        logger.info('s3 delete')
+        logger.info(e)
+    try:
+        # s3_bucket,s3_response = create_bucket(organization_id,s3_resource)
+        # logger.info(s3_response)
+        s3_resource.Bucket('pragyaam-dash-dev').upload_file(Filename='/var/lib/redis/dump.rdb',Key='{}/{}.rdb'.format(organization_id,str(dataset.dataset_id)))
+    except Exception as e:
+        logger.info('s3 add')
         logger.info(e)
     r.flushdb()
-    r.config_set('dbfilename', 'dump.rdb')
-    r.config_rewrite()
     logger.info("Complete")

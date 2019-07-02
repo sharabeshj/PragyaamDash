@@ -28,8 +28,14 @@ import collections
 import simplejson as json
 import time
 import os
+import boto3
+import asyncio
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+async def async_load_data(location,host,port,db):
+    process = await asyncio.create_subprocess_shell(cmd='/home/ubuntu/grid_dashboarding/services/backend/env/bin/rdb --c protocol {} | redis-cli -h {} -p {} -n {} --pipe'.format(location,host,port,db))
+    await process.wait()
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -152,17 +158,27 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                 model = dataset.get_django_model()
                 model_fields = [(f.name, f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
                 r = redis.Redis(host='127.0.0.1', port=6379, db=0)
+                s3_resource= boto3.resource('s3',aws_access_key_id=os.environ.get('AWS_ACCESS_KEY'),aws_secret_access_key=os.environ.get('AWS_SECRET_KEY'))
                 try:
-                    await sync_to_async(load_data)(os.path.join(BASE_DIR,'{}/{}.rdb'.format(user.organization_id,dataset_id)),'127.0.0.1', 6379, 0)
+                    s3_resource.Object('pragyaam-dash-dev','{}/{}.rdb'.format(user.organization_id,str(dataset.dataset_id))).download_file(f'/tmp/{dataset.dataset_id}.rdb')
+                    # loop = asyncio.get_event_loop()
+                    # task = loop.create_task(async_load_data('/tmp/{}.rdb'.format(dataset.dataset_id),'127.0.0.1',6379,0))
+                    # asyncio.get_event_loop().run_until_complete(task)
+                    # loop.close()
                 except Exception as e:
-                    print(e)
+                    print(e,flush=True)
+                try:
+                    load_data('/tmp/{}.rdb'.format(dataset.dataset_id),'127.0.0.1',6379,0) 
+                except Exception as e:
+                    print(e,flush=True)
+        
                 for x in range(1,r.dbsize()+1):
                     if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
                         data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
                     else:
                         data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
                     
-                r.flushdb(True) 
+                # r.flushdb() 
             else:
                 with connections['rds'].cursor() as cursor:
                     await database_sync_to_async(cursor.execute)('select SQL_NO_CACHE * from "{}"'.format(dataset_id))
@@ -191,9 +207,7 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                         r.hsetnx('{}.{}.{}'.format(user.organization_id, dataset_id ,str(x)),c,"")
                     data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
     
-                r.flushdb(True)
-                r.config_set('dbfilename', 'dump.rdb')
-                r.config_rewrite() 
+                r.flushdb(True) 
             df = await sync_to_async(pd.DataFrame)(data)
             r1.setex("{}.{}".format(user.organization_id,dataset_id), EXPIRATION_SECONDS, zlib.compress( pickle.dumps(df)))
             r1.hmset('{}.fields'.format(dataset_id), { x[0] : x[1] for x in model_fields })
@@ -221,7 +235,7 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                 if x[1] == 'DateField':
                     df = df.astype({ x[0] : 'datetime64'})
                     df.fillna(arrow.get('01-01-1990').datetime)
-
+         
         return df,model_fields
             
     async def graphDataGenerate(self,df,report_type,field,value=None,group_by=None):
@@ -1156,13 +1170,16 @@ class FilterConsumer(AsyncJsonWebsocketConsumer):
         else:
             EXPIRATION_SECONDS = 600
             r = redis.Redis(host='127.0.0.1', port=6379, db=0)
+            s3_resource= boto3.resource('s3')
             if request_data['op_table'] == 'dataset':
                 dataset = await database_sync_to_async(self.get_object)(dataset_id,user)
                 model = dataset.get_django_model()
                 model_fields = [(f.name, f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
                 r = redis.Redis(host='127.0.0.1', port=6379, db=0)
                 try:
-                    await sync_to_async(load_data)(os.path.join(BASE_DIR,'{}/{}.rdb'.format(user.organization_id,dataset_id)),'127.0.0.1', 6379, 0)
+                    s3_resource.Object('pragyaam-dash-dev','{}/{}.rdb'.format(user.organization_id,str(dataset.dataset_id))).download_file(f'/tmp/{dataset.dataset_id}.rdb')
+                    load_data('/tmp/{}.rdb'.format(dataset.dataset_id),'127.0.0.1',6379,0)
+                     
                 except Exception as e:
                     print(e)
                 for x in range(1,r.dbsize()+1):
@@ -1230,7 +1247,7 @@ class FilterConsumer(AsyncJsonWebsocketConsumer):
                 if x[1] == 'DateField':
                     df = df.astype({ x[0] : 'datetime64'})
                     df.fillna(arrow.get('01-01-1990').datetime)
-
+        os.remove('/tmp/{}.rdb'.format(dataset_id))   
         return df,model_fields
 
     async def filter_options_generate(self,request_data):

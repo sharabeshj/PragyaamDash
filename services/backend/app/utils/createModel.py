@@ -26,7 +26,7 @@ def create_model(name,fields = None, app_label = '',module = '', options = None,
     if fields:
         attrs.update(fields)
 
-    model = type(name, (models.Model,), attrs)
+    model = type('{}'.format(name), (models.Model,), attrs)
 
     if admin_opts is not None:
         class Admin(admin.ModelAdmin):

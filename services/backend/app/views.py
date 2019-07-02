@@ -63,6 +63,7 @@ import pickle
 import zlib
 import arrow
 import datetime
+import boto3
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Create your views here.
@@ -241,6 +242,7 @@ class DatasetViewSet(viewsets.GenericViewSet):
     def retrieve(self,request,pk=None):
         dataset = self.get_object()
         user = request.user
+        s3_resource= boto3.resource('s3')
         with connections['rds'].cursor() as cursor:
             cursor.execute('select database_name from organizations where organization_id="{}";'.format(request.user.organization_id))
             database_name = cursor.fetchone()
@@ -263,19 +265,24 @@ class DatasetViewSet(viewsets.GenericViewSet):
         else:
             r = redis.Redis(host='127.0.0.1', port=6379, db=0)
             try:
-                load_data(os.path.join(BASE_DIR,'{}/{}.rdb'.format(user.organization_id,dataset.dataset_id)),'127.0.0.1', 6379, 0)
+                s3_resource.Object('pragyaam-dash-dev','{}/{}.rdb'.format(user.organization_id,str(dataset.dataset_id))).download_file(f'/tmp/{dataset.dataset_id}.rdb')
             except Exception as e:
-                print(e)
+                print(e,flush=True)
+            try:
+                load_data('/tmp/{}.rdb'.format(dataset.dataset_id),'127.0.0.1',6379,0) 
+            except Exception as e:
+                print(e,flush=True)
                 return Response(status=status.HTTP_204_NO_CONTENT)
             data = []
             edit = 1
-            for x in range(request.data['start'],request.data['end']+1):
+            for x in range(int(request.GET['start']),int(request.GET['end'])+1):
                 if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
                     data.append(json.dumps(r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
                 else:
                     data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
             count = r.dbsize()
             r.flushdb()  
+            os.remove('/tmp/{}.rdb'.format(dataset.dataset_id))  
             return Response({'data' : data, 'length': count},status=status.HTTP_200_OK)
         return Response({'message' : 'error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
