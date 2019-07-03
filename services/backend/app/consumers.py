@@ -63,7 +63,7 @@ class DatasetConsumer(AsyncJsonWebsocketConsumer):
             raise Http404
     
     def get_database_name(self,organization_id):
-        with connections['rds'].cursor() as cursor:
+        with connections['default'].cursor() as cursor:
             cursor.execute('select database_name from organizations where organization_id="{}";'.format(organization_id))
             return cursor.fetchone()
     
@@ -180,7 +180,7 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                     
                 # r.flushdb() 
             else:
-                with connections['rds'].cursor() as cursor:
+                with connections['default'].cursor() as cursor:
                     await database_sync_to_async(cursor.execute)('select SQL_NO_CACHE * from "{}"'.format(dataset_id))
                     table_data = await sync_to_async(dictfetchall)(cursor)
                     table_model = get_model(t.name,model._meta.app_label,cursor, 'READ')
@@ -1190,7 +1190,7 @@ class FilterConsumer(AsyncJsonWebsocketConsumer):
                     
                 r.flushdb(True) 
             else:
-                with connections['rds'].cursor() as cursor:
+                with connections['default'].cursor() as cursor:
                     await database_sync_to_async(cursor.execute)('select SQL_NO_CACHE * from "{}"'.format(dataset_id))
                     table_data = await sync_to_async(dictfetchall)(cursor)
                     table_model = get_model(t.name,model._meta.app_label,cursor, 'READ')
@@ -1198,8 +1198,8 @@ class FilterConsumer(AsyncJsonWebsocketConsumer):
                     GeneralSerializer.Meta.model = table_model
 
                     dynamic_serializer = GeneralSerializer(table_data,many = True)
-                    await sync_to_async(call_command)('makemigrations')
-                    await sync_to_async(call_command)('migrate', database = 'default',fake = True)
+                    await sync_to_async(call_command)('makemigrations',model._meta.app_label,'--merge','--empty',interactive=False)
+                    await sync_to_async(call_command)('migrate', database = 'default',fake = True,interactive=False)
                 serializer_data = dynamic_serializer.data
                 p = r.pipeline()
                 id_count = 0

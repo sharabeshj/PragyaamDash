@@ -243,7 +243,7 @@ class DatasetViewSet(viewsets.GenericViewSet):
         dataset = self.get_object()
         user = request.user
         s3_resource= boto3.resource('s3')
-        with connections['rds'].cursor() as cursor:
+        with connections['default'].cursor() as cursor:
             cursor.execute('select database_name from organizations where organization_id="{}";'.format(request.user.organization_id))
             database_name = cursor.fetchone()
         
