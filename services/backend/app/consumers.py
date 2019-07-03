@@ -181,7 +181,7 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                 # r.flushdb() 
             else:
                 with connections['rds'].cursor() as cursor:
-                    await database_sync_to_async(cursor.execute)('select SQL_NO_CACHE * from "{}"'.format(dataset_id))
+                    await database_sync_to_async(cursor.execute)('select SQL_NO_CACHE * from `{}`'.format(dataset_id))
                     table_data = await sync_to_async(dictfetchall)(cursor)
                     table_model = get_model(t.name,model._meta.app_label,cursor, 'READ')
                     model_fields = [(f.name, f.get_internal_type()) for f in table_model._meta.get_fields() if f.name is not 'id']
@@ -274,13 +274,27 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                 op_dict = collections.defaultdict(int)
                 op_dict.update(df.groupby([field['name']])[field['name']].count().to_dict())
                 new_add = []
-                if report_type == "scatter" or field['type'] in ["DateField","DateTimeField"]:
-                    for d in np.unique(np.array(df.loc[:,field['name']])):
-                        new_add.append({
-                            'x' : d,
-                            'y' : op_dict[d]})
+                if report_type == "scatter" or field['type'] in ["DateField", "DateTimeField"]:
+                    if report_type == 'scatter':
+                        if field['type'] in ["DateTimeField","DateField"]:
+                            df.loc[:,field['name']] = df[field['name']].map(pd.Timestamp.isoformat)
+                        else:
+                            df = df.astype({ field['name'] : 'str' })
+                        for d in np.unique(np.array(df.loc[:,field['name']])):
+                            new_add.append({
+                                'x' : d,
+                                'y' : op_dict[d]})
+                    else:
+                        for d in data['labels']:
+                            new_add.append({
+                                'x' : d,
+                                'y' : op_dict[d]})
                 elif report_type == "bubble":
                     background_colors = ['{}66'.format(x) for x in colors]
+                    if field['type'] in ["DateTimeField","DateField"]:
+                        df.loc[:,field['name']] = df[field['name']].map(pd.Timestamp.isoformat)
+                    else:
+                        df = df.astype({ field['name'] : 'str' })
                     for d in np.unique(np.array(df.loc[:,field['name']])):
                         new_add.append({
                             'x' : d,
@@ -323,7 +337,7 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                     if report_type == "bubble":
                         border_color_chosen = random.choice(colors)
                         color_chosen = '{}66'.format(border_color_chosen)
-                        r_chosen = random.choice(r)
+                        r_chosen = random.randint(15,30)
                     elif report_type == "radar":
                         color_chosen = random.choice(colors)    
                         background_color = '{}66'.format(color_chosen)
@@ -332,11 +346,25 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
 
                     new_add = []
                     if report_type == "scatter" or field['type'] in ["DateField", "DateTimeField"]:
-                        for x in data['labels']:
-                            new_add.append({
-                                'x' : x,
-                                'y' : op_dict[group][x]})
+                        if report_type != "scatter":
+                            for x in data['labels']:
+                                new_add.append({
+                                    'x' : x,
+                                    'y' : op_dict[group][x]})
+                        else:
+                            if field['type'] in ["DateTimeField","DateField"]:
+                                df.loc[:,field['name']] = df[field['name']].map(pd.Timestamp.isoformat)
+                            else:
+                                df = df.astype({ field['name'] : 'str' })
+                            for x in np.unique(np.array(df.loc[:,field['name']])):
+                                new_add.append({
+                                    'x' : x,
+                                    'y' : op_dict[group][x]})
                     elif report_type == "bubble":
+                        if field['type'] in ["DateTimeField","DateField"]:
+                            df.loc[:,field['name']] = df[field['name']].map(pd.Timestamp.isoformat)
+                        else:
+                            df = df.astype({ field['name'] : 'str' })
                         for x in np.unique(np.array(df.loc[:,field['name']])):
                             new_add.append({
                                 'x' : x,
@@ -345,19 +373,34 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                     else:
                         for x in data['labels']:
                             new_add.append(op_dict[group][x])
-                    if report_type in ["horizontalBar","bar","pie","doughnut","scatter","polarArea"]:
-                        data['datasets'].append({ 'label' : group, 'backgroundColor' : color_chosen, 'data' : new_add })
-                    elif report_type in ["line"]:
-                        data['datasets'].append({ 'label' : group, 'fill' : False,'borderColor' : color_chosen, 'data' : new_add })
-                    elif report_type == "bubble":
-                        data['datasets'].append({ 'label' : group, 'borderColor' : border_color_chosen,'hoverBackgroundColor' : color_chosen,'backgroundColor' : color_chosen, 'data' : new_add })
-                    elif report_type == "radar":
-                        data['datasets'].append({ 'label' : group, 'fill' : True,'backgroundColor' : background_color,'borderColor' : color_chosen, 'data' : new_add })
-                    elif report_type == "bar_mix":
-                        data['datasets'].append({ 'type' : 'bar','label' : group, 'backgroundColor' : color_chosen, 'data' : new_add })
-                        data['datasets'].append({ 'type': 'line','label' : group, 'fill' : True,'backgroundColor' : '{}66'.format(color_chosen),'borderColor' : color_chosen, 'data' : new_add })
+                    if group_by in ["DateField","DateTimeField"]:
+                        if report_type in ["horizontalBar","bar","pie","doughnut","scatter","polarArea"]:
+                            data['datasets'].append({ 'label' : group.isoformat(), 'backgroundColor' : color_chosen, 'data' : new_add })
+                        elif report_type in ["line"]:
+                            data['datasets'].append({ 'label' : group.isoformat(), 'fill' : False,'borderColor' : color_chosen, 'data' : new_add })
+                        elif report_type == "bubble":
+                            data['datasets'].append({ 'label' : group.isoformat(), 'borderColor' : border_color_chosen,'hoverBackgroundColor' : color_chosen,'backgroundColor' : color_chosen, 'data' : new_add })
+                        elif report_type == "radar":
+                            data['datasets'].append({ 'label' : group.isoformat(), 'fill' : True,'backgroundColor' : background_color,'borderColor' : color_chosen, 'data' : new_add })
+                        elif report_type == "bar_mix":
+                            data['datasets'].append({ 'type' : 'bar','label' : group.isoformat(), 'backgroundColor' : color_chosen, 'data' : new_add })
+                            data['datasets'].append({ 'type': 'line','label' : group.isoformat(), 'fill' : True,'backgroundColor' : '{}66'.format(color_chosen),'borderColor' : color_chosen, 'data' : new_add })
+                        else:
+                            pass
                     else:
-                        pass
+                        if report_type in ["horizontalBar","bar","pie","doughnut","scatter","polarArea"]:
+                            data['datasets'].append({ 'label' : group, 'backgroundColor' : color_chosen, 'data' : new_add })
+                        elif report_type in ["line"]:
+                            data['datasets'].append({ 'label' : group, 'fill' : False,'borderColor' : color_chosen, 'data' : new_add })
+                        elif report_type == "bubble":
+                            data['datasets'].append({ 'label' : group, 'borderColor' : border_color_chosen,'hoverBackgroundColor' : color_chosen,'backgroundColor' : color_chosen, 'data' : new_add })
+                        elif report_type == "radar":
+                            data['datasets'].append({ 'label' : group, 'fill' : True,'backgroundColor' : background_color,'borderColor' : color_chosen, 'data' : new_add })
+                        elif report_type == "bar_mix":
+                            data['datasets'].append({ 'type' : 'bar','label' : group, 'backgroundColor' : color_chosen, 'data' : new_add })
+                            data['datasets'].append({ 'type': 'line','label' : group, 'fill' : True,'backgroundColor' : '{}66'.format(color_chosen),'borderColor' : color_chosen, 'data' : new_add })
+                        else:
+                            pass
 
                     if len(colors) > 1:
                         colors.remove(color_chosen)    
@@ -418,12 +461,26 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                       
                 new_add = []
                 if report_type == "scatter" or field['type'] in ["DateTimeField","DateField"]:
-                    for d in np.unique(np.array(df.loc[:,field['name']])):
-                        new_add.append({
-                            'x' : d,
-                            'y' : op_dict[d]})
+                    if report_type == 'scatter':
+                        if field['type'] in ["DateTimeField","DateField"]:
+                            df.loc[:,field['name']] = df[field['name']].map(pd.Timestamp.isoformat)
+                        else:
+                            df = df.astype({ field['name'] : 'str' })
+                        for d in np.unique(np.array(df.loc[:,field['name']])):
+                            new_add.append({
+                                'x' : d,
+                                'y' : op_dict[d]})
+                    else:
+                        for d in data['labels']:
+                            new_add.append({
+                                'x' : d,
+                                'y' : op_dict[d]})
                 elif report_type == "bubble":
                     background_colors = ['{}66'.format(x) for x in colors]
+                    if field['type'] in ["DateTimeField","DateField"]:
+                        df.loc[:,field['name']] = df[field['name']].map(pd.Timestamp.isoformat)
+                    else:
+                        df = df.astype({ field['name'] : 'str' })
                     for d in np.unique(np.array(df.loc[:,field['name']])):
                         new_add.append({
                             'x' : d,
@@ -455,6 +512,7 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                 if report_type == "bubble":
                     r = []
                     r.extend([random.randint(15,30) for _ in range(len(df.groupby([group_by['name']]).groups.keys()))])
+                
                 if value['aggregate']['value'] == 'none':
                     for x in df.groupby([group_by['name']]).groups.keys():
                         
@@ -519,7 +577,6 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                         for c in curr:
                             op_dict[c[2]][c[0]] = c[1]
                 for group in op_dict.keys():        
-    
                     if report_type == "bubble":
                         border_color_chosen = random.choice(colors)
                         color_chosen = '{}66'.format(border_color_chosen)
@@ -532,11 +589,25 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
 
                     new_add = []
                     if report_type == "scatter" or field['type'] in ["DateTimeField","DateField"]:
-                        for x in np.unique(np.array(df.loc[:,field['name']])):
-                            new_add.append({
-                                'x' : x,
-                                'y' : op_dict[group][x]})
+                        if report_type != "scatter":
+                            for x in data['labels']:
+                                new_add.append({
+                                    'x' : x,
+                                    'y' : op_dict[group][x]})
+                        else:
+                            if field['type'] in ["DateTimeField","DateField"]:
+                                df.loc[:,field['name']] = df[field['name']].map(pd.Timestamp.isoformat)
+                            else:
+                                df = df.astype({ field['name'] : 'str' })
+                            for x in np.unique(np.array(df.loc[:,field['name']])):
+                                new_add.append({
+                                    'x' : x,
+                                    'y' : op_dict[group][x]})
                     elif report_type == "bubble":
+                        if field['type'] in ["DateTimeField","DateField"]:
+                            df.loc[:,field['name']] = df[field['name']].map(pd.Timestamp.isoformat)
+                        else:
+                            df = df.astype({ field['name'] : 'str' })
                         for x in np.unique(np.array(df.loc[:,field['name']])):
                             new_add.append({
                                 'x' : x,
@@ -545,19 +616,34 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                     else:
                         for x in data['labels']:
                             new_add.append(op_dict[group][x])
-                    if report_type in ["horizontalBar","bar","pie","doughnut","scatter","polarArea"]:
-                        data['datasets'].append({ 'label' : group, 'backgroundColor' : color_chosen, 'data' : new_add })
-                    elif report_type in ["line"]:
-                        data['datasets'].append({ 'label' : group, 'fill' : False,'borderColor' : color_chosen, 'data' : new_add })
-                    elif report_type == "bubble":
-                        data['datasets'].append({ 'label' : group, 'borderColor' : border_color_chosen,'hoverBackgroundColor' : color_chosen,'backgroundColor' : color_chosen, 'data' : new_add })
-                    elif report_type == "radar":
-                        data['datasets'].append({ 'label' : group, 'fill' : True,'backgroundColor' : background_color,'borderColor' : color_chosen, 'data' : new_add })
-                    elif report_type == "bar_mix":
-                        data['datasets'].append({ 'type' : 'bar','label' : group, 'backgroundColor' : color_chosen, 'data' : new_add })
-                        data['datasets'].append({ 'type': 'line','label' : group, 'fill' : True,'backgroundColor' : '{}66'.format(color_chosen),'borderColor' : color_chosen, 'data' : new_add })
+                    if group_by['type'] in ["DateField","DateTimeField"]:
+                        if report_type in ["horizontalBar","bar","pie","doughnut","scatter","polarArea"]:
+                            data['datasets'].append({ 'label' : group.isoformat(), 'backgroundColor' : color_chosen, 'data' : new_add })
+                        elif report_type in ["line"]:
+                            data['datasets'].append({ 'label' : group.isoformat(), 'fill' : False,'borderColor' : color_chosen, 'data' : new_add })
+                        elif report_type == "bubble":
+                            data['datasets'].append({ 'label' : group.isoformat(), 'borderColor' : border_color_chosen,'hoverBackgroundColor' : color_chosen,'backgroundColor' : color_chosen, 'data' : new_add })
+                        elif report_type == "radar":
+                            data['datasets'].append({ 'label' : group.isoformat(), 'fill' : True,'backgroundColor' : background_color,'borderColor' : color_chosen, 'data' : new_add })
+                        elif report_type == "bar_mix":
+                            data['datasets'].append({ 'type' : 'bar','label' : group.isoformat(), 'backgroundColor' : color_chosen, 'data' : new_add })
+                            data['datasets'].append({ 'type': 'line','label' : group.isoformat(), 'fill' : True,'backgroundColor' : '{}66'.format(color_chosen),'borderColor' : color_chosen, 'data' : new_add })
+                        else:
+                            pass
                     else:
-                        pass
+                        if report_type in ["horizontalBar","bar","pie","doughnut","scatter","polarArea"]:
+                            data['datasets'].append({ 'label' : group, 'backgroundColor' : color_chosen, 'data' : new_add })
+                        elif report_type in ["line"]:
+                            data['datasets'].append({ 'label' : group, 'fill' : False,'borderColor' : color_chosen, 'data' : new_add })
+                        elif report_type == "bubble":
+                            data['datasets'].append({ 'label' : group, 'borderColor' : border_color_chosen,'hoverBackgroundColor' : color_chosen,'backgroundColor' : color_chosen, 'data' : new_add })
+                        elif report_type == "radar":
+                            data['datasets'].append({ 'label' : group, 'fill' : True,'backgroundColor' : background_color,'borderColor' : color_chosen, 'data' : new_add })
+                        elif report_type == "bar_mix":
+                            data['datasets'].append({ 'type' : 'bar','label' : group, 'backgroundColor' : color_chosen, 'data' : new_add })
+                            data['datasets'].append({ 'type': 'line','label' : group, 'fill' : True,'backgroundColor' : '{}66'.format(color_chosen),'borderColor' : color_chosen, 'data' : new_add })
+                        else:
+                            pass
 
                     if len(colors) > 1:
                         colors.remove(color_chosen)
@@ -1130,9 +1216,9 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                 else:
                      df = df[self.check_filter_value_condition(df[fil['field_name']], options['rangeBy'], options['rangeValue'])]
         
-        field = data['X_field']
-        value = data['Y_field']
-        group_by = data['group_by']
+        field = data['field']
+        value = data['value']
+        group_by = data['groupBy']
 
         try:
             await self.graphDataGenerate(df,report_type, field, value, group_by)
@@ -1198,8 +1284,8 @@ class FilterConsumer(AsyncJsonWebsocketConsumer):
                     GeneralSerializer.Meta.model = table_model
 
                     dynamic_serializer = GeneralSerializer(table_data,many = True)
-                    await sync_to_async(call_command)('makemigrations')
-                    await sync_to_async(call_command)('migrate', database = 'default',fake = True)
+                    await sync_to_async(call_command)('makemigrations',model._meta.app_label,'--merge','--empty',interactive=False)
+                    await sync_to_async(call_command)('migrate', database = 'default',fake = True,interactive=False)
                 serializer_data = dynamic_serializer.data
                 p = r.pipeline()
                 id_count = 0

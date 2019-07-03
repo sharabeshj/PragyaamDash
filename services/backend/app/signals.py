@@ -8,7 +8,7 @@ import ast
 @task_failure.connect
 def task_failure_receiver(task_id=None, exception=None, *args,**kwargs):
     
-
+    print(exception)
     channel_layer = get_channel_layer()
     async_to_sync(channel_layer.group_send)(
         '{}_dataset'.format(kwargs['args'][0]),

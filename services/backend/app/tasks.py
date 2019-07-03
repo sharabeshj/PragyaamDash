@@ -23,8 +23,7 @@ logger = get_task_logger(__name__)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def load_data(location, host, port, db):
-    print(location,flush=True)
-    subprocess.run('/home/ubuntu/grid_dashboarding/services/backend/env/bin/rdb --c protocol {} | redis-cli -h {} -p {} -n {} --pipe'.format(location,host,port,db), shell=True)
+    subprocess.run('{}rdb --c protocol {} | redis-cli -h {} -p {} -n {} --pipe'.format(os.environ.get('BACKEND_DIR',''),location,host,port,db), shell=True)
 
 def check_equal(field_1,type_1,field_2,type_2):
 
@@ -260,10 +259,8 @@ def datasetRefresh(organization_id,dataset_id,channel_name=None):
         logger.info(e)
     try:
         # s3_bucket,s3_response = create_bucket(organization_id,s3_resource)
-        # logger.info(s3_response)
         s3_resource.Bucket('pragyaam-dash-dev').upload_file(Filename='/var/lib/redis/dump.rdb',Key='{}/{}.rdb'.format(organization_id,str(dataset.dataset_id)))
     except Exception as e:
-        logger.info('s3 add')
         logger.info(e)
     r.flushdb()
     logger.info("Complete")
