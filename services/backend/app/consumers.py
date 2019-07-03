@@ -63,7 +63,7 @@ class DatasetConsumer(AsyncJsonWebsocketConsumer):
             raise Http404
     
     def get_database_name(self,organization_id):
-        with connections['rds'].cursor() as cursor:
+        with connections['default'].cursor() as cursor:
             cursor.execute('select database_name from organizations where organization_id="{}";'.format(organization_id))
             return cursor.fetchone()
     
@@ -1276,7 +1276,7 @@ class FilterConsumer(AsyncJsonWebsocketConsumer):
                     
                 r.flushdb(True) 
             else:
-                with connections['rds'].cursor() as cursor:
+                with connections['default'].cursor() as cursor:
                     await database_sync_to_async(cursor.execute)('select SQL_NO_CACHE * from "{}"'.format(dataset_id))
                     table_data = await sync_to_async(dictfetchall)(cursor)
                     table_model = get_model(t.name,model._meta.app_label,cursor, 'READ')
