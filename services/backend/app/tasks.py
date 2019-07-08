@@ -51,7 +51,7 @@ def create_bucket(organization_id,s3_connection):
 @task
 def datasetRefresh(organization_id,dataset_id,channel_name=None):
     id_count = 0
-    with connections['default'].cursor() as cursor:
+    with connections['rds'].cursor() as cursor:
         cursor.execute('select database_name from organizations where organization_id="{}";'.format(organization_id))
         database_name = cursor.fetchone()
     r = redis.Redis(host='127.0.0.1', port=6379, db=0)
@@ -95,9 +95,9 @@ def datasetRefresh(organization_id,dataset_id,channel_name=None):
         # try:
         #     s3_resource.Object('pragyaam-dash-dev','{}/{}.rdb'.format(organization_id,str(dataset.dataset_id))).download_file(f'/tmp/{dataset.dataset_id}.rdb')
         #     load_data('/tmp/{}.rdb'.format(dataset.dataset_id),'127.0.0.1',6379,0)
-        except Exception as e:
-            logger.info(e)
-            pass
+        # except Exception as e:
+        #     logger.info(e)
+        #     pass
         
         for t in tables:
             if organization_id not in connections.databases:

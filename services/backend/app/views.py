@@ -243,7 +243,7 @@ class DatasetViewSet(viewsets.GenericViewSet):
         dataset = self.get_object()
         user = request.user
         s3_resource= boto3.resource('s3')
-        with connections['default'].cursor() as cursor:
+        with connections['rds'].cursor() as cursor:
             cursor.execute('select database_name from organizations where organization_id="{}";'.format(request.user.organization_id))
             database_name = cursor.fetchone()
         
@@ -420,9 +420,9 @@ class ReportViewSet(viewsets.GenericViewSet):
             if data['op_table'] == 'dataset':
                 serializer.save(dataset = dataset)
             else:
-                serializer.save(worksheet = data['worksheet_id'])
+                serializer.save()
             for x in data['filters']:
-                report = self.get_report_object(request,serializer.data['report_id'],request.user)
+                report = Report.objects.get(report_id=serializer.data['report_id'])
                 filter_serializer = FilterSerializer(data = x)
                 if filter_serializer.is_valid():
                     filter_serializer.save(report = report)

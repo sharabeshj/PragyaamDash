@@ -123,7 +123,6 @@ class DashboardReportOptions(models.Model):
 class Filter(models.Model):
 
     filter_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable = False)
-    dataset = models.ForeignKey(Dataset, related_name = 'filters', on_delete = models.CASCADE)
     report = models.ForeignKey(Report, null = True,related_name='filters',on_delete = models.CASCADE)
     dashboard_reports = models.ManyToManyField(DashboardReportOptions, blank = True, related_name = 'filters')
     user = models.CharField(max_length=30)
