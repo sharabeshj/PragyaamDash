@@ -178,18 +178,32 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                     else:
                         data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
                     
-                # r.flushdb() 
+                r.flushdb(True) 
             else:
                 with connections['rds'].cursor() as cursor:
+                    cursor.execute('SELECT database_name from organizations where organization_id="{}"'.format(user.organization_id))
+                    database_name = cursor.fetchone()[0]
+                if user.organization_id not in connections.databases:
+                    connections.databases[user.organization_id] = {
+                        'ENGINE' : 'django.db.backends.mysql',
+                        'NAME' : database_name,
+                        'OPTIONS' : {
+                            'read_default_file' : os.path.join(BASE_DIR, 'cred_dynamic.cnf'),
+                        }
+                    }
+                with connections[user.organization_id].cursor() as cursor:
                     await database_sync_to_async(cursor.execute)('select SQL_NO_CACHE * from `{}`'.format(dataset_id))
                     table_data = await sync_to_async(dictfetchall)(cursor)
-                    table_model = get_model(t.name,model._meta.app_label,cursor, 'READ')
+                    table_model = get_model(dataset_id,Dataset._meta.app_label,cursor, 'READ')
                     model_fields = [(f.name, f.get_internal_type()) for f in table_model._meta.get_fields() if f.name is not 'id']
                     GeneralSerializer.Meta.model = table_model
 
                     dynamic_serializer = GeneralSerializer(table_data,many = True)
-                    await sync_to_async(call_command)('makemigrations')
-                    await sync_to_async(call_command)('migrate', database = 'default',fake = True)
+                    await sync_to_async(call_command)('makemigrations',Dataset._meta.app_label,'--merge','--empty',interactive=False)
+                    await sync_to_async(call_command)('migrate', database = 'default',fake = True,interactive=False)
+                
+                del connections[user.organization_id]
+        
                 serializer_data = dynamic_serializer.data
                 p = r.pipeline()
                 id_count = 0
@@ -200,14 +214,11 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                     await sync_to_async(p.execute)()
                 except Exception as e:        
                     print(e)
-                del connections[user.organization_id]
                 data = []
                 for x in range(1,id_count+1):
-                    for c in model_fields:
-                        r.hsetnx('{}.{}.{}'.format(user.organization_id, dataset_id ,str(x)),c,"")
                     data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
     
-                r.flushdb(True) 
+                r.flushdb(True)
             df = await sync_to_async(pd.DataFrame)(data)
             r1.setex("{}.{}".format(user.organization_id,dataset_id), EXPIRATION_SECONDS, zlib.compress( pickle.dumps(df)))
             r1.hmset('{}.fields'.format(dataset_id), { x[0] : x[1] for x in model_fields })
@@ -654,568 +665,568 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
         df, model_fields= await self.dataFrameGenerate(data, self.scope['user'])
         dict_fields = dict(model_fields)
         for fil in data['filters']:
-            options = fil['options']
-            if options['type'] == 'text':
-                if options['mode'] == 'pick':
-                    
-                    if options['field_aggregate'] == 'No Aggregate':
-                        condition = df[fil.field_name] in options['values']
-                        df = df[condition]
+            if fil['activate']:
+                options = fil['options']
+                if options['type'] in ['CharField','TextField']:
+                    if options['mode'] == 'pick':
+                        
+                        if options['field_aggregate'] == 'No Aggregate':
+                            df = df[df[fil['field_name']].isin(options['values'])]
 
-                    if options['field_aggregate'] == 'Count':
-                        if options['value_aggregate'] == 'Select Values':
-                            agg = df.groupby(fil['field_name'],sort=False).count()
-                            condition = agg in options['values']
-                            df = df[agg[condition].index]
+                        if options['field_aggregate'] == 'Count':
+                            if options['value_aggregate'] == 'Select Values':
+                                agg = df.groupby(fil['field_name'],sort=False).count()
+                                condition = agg in options['values']
+                                df = df[agg[condition].index]
 
-                        if options['value_aggregation'] == 'Ranges':
-                            df_ranges = []
-                            agg = df.groupby(fil['field_name'],sort=False).count()
-                            for x in options['values']:
-                                df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
-                            df = pd.concat(df_ranges, ignore_index=True)
+                            if options['value_aggregation'] == 'Ranges':
+                                df_ranges = []
+                                agg = df.groupby(fil['field_name'],sort=False).count()
+                                for x in options['values']:
+                                    df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
+                                df = pd.concat(df_ranges, ignore_index=True)
 
-                        if options['value_aggregation'] == 'Top/Bottom':
-                            if options['value_aggregate'] == 'Top 5':
-                                df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
-                            if options['value_aggregate'] == 'Top 10':
-                                df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
-                            if options['value_aggregate'] == 'Bottom 5':
-                                df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']]).head(5)
-                            if options['value_aggregate'] == 'Bottom 10':
-                                df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']]).head(10)
+                            if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top 5':
+                                    df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
+                                if options['value_aggregate'] == 'Top 10':
+                                    df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
+                                if options['value_aggregate'] == 'Bottom 5':
+                                    df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']]).head(5)
+                                if options['value_aggregate'] == 'Bottom 10':
+                                    df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']]).head(10)
 
-                        if options['value_aggregate'] == 'Top/Bottom %':
-                            n = len(df.index)
-                            if options['value_aggreagate'] == 'Top 5%':
-                                df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Top 10%':
-                                df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
-                            if options['value_aggregate'] == 'Bottom 5%':
-                                df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Bottom 10%':
-                                df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
-                    
-                    if options['field_aggregate'] == 'Count Distinct':
-                        if options['value_aggregate'] == 'Select Values':
-                            agg = df.groupby(fil['field_name'],sort=False).nunique()
-                            condition = agg in options['values']
-                            df = df[agg[condition].index]
+                            if options['value_aggregate'] == 'Top/Bottom %':
+                                n = len(df.index)
+                                if options['value_aggreagate'] == 'Top 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Top 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
+                                if options['value_aggregate'] == 'Bottom 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Bottom 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
+                        
+                        if options['field_aggregate'] == 'Count Distinct':
+                            if options['value_aggregate'] == 'Select Values':
+                                agg = df.groupby(fil['field_name'],sort=False).nunique()
+                                condition = agg.isin(options['values'])
+                                df = df[agg[condition].index]
 
-                        if options['value_aggregation'] == 'Ranges':
-                            df_ranges = []
-                            agg = df.groupby(fil['field_name'],sort=False).nunique()
-                            for x in options['values']:
-                                df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
-                            df = pd.concat(df_ranges, ignore_index=True)
+                            if options['value_aggregation'] == 'Ranges':
+                                df_ranges = []
+                                agg = df.groupby(fil['field_name'],sort=False).nunique()
+                                for x in options['values']:
+                                    df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
+                                df = pd.concat(df_ranges, ignore_index=True)
 
-                        if options['value_aggregation'] == 'Top/Bottom':
-                            if options['value_aggregate'] == 'Top 5':
-                                df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
-                            if options['value_aggregate'] == 'Top 10':
-                                df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
-                            if options['value_aggregate'] == 'Bottom 5':
-                                df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']]).head(5)
-                            if options['value_aggregate'] == 'Bottom 10':
-                                df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']]).head(10)
+                            if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top 5':
+                                    df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
+                                if options['value_aggregate'] == 'Top 10':
+                                    df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
+                                if options['value_aggregate'] == 'Bottom 5':
+                                    df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']]).head(5)
+                                if options['value_aggregate'] == 'Bottom 10':
+                                    df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']]).head(10)
 
-                        if options['value_aggregate'] == 'Top/Bottom %':
-                            n = len(df.index)
-                            if options['value_aggreagate'] == 'Top 5%':
-                                df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Top 10%':
-                                df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
-                            if options['value_aggregate'] == 'Bottom 5%':
-                                df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Bottom 10%':
-                                df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
-                if options['mode'] == 'range':
+                            if options['value_aggregate'] == 'Top/Bottom %':
+                                n = len(df.index)
+                                if options['value_aggreagate'] == 'Top 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Top 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
+                                if options['value_aggregate'] == 'Bottom 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Bottom 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
+                    if options['mode'] == 'range':
 
-                    if options['field_aggregate'] == 'Count':
-                        agg = df[fil['field_name']].count()
-                        df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]
-                    
-                    if options['field_aggregate'] == 'Count Distinct':
-                        agg = df[fil['field_name']].nunique()
-                        df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]
+                        if options['field_aggregate'] == 'Count':
+                            agg = df[fil['field_name']].count()
+                            df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]
+                        
+                        if options['field_aggregate'] == 'Count Distinct':
+                            agg = df[fil['field_name']].nunique()
+                            df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]
 
-            if options['type'] == 'number':
-                if options['mode'] == 'pick':
-                    if options['field_aggregate'] == 'No Aggregate':
-                        if options['value_aggregate'] == 'Select Values':
-                            condition = df[fil['field_name']] in options['values']
-                            df = df[condition]
+                if options['type'] in ['FloatField','IntegerField']:
+                    if options['mode'] == 'pick':
+                        if options['field_aggregate'] == 'No Aggregate':
+                            if options['value_aggregate'] == 'Select Values':
+                                condition = df[fil['field_name']].isin(options['values'])
+                                df = df[condition]
 
-                        if options['value_aggregation'] == 'Ranges':
-                            df_ranges = []
-                            for x in options['values']:
-                                df_ranges.append(df[self.check_fil_value_condition(df[fil['field_name']],'between', x)])
-                            df = pd.concat(df_ranges, ignore_index=True)
+                            if options['value_aggregation'] == 'Ranges':
+                                df_ranges = []
+                                for x in options['values']:
+                                    df_ranges.append(df[self.check_fil_value_condition(df[fil['field_name']],'between', x)])
+                                df = pd.concat(df_ranges, ignore_index=True)
 
-                        if options['value_aggregation'] == 'Top/Bottom':
-                            if options['value_aggregate'] == 'Top 5':
-                                df = df.sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
-                            if options['value_aggregate'] == 'Top 10':
-                                df = df.sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
-                            if options['value_aggregate'] == 'Bottom 5':
-                                df = df.sort_values(by=[options['value_aggregate_field']]).head(5)
-                            if options['value_aggregate'] == 'Bottom 10':
-                                df = df.sort_values(by=[options['value_aggregate_field']]).head(10)
+                            if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top 5':
+                                    df = df.sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
+                                if options['value_aggregate'] == 'Top 10':
+                                    df = df.sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
+                                if options['value_aggregate'] == 'Bottom 5':
+                                    df = df.sort_values(by=[options['value_aggregate_field']]).head(5)
+                                if options['value_aggregate'] == 'Bottom 10':
+                                    df = df.sort_values(by=[options['value_aggregate_field']]).head(10)
 
-                        if options['value_aggregate'] == 'Top/Bottom %':
-                            n = len(df.index)
-                            if options['value_aggreagate'] == 'Top 5%':
-                                df = df.sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Top 10%':
-                                df = df.sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
-                            if options['value_aggregate'] == 'Bottom 5%':
-                                df = df.sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Bottom 10%':
-                                df = df.sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
-                    
-                    if options['field_aggregate'] == 'Sum':
-                        if options['value_aggregate'] == 'Select Values':
-                            agg = df.groupby(fil['field_name'],sort=False).sum()
-                            condition = agg in options['values']
-                            df = df[agg[condition].index]
+                            if options['value_aggregate'] == 'Top/Bottom %':
+                                n = len(df.index)
+                                if options['value_aggreagate'] == 'Top 5%':
+                                    df = df.sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Top 10%':
+                                    df = df.sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
+                                if options['value_aggregate'] == 'Bottom 5%':
+                                    df = df.sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Bottom 10%':
+                                    df = df.sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
+                        
+                        if options['field_aggregate'] == 'Sum':
+                            if options['value_aggregate'] == 'Select Values':
+                                agg = df.groupby(fil['field_name'],sort=False).sum()
+                                condition = agg in options['values']
+                                df = df[agg[condition].index]
 
-                        if options['value_aggregation'] == 'Ranges':
-                            df_ranges = []
-                            agg = df.groupby(fil['field_name'],sort=False).sum()
-                            for x in options['values']:
-                                df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
-                            df = pd.concat(df_ranges, ignore_index=True)
+                            if options['value_aggregation'] == 'Ranges':
+                                df_ranges = []
+                                agg = df.groupby(fil['field_name'],sort=False).sum()
+                                for x in options['values']:
+                                    df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
+                                df = pd.concat(df_ranges, ignore_index=True)
 
-                        if options['value_aggregation'] == 'Top/Bottom':
-                            if options['value_aggregate'] == 'Top 5':
-                                df = df.groupby(fil['field_name'],sort=False).sum().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
-                            if options['value_aggregate'] == 'Top 10':
-                                df = df.groupby(fil['field_name'],sort=False).sum().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
-                            if options['value_aggregate'] == 'Bottom 5':
-                                df = df.groupby(fil['field_name'],sort=False).sum().sort_values(by=[options['value_aggregate_field']]).head(5)
-                            if options['value_aggregate'] == 'Bottom 10':
-                                df = df.groupby(fil['field_name'],sort=False).sum().sort_values(by=[options['value_aggregate_field']]).head(10)
+                            if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top 5':
+                                    df = df.groupby(fil['field_name'],sort=False).sum().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
+                                if options['value_aggregate'] == 'Top 10':
+                                    df = df.groupby(fil['field_name'],sort=False).sum().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
+                                if options['value_aggregate'] == 'Bottom 5':
+                                    df = df.groupby(fil['field_name'],sort=False).sum().sort_values(by=[options['value_aggregate_field']]).head(5)
+                                if options['value_aggregate'] == 'Bottom 10':
+                                    df = df.groupby(fil['field_name'],sort=False).sum().sort_values(by=[options['value_aggregate_field']]).head(10)
 
-                        if options['value_aggregate'] == 'Top/Bottom %':
-                            n = len(df.index)
-                            if options['value_aggreagate'] == 'Top 5%':
-                                df = df.groupby(fil['field_name'],sort=False).sum().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Top 10%':
-                                df = df.groupby(fil['field_name'],sort=False).sum().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
-                            if options['value_aggregate'] == 'Bottom 5%':
-                                df = df.groupby(fil['field_name'],sort=False).sum().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Bottom 10%':
-                                df = df.groupby(fil['field_name'],sort=False).sum().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
+                            if options['value_aggregate'] == 'Top/Bottom %':
+                                n = len(df.index)
+                                if options['value_aggreagate'] == 'Top 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).sum().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Top 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).sum().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
+                                if options['value_aggregate'] == 'Bottom 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).sum().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Bottom 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).sum().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
 
-                    if options['field_aggregate'] == 'Min':
-                        if options['value_aggregate'] == 'Select Values':
-                            agg = df.groupby(fil['field_name'],sort=False).min()
-                            condition = agg in options['values']
-                            df = df[agg[condition].index]
+                        if options['field_aggregate'] == 'Min':
+                            if options['value_aggregate'] == 'Select Values':
+                                agg = df.groupby(fil['field_name'],sort=False).min()
+                                condition = agg in options['values']
+                                df = df[agg[condition].index]
 
-                        if options['value_aggregation'] == 'Ranges':
-                            df_ranges = []
-                            agg = df.groupby(fil['field_name'],sort=False).min()
-                            for x in options['values']:
-                                df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
-                            df = pd.concat(df_ranges, ignore_index=True)
+                            if options['value_aggregation'] == 'Ranges':
+                                df_ranges = []
+                                agg = df.groupby(fil['field_name'],sort=False).min()
+                                for x in options['values']:
+                                    df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
+                                df = pd.concat(df_ranges, ignore_index=True)
 
-                        if options['value_aggregation'] == 'Top/Bottom':
-                            if options['value_aggregate'] == 'Top 5':
-                                df = df.groupby(fil['field_name'],sort=False).min().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
-                            if options['value_aggregate'] == 'Top 10':
-                                df = df.groupby(fil['field_name'],sort=False).min().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
-                            if options['value_aggregate'] == 'Bottom 5':
-                                df = df.groupby(fil['field_name'],sort=False).min().sort_values(by=[options['value_aggregate_field']]).head(5)
-                            if options['value_aggregate'] == 'Bottom 10':
-                                df = df.groupby(fil['field_name'],sort=False).min().sort_values(by=[options['value_aggregate_field']]).head(10)
+                            if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top 5':
+                                    df = df.groupby(fil['field_name'],sort=False).min().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
+                                if options['value_aggregate'] == 'Top 10':
+                                    df = df.groupby(fil['field_name'],sort=False).min().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
+                                if options['value_aggregate'] == 'Bottom 5':
+                                    df = df.groupby(fil['field_name'],sort=False).min().sort_values(by=[options['value_aggregate_field']]).head(5)
+                                if options['value_aggregate'] == 'Bottom 10':
+                                    df = df.groupby(fil['field_name'],sort=False).min().sort_values(by=[options['value_aggregate_field']]).head(10)
 
-                        if options['value_aggregate'] == 'Top/Bottom %':
-                            n = len(df.index)
-                            if options['value_aggreagate'] == 'Top 5%':
-                                df = df.groupby(fil['field_name'],sort=False).min().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Top 10%':
-                                df = df.groupby(fil['field_name'],sort=False).min().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
-                            if options['value_aggregate'] == 'Bottom 5%':
-                                df = df.groupby(fil['field_name'],sort=False).min().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Bottom 10%':
-                                df = df.groupby(fil['field_name'],sort=False).min().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
-                    
-                    if options['field_aggregate'] == 'Max':
-                        if options['value_aggregate'] == 'Select Values':
-                            agg = df.groupby(fil['field_name'],sort=False).max()
-                            condition = agg in options['values']
-                            df = df[agg[condition].index]
+                            if options['value_aggregate'] == 'Top/Bottom %':
+                                n = len(df.index)
+                                if options['value_aggreagate'] == 'Top 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).min().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Top 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).min().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
+                                if options['value_aggregate'] == 'Bottom 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).min().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Bottom 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).min().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
+                        
+                        if options['field_aggregate'] == 'Max':
+                            if options['value_aggregate'] == 'Select Values':
+                                agg = df.groupby(fil['field_name'],sort=False).max()
+                                condition = agg.isin(options['values'])
+                                df = df[agg[condition].index]
 
-                        if options['value_aggregation'] == 'Ranges':
-                            df_ranges = []
-                            agg = df.groupby(fil['field_name'],sort=False).max()
-                            for x in options['values']:
-                                df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
-                            df = pd.concat(df_ranges, ignore_index=True)
+                            if options['value_aggregation'] == 'Ranges':
+                                df_ranges = []
+                                agg = df.groupby(fil['field_name'],sort=False).max()
+                                for x in options['values']:
+                                    df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
+                                df = pd.concat(df_ranges, ignore_index=True)
 
-                        if options['value_aggregation'] == 'Top/Bottom':
-                            if options['value_aggregate'] == 'Top 5':
-                                df = df.groupby(fil['field_name'],sort=False).max().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
-                            if options['value_aggregate'] == 'Top 10':
-                                df = df.groupby(fil['field_name'],sort=False).max().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
-                            if options['value_aggregate'] == 'Bottom 5':
-                                df = df.groupby(fil['field_name'],sort=False).max().sort_values(by=[options['value_aggregate_field']]).head(5)
-                            if options['value_aggregate'] == 'Bottom 10':
-                                df = df.groupby(fil['field_name'],sort=False).max().sort_values(by=[options['value_aggregate_field']]).head(10)
+                            if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top 5':
+                                    df = df.groupby(fil['field_name'],sort=False).max().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
+                                if options['value_aggregate'] == 'Top 10':
+                                    df = df.groupby(fil['field_name'],sort=False).max().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
+                                if options['value_aggregate'] == 'Bottom 5':
+                                    df = df.groupby(fil['field_name'],sort=False).max().sort_values(by=[options['value_aggregate_field']]).head(5)
+                                if options['value_aggregate'] == 'Bottom 10':
+                                    df = df.groupby(fil['field_name'],sort=False).max().sort_values(by=[options['value_aggregate_field']]).head(10)
 
-                        if options['value_aggregate'] == 'Top/Bottom %':
-                            n = len(df.index)
-                            if options['value_aggreagate'] == 'Top 5%':
-                                df = df.groupby(fil['field_name'],sort=False).max().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Top 10%':
-                                df = df.groupby(fil['field_name'],sort=False).max().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
-                            if options['value_aggregate'] == 'Bottom 5%':
-                                df = df.groupby(fil['field_name'],sort=False).max().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Bottom 10%':
-                                df = df.groupby(fil['field_name'],sort=False).max().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
-                    
-                    if options['field_aggregate'] == 'Average':
-                        if options['value_aggregate'] == 'Select Values':
-                            agg = df.groupby(fil['field_name'],sort=False).mean()
-                            condition = agg in options['values']
-                            df = df[agg[condition].index]
+                            if options['value_aggregate'] == 'Top/Bottom %':
+                                n = len(df.index)
+                                if options['value_aggreagate'] == 'Top 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).max().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Top 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).max().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
+                                if options['value_aggregate'] == 'Bottom 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).max().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Bottom 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).max().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
+                        
+                        if options['field_aggregate'] == 'Average':
+                            if options['value_aggregate'] == 'Select Values':
+                                agg = df.groupby(fil['field_name'],sort=False).mean()
+                                condition = agg.isin(options['values'])
+                                df = df[agg[condition].index]
 
-                        if options['value_aggregation'] == 'Ranges':
-                            df_ranges = []
-                            agg = df.groupby(fil['field_name'],sort=False).mean()
-                            for x in options['values']:
-                                df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
-                            df = pd.concat(df_ranges, ignore_index=True)
+                            if options['value_aggregation'] == 'Ranges':
+                                df_ranges = []
+                                agg = df.groupby(fil['field_name'],sort=False).mean()
+                                for x in options['values']:
+                                    df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
+                                df = pd.concat(df_ranges, ignore_index=True)
 
-                        if options['value_aggregation'] == 'Top/Bottom':
-                            if options['value_aggregate'] == 'Top 5':
-                                df = df.groupby(fil['field_name'],sort=False).mean().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
-                            if options['value_aggregate'] == 'Top 10':
-                                df = df.groupby(fil['field_name'],sort=False).mean().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
-                            if options['value_aggregate'] == 'Bottom 5':
-                                df = df.groupby(fil['field_name'],sort=False).mean().sort_values(by=[options['value_aggregate_field']]).head(5)
-                            if options['value_aggregate'] == 'Bottom 10':
-                                df = df.groupby(fil['field_name'],sort=False).mean().sort_values(by=[options['value_aggregate_field']]).head(10)
+                            if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top 5':
+                                    df = df.groupby(fil['field_name'],sort=False).mean().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
+                                if options['value_aggregate'] == 'Top 10':
+                                    df = df.groupby(fil['field_name'],sort=False).mean().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
+                                if options['value_aggregate'] == 'Bottom 5':
+                                    df = df.groupby(fil['field_name'],sort=False).mean().sort_values(by=[options['value_aggregate_field']]).head(5)
+                                if options['value_aggregate'] == 'Bottom 10':
+                                    df = df.groupby(fil['field_name'],sort=False).mean().sort_values(by=[options['value_aggregate_field']]).head(10)
 
-                        if options['value_aggregate'] == 'Top/Bottom %':
-                            n = len(df.index)
-                            if options['value_aggreagate'] == 'Top 5%':
-                                df = df.groupby(fil['field_name'],sort=False).mean().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Top 10%':
-                                df = df.groupby(fil['field_name'],sort=False).mean().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
-                            if options['value_aggregate'] == 'Bottom 5%':
-                                df = df.groupby(fil['field_name'],sort=False).mean().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Bottom 10%':
-                                df = df.groupby(fil['field_name'],sort=False).mean().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
-            
-                    if options['field_aggregate'] == 'Std Dev':
-                        if options['value_aggregate'] == 'Select Values':
-                            agg = df.groupby(fil['field_name'],sort=False).std()
-                            condition = agg in options['values']
-                            df = df[agg[condition].index]
-
-                        if options['value_aggregation'] == 'Ranges':
-                            df_ranges = []
-                            agg = df.groupby(fil['field_name'],sort=False).std()
-                            for x in options['values']:
-                                df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
-                            df = pd.concat(df_ranges, ignore_index=True)
-
-                        if options['value_aggregation'] == 'Top/Bottom':
-                            if options['value_aggregate'] == 'Top 5':
-                                df = df.groupby(fil['field_name'],sort=False).std().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
-                            if options['value_aggregate'] == 'Top 10':
-                                df = df.groupby(fil['field_name'],sort=False).std().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
-                            if options['value_aggregate'] == 'Bottom 5':
-                                df = df.groupby(fil['field_name'],sort=False).std().sort_values(by=[options['value_aggregate_field']]).head(5)
-                            if options['value_aggregate'] == 'Bottom 10':
-                                df = df.groupby(fil['field_name'],sort=False).std().sort_values(by=[options['value_aggregate_field']]).head(10)
-
-                        if options['value_aggregate'] == 'Top/Bottom %':
-                            n = len(df.index)
-                            if options['value_aggreagate'] == 'Top 5%':
-                                df = df.groupby(fil['field_name'],sort=False).std().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Top 10%':
-                                df = df.groupby(fil['field_name'],sort=False).std().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
-                            if options['value_aggregate'] == 'Bottom 5%':
-                                df = df.groupby(fil['field_name'],sort=False).std().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Bottom 10%':
-                                df = df.groupby(fil['field_name'],sort=False).std().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
-
-                    if options['field_aggregate'] == 'Median':
-                        if options['value_aggregate'] == 'Select Values':
-                            agg = df.groupby(fil['field_name'],sort=False).median()
-                            condition = agg in options['values']
-                            df = df[agg[condition].index]
-
-                        if options['value_aggregation'] == 'Ranges':
-                            df_ranges = []
-                            agg = df.groupby(fil['field_name'],sort=False).median()
-                            for x in options['values']:
-                                df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
-                            df = pd.concat(df_ranges, ignore_index=True)
-
-                        if options['value_aggregation'] == 'Top/Bottom':
-                            if options['value_aggregate'] == 'Top 5':
-                                df = df.groupby(fil['field_name'],sort=False).median().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
-                            if options['value_aggregate'] == 'Top 10':
-                                df = df.groupby(fil['field_name'],sort=False).median().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
-                            if options['value_aggregate'] == 'Bottom 5':
-                                df = df.groupby(fil['field_name'],sort=False).median().sort_values(by=[options['value_aggregate_field']]).head(5)
-                            if options['value_aggregate'] == 'Bottom 10':
-                                df = df.groupby(fil['field_name'],sort=False).median().sort_values(by=[options['value_aggregate_field']]).head(10)
-
-                        if options['value_aggregate'] == 'Top/Bottom %':
-                            n = len(df.index)
-                            if options['value_aggreagate'] == 'Top 5%':
-                                df = df.groupby(fil['field_name'],sort=False).median().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Top 10%':
-                                df = df.groupby(fil['field_name'],sort=False).median().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
-                            if options['value_aggregate'] == 'Bottom 5%':
-                                df = df.groupby(fil['field_name'],sort=False).median().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Bottom 10%':
-                                df = df.groupby(fil['field_name'],sort=False).median().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
-                    
-                    if options['field_aggregate'] == 'Mode':  
-                        if options['value_aggregate'] == 'Select Values':
-                            agg = df.groupby(fil['field_name'],sort=False).mode()
-                            condition = agg in options['values']
-                            df = df[agg[condition].index]
-
-                        if options['value_aggregation'] == 'Ranges':
-                            df_ranges = []
-                            agg = df.groupby(fil['field_name'],sort=False).mode()
-                            for x in options['values']:
-                                df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
-                            df = pd.concat(df_ranges, ignore_index=True)
-
-                        if options['value_aggregation'] == 'Top/Bottom':
-                            if options['value_aggregate'] == 'Top 5':
-                                df = df.groupby(fil['field_name'],sort=False).mode().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
-                            if options['value_aggregate'] == 'Top 10':
-                                df = df.groupby(fil['field_name'],sort=False).mode().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
-                            if options['value_aggregate'] == 'Bottom 5':
-                                df = df.groupby(fil['field_name'],sort=False).mode().sort_values(by=[options['value_aggregate_field']]).head(5)
-                            if options['value_aggregate'] == 'Bottom 10':
-                                df = df.groupby(fil['field_name'],sort=False).mode().sort_values(by=[options['value_aggregate_field']]).head(10)
-
-                        if options['value_aggregate'] == 'Top/Bottom %':
-                            n = len(df.index)
-                            if options['value_aggreagate'] == 'Top 5%':
-                                df = df.groupby(fil['field_name'],sort=False).mode().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Top 10%':
-                                df = df.groupby(fil['field_name'],sort=False).mode().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
-                            if options['value_aggregate'] == 'Bottom 5%':
-                                df = df.groupby(fil['field_name'],sort=False).mode().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Bottom 10%':
-                                df = df.groupby(fil['field_name'],sort=False).mode().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
-            
-                    if options['field_aggregate'] == 'Variance':
-                        if options['value_aggregate'] == 'Select Values':
-                            agg = df.groupby(fil['field_name'],sort=False).var()
-                            condition = agg in options['values']
-                            df = df[agg[condition].index]
-
-                        if options['value_aggregation'] == 'Ranges':
-                            df_ranges = []
-                            agg = df.groupby(fil['field_name'],sort=False).var()
-                            for x in options['values']:
-                                df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
-                            df = pd.concat(df_ranges, ignore_index=True)
-
-                        if options['value_aggregation'] == 'Top/Bottom':
-                            if options['value_aggregate'] == 'Top 5':
-                                df = df.groupby(fil['field_name'],sort=False).var().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
-                            if options['value_aggregate'] == 'Top 10':
-                                df = df.groupby(fil['field_name'],sort=False).var().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
-                            if options['value_aggregate'] == 'Bottom 5':
-                                df = df.groupby(fil['field_name'],sort=False).var().sort_values(by=[options['value_aggregate_field']]).head(5)
-                            if options['value_aggregate'] == 'Bottom 10':
-                                df = df.groupby(fil['field_name'],sort=False).var().sort_values(by=[options['value_aggregate_field']]).head(10)
-
-                        if options['value_aggregate'] == 'Top/Bottom %':
-                            n = len(df.index)
-                            if options['value_aggreagate'] == 'Top 5%':
-                                df = df.groupby(fil['field_name'],sort=False).var().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Top 10%':
-                                df = df.groupby(fil['field_name'],sort=False).var().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
-                            if options['value_aggregate'] == 'Bottom 5%':
-                                df = df.groupby(fil['field_name'],sort=False).var().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Bottom 10%':
-                                df = df.groupby(fil['field_name'],sort=False).var().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
-            
-                    if options['field_aggregate'] == 'Count':
-                        if options['value_aggregate'] == 'Select Values':
-                            agg = df.groupby(fil['field_name'],sort=False).count()
-                            condition = agg in options['values']
-                            df = df[agg[condition].index]
-
-                        if options['value_aggregation'] == 'Ranges':
-                            df_ranges = []
-                            agg = df.groupby(fil['field_name'],sort=False).count()
-                            for x in options['values']:
-                                df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
-                            df = pd.concat(df_ranges, ignore_index=True)
-
-                        if options['value_aggregation'] == 'Top/Bottom':
-                            if options['value_aggregate'] == 'Top 5':
-                                df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
-                            if options['value_aggregate'] == 'Top 10':
-                                df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
-                            if options['value_aggregate'] == 'Bottom 5':
-                                df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']]).head(5)
-                            if options['value_aggregate'] == 'Bottom 10':
-                                df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']]).head(10)
-
-                        if options['value_aggregate'] == 'Top/Bottom %':
-                            n = len(df.index)
-                            if options['value_aggreagate'] == 'Top 5%':
-                                df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Top 10%':
-                                df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
-                            if options['value_aggregate'] == 'Bottom 5%':
-                                df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Bottom 10%':
-                                df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
-            
-                    if options['field_aggregate'] == 'Count Distinct':
-                        if options['value_aggregate'] == 'Select Values':
-                            agg = df.groupby(fil['field_name'],sort=False).nunique()
-                            condition = agg in options['values']
-                            df = df[agg[condition].index]
-
-                        if options['value_aggregation'] == 'Ranges':
-                            df_ranges = []
-                            agg = df.groupby(fil['field_name'],sort=False).nunique()
-                            for x in options['values']:
-                                df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
-                            df = pd.concat(df_ranges, ignore_index=True)
-
-                        if options['value_aggregation'] == 'Top/Bottom':
-                            if options['value_aggregate'] == 'Top 5':
-                                df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
-                            if options['value_aggregate'] == 'Top 10':
-                                df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
-                            if options['value_aggregate'] == 'Bottom 5':
-                                df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']]).head(5)
-                            if options['value_aggregate'] == 'Bottom 10':
-                                df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']]).head(10)
-
-                        if options['value_aggregate'] == 'Top/Bottom %':
-                            n = len(df.index)
-                            if options['value_aggreagate'] == 'Top 5%':
-                                df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Top 10%':
-                                df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
-                            if options['value_aggregate'] == 'Bottom 5%':
-                                df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
-                            if options['value_aggregate'] == 'Bottom 10%':
-                                df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
+                            if options['value_aggregate'] == 'Top/Bottom %':
+                                n = len(df.index)
+                                if options['value_aggreagate'] == 'Top 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).mean().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Top 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).mean().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
+                                if options['value_aggregate'] == 'Bottom 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).mean().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Bottom 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).mean().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
                 
-                if options['mode'] == 'range':
+                        if options['field_aggregate'] == 'Std Dev':
+                            if options['value_aggregate'] == 'Select Values':
+                                agg = df.groupby(fil['field_name'],sort=False).std()
+                                condition = agg.isin(options['values'])
+                                df = df[agg[condition].index]
 
-                    if options['field_aggregate'] == 'Sum':
-                        agg = df[fil['field_name']].sum()
-                        df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]
+                            if options['value_aggregation'] == 'Ranges':
+                                df_ranges = []
+                                agg = df.groupby(fil['field_name'],sort=False).std()
+                                for x in options['values']:
+                                    df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
+                                df = pd.concat(df_ranges, ignore_index=True)
 
-                    if options['field_aggregate'] == 'Max':
-                        agg = df[fil['field_name']].max()
-                        df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]
+                            if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top 5':
+                                    df = df.groupby(fil['field_name'],sort=False).std().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
+                                if options['value_aggregate'] == 'Top 10':
+                                    df = df.groupby(fil['field_name'],sort=False).std().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
+                                if options['value_aggregate'] == 'Bottom 5':
+                                    df = df.groupby(fil['field_name'],sort=False).std().sort_values(by=[options['value_aggregate_field']]).head(5)
+                                if options['value_aggregate'] == 'Bottom 10':
+                                    df = df.groupby(fil['field_name'],sort=False).std().sort_values(by=[options['value_aggregate_field']]).head(10)
+
+                            if options['value_aggregate'] == 'Top/Bottom %':
+                                n = len(df.index)
+                                if options['value_aggreagate'] == 'Top 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).std().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Top 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).std().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
+                                if options['value_aggregate'] == 'Bottom 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).std().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Bottom 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).std().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
+
+                        if options['field_aggregate'] == 'Median':
+                            if options['value_aggregate'] == 'Select Values':
+                                agg = df.groupby(fil['field_name'],sort=False).median()
+                                condition = agg in options['values']
+                                df = df[agg[condition].index]
+
+                            if options['value_aggregation'] == 'Ranges':
+                                df_ranges = []
+                                agg = df.groupby(fil['field_name'],sort=False).median()
+                                for x in options['values']:
+                                    df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
+                                df = pd.concat(df_ranges, ignore_index=True)
+
+                            if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top 5':
+                                    df = df.groupby(fil['field_name'],sort=False).median().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
+                                if options['value_aggregate'] == 'Top 10':
+                                    df = df.groupby(fil['field_name'],sort=False).median().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
+                                if options['value_aggregate'] == 'Bottom 5':
+                                    df = df.groupby(fil['field_name'],sort=False).median().sort_values(by=[options['value_aggregate_field']]).head(5)
+                                if options['value_aggregate'] == 'Bottom 10':
+                                    df = df.groupby(fil['field_name'],sort=False).median().sort_values(by=[options['value_aggregate_field']]).head(10)
+
+                            if options['value_aggregate'] == 'Top/Bottom %':
+                                n = len(df.index)
+                                if options['value_aggreagate'] == 'Top 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).median().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Top 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).median().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
+                                if options['value_aggregate'] == 'Bottom 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).median().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Bottom 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).median().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
+                        
+                        if options['field_aggregate'] == 'Mode':  
+                            if options['value_aggregate'] == 'Select Values':
+                                agg = df.groupby(fil['field_name'],sort=False).mode()
+                                condition = agg.isin(options['values'])
+                                df = df[agg[condition].index]
+
+                            if options['value_aggregation'] == 'Ranges':
+                                df_ranges = []
+                                agg = df.groupby(fil['field_name'],sort=False).mode()
+                                for x in options['values']:
+                                    df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
+                                df = pd.concat(df_ranges, ignore_index=True)
+
+                            if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top 5':
+                                    df = df.groupby(fil['field_name'],sort=False).mode().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
+                                if options['value_aggregate'] == 'Top 10':
+                                    df = df.groupby(fil['field_name'],sort=False).mode().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
+                                if options['value_aggregate'] == 'Bottom 5':
+                                    df = df.groupby(fil['field_name'],sort=False).mode().sort_values(by=[options['value_aggregate_field']]).head(5)
+                                if options['value_aggregate'] == 'Bottom 10':
+                                    df = df.groupby(fil['field_name'],sort=False).mode().sort_values(by=[options['value_aggregate_field']]).head(10)
+
+                            if options['value_aggregate'] == 'Top/Bottom %':
+                                n = len(df.index)
+                                if options['value_aggreagate'] == 'Top 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).mode().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Top 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).mode().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
+                                if options['value_aggregate'] == 'Bottom 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).mode().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Bottom 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).mode().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
+                
+                        if options['field_aggregate'] == 'Variance':
+                            if options['value_aggregate'] == 'Select Values':
+                                agg = df.groupby(fil['field_name'],sort=False).var()
+                                condition = agg.isin(options['values'])
+                                df = df[agg[condition].index]
+
+                            if options['value_aggregation'] == 'Ranges':
+                                df_ranges = []
+                                agg = df.groupby(fil['field_name'],sort=False).var()
+                                for x in options['values']:
+                                    df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
+                                df = pd.concat(df_ranges, ignore_index=True)
+
+                            if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top 5':
+                                    df = df.groupby(fil['field_name'],sort=False).var().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
+                                if options['value_aggregate'] == 'Top 10':
+                                    df = df.groupby(fil['field_name'],sort=False).var().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
+                                if options['value_aggregate'] == 'Bottom 5':
+                                    df = df.groupby(fil['field_name'],sort=False).var().sort_values(by=[options['value_aggregate_field']]).head(5)
+                                if options['value_aggregate'] == 'Bottom 10':
+                                    df = df.groupby(fil['field_name'],sort=False).var().sort_values(by=[options['value_aggregate_field']]).head(10)
+
+                            if options['value_aggregate'] == 'Top/Bottom %':
+                                n = len(df.index)
+                                if options['value_aggreagate'] == 'Top 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).var().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Top 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).var().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
+                                if options['value_aggregate'] == 'Bottom 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).var().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Bottom 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).var().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
+                
+                        if options['field_aggregate'] == 'Count':
+                            if options['value_aggregate'] == 'Select Values':
+                                agg = df.groupby(fil['field_name'],sort=False).count()
+                                condition = agg.isin(options['values'])
+                                df = df[agg[condition].index]
+
+                            if options['value_aggregation'] == 'Ranges':
+                                df_ranges = []
+                                agg = df.groupby(fil['field_name'],sort=False).count()
+                                for x in options['values']:
+                                    df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
+                                df = pd.concat(df_ranges, ignore_index=True)
+
+                            if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top 5':
+                                    df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
+                                if options['value_aggregate'] == 'Top 10':
+                                    df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
+                                if options['value_aggregate'] == 'Bottom 5':
+                                    df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']]).head(5)
+                                if options['value_aggregate'] == 'Bottom 10':
+                                    df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']]).head(10)
+
+                            if options['value_aggregate'] == 'Top/Bottom %':
+                                n = len(df.index)
+                                if options['value_aggreagate'] == 'Top 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Top 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
+                                if options['value_aggregate'] == 'Bottom 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Bottom 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
+                
+                        if options['field_aggregate'] == 'Count Distinct':
+                            if options['value_aggregate'] == 'Select Values':
+                                agg = df.groupby(fil['field_name'],sort=False).nunique()
+                                condition = agg.isin(options['values'])
+                                df = df[agg[condition].index]
+
+                            if options['value_aggregation'] == 'Ranges':
+                                df_ranges = []
+                                agg = df.groupby(fil['field_name'],sort=False).nunique()
+                                for x in options['values']:
+                                    df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
+                                df = pd.concat(df_ranges, ignore_index=True)
+
+                            if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top 5':
+                                    df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
+                                if options['value_aggregate'] == 'Top 10':
+                                    df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']],ascending=False).head(10)
+                                if options['value_aggregate'] == 'Bottom 5':
+                                    df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']]).head(5)
+                                if options['value_aggregate'] == 'Bottom 10':
+                                    df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']]).head(10)
+
+                            if options['value_aggregate'] == 'Top/Bottom %':
+                                n = len(df.index)
+                                if options['value_aggreagate'] == 'Top 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Top 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']],ascending=False).head(int(0.1*n))
+                                if options['value_aggregate'] == 'Bottom 5%':
+                                    df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']]).head(int(0.05*n))
+                                if options['value_aggregate'] == 'Bottom 10%':
+                                    df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']]).head(int(0.1*n))
                     
-                    if options['field_aggregate'] == 'Min':
-                        agg = df[fil['field_name']].min()
-                        df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]                 
-                    
-                    if options['field_aggregate'] == 'Average':
-                        agg = df[fil['field_name']].mean()
-                        df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]                  
-                    
-                    if options['field_aggregate'] == 'Std Dev':
-                        agg = df[fil['field_name']].std()
-                        df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]                 
-                    
-                    if options['field_aggregate'] == 'Median':
-                        agg = df[fil['field_name']].median()
-                        df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]
-                    
-                    if options['field_aggregate'] == 'Mode':
-                        agg = df[fil['field_name']].mode()
-                        df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]                   
-                    
-                    if options['field_aggregate'] == 'Variance':
-                        agg = df[fil['field_name']].var()
-                        df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]                  
-                    
-                    if options['field_aggregate'] == 'Count':
-                        agg = df[fil['field_name']].count()
-                        df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]                   
-                    
-                    if options['field_aggregate'] == 'Count Distinct':
-                        agg = df[fil['field_name']].nunique()
-                        df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]
+                    if options['mode'] == 'range':
+
+                        if options['field_aggregate'] == 'Sum':
+                            agg = df[fil['field_name']].sum()
+                            df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]
+
+                        if options['field_aggregate'] == 'Max':
+                            agg = df[fil['field_name']].max()
+                            df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]
+                        
+                        if options['field_aggregate'] == 'Min':
+                            agg = df[fil['field_name']].min()
+                            df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]                 
+                        
+                        if options['field_aggregate'] == 'Average':
+                            agg = df[fil['field_name']].mean()
+                            df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]                  
+                        
+                        if options['field_aggregate'] == 'Std Dev':
+                            agg = df[fil['field_name']].std()
+                            df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]                 
+                        
+                        if options['field_aggregate'] == 'Median':
+                            agg = df[fil['field_name']].median()
+                            df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]
+                        
+                        if options['field_aggregate'] == 'Mode':
+                            agg = df[fil['field_name']].mode()
+                            df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]                   
+                        
+                        if options['field_aggregate'] == 'Variance':
+                            agg = df[fil['field_name']].var()
+                            df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]                  
+                        
+                        if options['field_aggregate'] == 'Count':
+                            agg = df[fil['field_name']].count()
+                            df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]                   
+                        
+                        if options['field_aggregate'] == 'Count Distinct':
+                            agg = df[fil['field_name']].nunique()
+                            df = df[agg[self.check_filter_value_condition(agg, options['rangeBy'], options['rangeValue'])].index]
+                
+                if options['type'] in ['DateField','DateTimeField']:
+                    if options['mode'] == 'pick':
+                        if options['field_aggregate'] == 'No Aggregate':
+                            
+                            if options['value_aggregate'] == 'Date&Time':
+                                condition = df[fil['field_name']].map(lambda x: x.strftime('%-d %b %Y %H %M %S')) in options['values']
+                                df = df[condition]
+                            
+                            if options['value_aggregate'] == 'Year':
+                                condition = df[fil['field_name']].map(lambda x: x.strftime("%Y")) in options['values']
+                                df = df[condition]
+                            
+                            if options['value_aggregate'] == 'Quarter':
+                                condition = df[fil['field_name']].map(lambda x: 'Q{} {}'.format(pd.DatetimeIndex(x).quarter,x.strftime('%Y'))) in options['values']
+                                df = df[condition]
+                            
+                            if options['value_aggreagate'] == 'Month':
+                                condition = df[fil['field_name']].map(lambda x: x.strftime('%b %Y')) in options['values']
+                                df = df[condition]
+                            
+                            if options['value_aggregate'] == 'Weeks':
+                                condition = df[fil['field_name']].map(lambda x: x.strftime('W%U %Y')) in options['values']
+                                df = df[condition]
+                            
+                            if options['value_aggregate'] == 'Date':
+                                condition = df[fil['field_name']].map(lambda x: x.strftime('%-d %b %Y')) in options['values']
+                                df = df[condition]
+
+                        if options['field_aggregate'] == 'Seasonal':
+                            
+                            if options['value_aggregate'] == 'Quarter':
+                                condition = df[fil['field_name']].map(lambda x: 'Q{}'.format(pd.DatetimeIndex(x))) in options['values']
+                                df = df[condition]
+                            
+                            if options['value_aggreagate'] == 'Month':
+                                condition = df[fil['field_name']].map(lambda x: x.strftime('%b')) in options['values']
+                                df = df[condition]
+                            
+                            if options['value_aggregate'] == 'Weeks':
+                                condition = df[fil['field_name']].map(lambda x: x.strftime('Week %U')) in options['values']
+                                df = df[condition]
+                            
+                            if options['value_aggregate'] == 'Week Day':
+                                condition = df[fil['field_name']].map(lambda x: x.strftime('%a')) in options['values']
+                                df = df[condition]
+                            
+                            if options['value_aggregate'] == 'Day of Month':
+                                condition = df[fil['field_name']].map(lambda x: x.strftime('%-d')) in options['values']
+                                df = df[condition]
+                            
+                            if options['value_aggregate'] == 'Hour':
+                                condition = df[fil['field_name']].map(lambda x: x.strftime('%-H')) in options['values']
+                                df = df[condition]
+
+                        if options['field_aggregate'] == 'Relative':
+
+                            pass
+
+                    else:
+                        df = df[self.check_filter_value_condition(df[fil['field_name']], options['rangeBy'], options['rangeValue'])]
             
-            if options['type'] == 'date':
-                if options['mode'] == 'pick':
-                    if options['field_aggregate'] == 'No Aggregate':
-                        
-                        if options['value_aggregate'] == 'Date&Time':
-                            condition = df[fil['field_name']].map(lambda x: x.strftime('%-d %b %Y %H %M %S')) in options['values']
-                            df = df[condition]
-                        
-                        if options['value_aggregate'] == 'Year':
-                            condition = df[fil['field_name']].map(lambda x: x.strftime("%Y")) in options['values']
-                            df = df[condition]
-                        
-                        if options['value_aggregate'] == 'Quarter':
-                            condition = df[fil['field_name']].map(lambda x: 'Q{} {}'.format(pd.DatetimeIndex(x).quarter,x.strftime('%Y'))) in options['values']
-                            df = df[condition]
-                        
-                        if options['value_aggreagate'] == 'Month':
-                            condition = df[fil['field_name']].map(lambda x: x.strftime('%b %Y')) in options['values']
-                            df = df[condition]
-                        
-                        if options['value_aggregate'] == 'Weeks':
-                            condition = df[fil['field_name']].map(lambda x: x.strftime('W%U %Y')) in options['values']
-                            df = df[condition]
-                        
-                        if options['value_aggregate'] == 'Date':
-                            condition = df[fil['field_name']].map(lambda x: x.strftime('%-d %b %Y')) in options['values']
-                            df = df[condition]
-
-                    if options['field_aggregate'] == 'Seasonal':
-                        
-                        if options['value_aggregate'] == 'Quarter':
-                            condition = df[fil['field_name']].map(lambda x: 'Q{}'.format(pd.DatetimeIndex(x))) in options['values']
-                            df = df[condition]
-                        
-                        if options['value_aggreagate'] == 'Month':
-                            condition = df[fil['field_name']].map(lambda x: x.strftime('%b')) in options['values']
-                            df = df[condition]
-                        
-                        if options['value_aggregate'] == 'Weeks':
-                            condition = df[fil['field_name']].map(lambda x: x.strftime('Week %U')) in options['values']
-                            df = df[condition]
-                        
-                        if options['value_aggregate'] == 'Week Day':
-                            condition = df[fil['field_name']].map(lambda x: x.strftime('%a')) in options['values']
-                            df = df[condition]
-                        
-                        if options['value_aggregate'] == 'Day of Month':
-                            condition = df[fil['field_name']].map(lambda x: x.strftime('%-d')) in options['values']
-                            df = df[condition]
-                        
-                        if options['value_aggregate'] == 'Hour':
-                            condition = df[fil['field_name']].map(lambda x: x.strftime('%-H')) in options['values']
-                            df = df[condition]
-
-                    if options['field_aggregate'] == 'Relative':
-
-                        pass
-
-                else:
-                     df = df[self.check_filter_value_condition(df[fil['field_name']], options['rangeBy'], options['rangeValue'])]
-        
         field = data['field']
         value = data['value']
         group_by = data['groupBy']
@@ -1275,17 +1286,32 @@ class FilterConsumer(AsyncJsonWebsocketConsumer):
                         data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
                     
                 r.flushdb(True) 
+                os.remove('/tmp/{}.rdb'.format(dataset_id))
             else:
                 with connections['rds'].cursor() as cursor:
-                    await database_sync_to_async(cursor.execute)('select SQL_NO_CACHE * from "{}"'.format(dataset_id))
+                    cursor.execute('SELECT database_name from organizations where organization_id="{}"'.format(user.organization_id))
+                    database_name = cursor.fetchone()[0]
+                if user.organization_id not in connections.databases:
+                    connections.databases[user.organization_id] = {
+                        'ENGINE' : 'django.db.backends.mysql',
+                        'NAME' : database_name,
+                        'OPTIONS' : {
+                            'read_default_file' : os.path.join(BASE_DIR, 'cred_dynamic.cnf'),
+                        }
+                    }
+                with connections[user.organization_id].cursor() as cursor:
+                    await database_sync_to_async(cursor.execute)('select SQL_NO_CACHE * from `{}`'.format(dataset_id))
                     table_data = await sync_to_async(dictfetchall)(cursor)
-                    table_model = get_model(t.name,model._meta.app_label,cursor, 'READ')
+                    table_model = get_model(dataset_id,Dataset._meta.app_label,cursor, 'READ')
                     model_fields = [(f.name, f.get_internal_type()) for f in table_model._meta.get_fields() if f.name is not 'id']
                     GeneralSerializer.Meta.model = table_model
 
                     dynamic_serializer = GeneralSerializer(table_data,many = True)
-                    await sync_to_async(call_command)('makemigrations',model._meta.app_label,'--merge','--empty',interactive=False)
+                    await sync_to_async(call_command)('makemigrations',Dataset._meta.app_label,'--merge','--empty',interactive=False)
                     await sync_to_async(call_command)('migrate', database = 'default',fake = True,interactive=False)
+                
+                del connections[user.organization_id]
+        
                 serializer_data = dynamic_serializer.data
                 p = r.pipeline()
                 id_count = 0
@@ -1296,16 +1322,12 @@ class FilterConsumer(AsyncJsonWebsocketConsumer):
                     await sync_to_async(p.execute)()
                 except Exception as e:        
                     print(e)
-                del connections[user.organization_id]
                 data = []
                 for x in range(1,id_count+1):
-                    for c in model_fields:
-                        r.hsetnx('{}.{}.{}'.format(user.organization_id, dataset_id ,str(x)),c,"")
                     data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
     
                 r.flushdb(True)
-                r.config_set('dbfilename', 'dump.rdb')
-                r.config_rewrite() 
+    
             df = await sync_to_async(pd.DataFrame)(data)
             r1.setex("{}.{}".format(user.organization_id,dataset_id), EXPIRATION_SECONDS, zlib.compress( pickle.dumps(df)))
             r1.hmset('{}.fields'.format(dataset_id), { x[0] : x[1] for x in model_fields })
@@ -1333,7 +1355,7 @@ class FilterConsumer(AsyncJsonWebsocketConsumer):
                 if x[1] == 'DateField':
                     df = df.astype({ x[0] : 'datetime64'})
                     df.fillna(arrow.get('01-01-1990').datetime)
-        os.remove('/tmp/{}.rdb'.format(dataset_id))   
+           
         return df,model_fields
 
     async def filter_options_generate(self,request_data):

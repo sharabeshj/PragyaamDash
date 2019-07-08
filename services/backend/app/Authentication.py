@@ -38,6 +38,9 @@ class Profile(AbstractBaseUser):
         Returns the short name for the user.
         '''
         return self.first_name
+
+    class Meta:
+        managed=False
     
 
 class GridBackendAuthentication(authentication.BaseAuthentication):

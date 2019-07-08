@@ -420,9 +420,9 @@ class ReportViewSet(viewsets.GenericViewSet):
             if data['op_table'] == 'dataset':
                 serializer.save(dataset = dataset)
             else:
-                serializer.save(worksheet = data['worksheet_id'])
+                serializer.save()
             for x in data['filters']:
-                report = self.get_report_object(request,serializer.data['report_id'],request.user)
+                report = Report.objects.get(report_id=serializer.data['report_id'])
                 filter_serializer = FilterSerializer(data = x)
                 if filter_serializer.is_valid():
                     filter_serializer.save(report = report)
