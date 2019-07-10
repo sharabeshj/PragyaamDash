@@ -79,14 +79,71 @@ class DatasetViewSet(viewsets.GenericViewSet):
     queryset = Dataset.objects.all()
     serializer_class = DatasetSerializer
 
+    field_type = {
+        0: 'DECIMAL',
+        1: 'TINY',
+        2: 'SHORT',
+        3: 'LONG',
+        4: 'FLOAT',
+        5: 'DOUBLE',
+        6: 'NULL',
+        7: 'TIMESTAMP',
+        8: 'LONGLONG',
+        9: 'INT24',
+        10: 'DATE',
+        11: 'TIME',
+        12: 'DATETIME',
+        13: 'YEAR',
+        14: 'NEWDATE',
+        15: 'VARCHAR',
+        16: 'BIT',
+        246: 'NEWDECIMAL',
+        247: 'INTERVAL',
+        248: 'SET',
+        249: 'TINY_BLOB',
+        250: 'MEDIUM_BLOB',
+        251: 'LONG_BLOB',
+        252: 'BLOB',
+        253: 'VAR_STRING',
+        254: 'STRING',
+        255: 'GEOMETRY' }
+
+    def convert(self,col):
+        if col in [15,249,250,251,252,253.254]: 
+            return 'CharField'
+        elif col in [10,13,14] : 
+            return 'DateField'
+        elif col in [7,11,12] : 
+            return 'DateTimeField'    
+        elif col in [0,4,5,246]: 
+            return 'FloatField'
+        elif col in [249,250,251]: 
+            return 'TextField'
+        elif col in [1,2,3,8, 9,16]: 
+            return 'IntegerField'
+        else:
+            return 'CharField'
+
     def list(self,request):
         
         datasets = self.filter_queryset(self.get_queryset())
         serializer = self.get_serializer(datasets, many = True)
         for x in serializer.data:
             if x['mode'] == 'SQL':
-                with connections['default'].cursor() as cursor:
-                    x['fields'] = getColumnList(x['name'],cursor)
+                with connections['rds'].cursor() as cursor:
+                    cursor.execute('select database_name from organizations where organization_id="{}";'.format(request.user.organization_id))
+                    database_name = cursor.fetchone()[0]
+                if request.user.organization_id not in connections.databases:
+                    connections.databases[request.user.organization_id] = {
+                        'ENGINE' : 'django.db.backends.mysql',
+                        'NAME' : database_name,
+                        'OPTIONS' : {
+                            'read_default_file' : os.path.join(BASE_DIR, 'cred_dynamic.cnf'),
+                        }
+                    }
+                with connections[request.user.organization_id].cursor() as cur:
+                    cur.execute(x['sql'])
+                    x['fields'] = [{'name' : col[0], 'type' : self.convert(col[1]) } for col in cur.description]
 
         return Response(serializer.data,status = status.HTTP_200_OK)
 
@@ -241,50 +298,61 @@ class DatasetViewSet(viewsets.GenericViewSet):
     
     def retrieve(self,request,pk=None):
         dataset = self.get_object()
+        dataset_id = dataset.dataset_id
         user = request.user
         s3_resource= boto3.resource('s3')
         with connections['rds'].cursor() as cursor:
             cursor.execute('select database_name from organizations where organization_id="{}";'.format(request.user.organization_id))
             database_name = cursor.fetchone()
+        model = dataset.get_django_model()
+        model_fields = [(f.name, f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
+        r = redis.Redis(host='127.0.0.1', port=6379, db=0)
+        try:
+            s3_resource.Object('pragyaam-dash-dev','{}/{}.rdb'.format(user.organization_id,str(dataset_id))).download_file(f'/tmp/{dataset.dataset_id}.rdb')
+        except Exception as e:
+            print(e,flush=True)
+        try:
+            load_data('/tmp/{}.rdb'.format(dataset.dataset_id),'127.0.0.1',6379,0) 
+        except Exception as e:
+            print(e,flush=True)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        data = []
+        for x in range(int(request.GET['start']),int(request.GET['end'])+1):
+            if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
+                data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
+            else:
+                data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
+                
+        count = r.dbsize()
+        r.flushdb()  
+        os.remove('/tmp/{}.rdb'.format(dataset.dataset_id))
+        del(model)  
+        df = pd.DataFrame(data)
+        for x in model_fields:
+            if x[0] not in df.columns:
         
-        if dataset.mode == 'SQL':
-            r = redis.Redis(host='127.0.0.1', port=6379, db=0)
-            try:
-                load_data(os.path.join(BASE_DIR,'{}/{}.rdb'.format(user.organization_id,dataset.dataset_id)),'127.0.0.1', 6379, 0)
-            except Exception as e:
-                return Response(status=status.HTTP_204_NO_CONTENT)
-            data = []
-            for x in range(1,r.dbsize()+1):
-                if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
-                    data.append(json.dumps(r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
-                else:
-                    data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
-            r.flushdb()  
-            return Response(data,status=status.HTTP_200_OK)
-
-        else:
-            r = redis.Redis(host='127.0.0.1', port=6379, db=0)
-            try:
-                s3_resource.Object('pragyaam-dash-dev','{}/{}.rdb'.format(user.organization_id,str(dataset.dataset_id))).download_file(f'/tmp/{dataset.dataset_id}.rdb')
-            except Exception as e:
-                print(e,flush=True)
-            try:
-                load_data('/tmp/{}.rdb'.format(dataset.dataset_id),'127.0.0.1',6379,0) 
-            except Exception as e:
-                print(e,flush=True)
-                return Response(status=status.HTTP_204_NO_CONTENT)
-            data = []
-            edit = 1
-            for x in range(int(request.GET['start']),int(request.GET['end'])+1):
-                if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
-                    data.append(json.dumps(r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
-                else:
-                    data.append(json.dumps(r.hgetall('{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x)))))
-            count = r.dbsize()
-            r.flushdb()  
-            os.remove('/tmp/{}.rdb'.format(dataset.dataset_id))  
-            return Response({'data' : data, 'length': count},status=status.HTTP_200_OK)
-        return Response({'message' : 'error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                if x[1] == 'FloatField':
+                    df[x[0]] = 0
+                if x[1] == 'IntegerField':
+                    df[x[0]] = 0
+                if x[1] == 'CharField' or x[1] == 'TextField':
+                    df[x[0]] = ''
+                if x[1] == 'DateField' or x[1] == 'DateTimeField':
+                    df[x[0]] = arrow.get('01-01-1990').datetime
+            else:
+                if x[1] == 'FloatField':
+                    df[x[0]] = df[x[0]].apply(pd.to_numeric,errors='coerce')
+                    df.fillna(0,downcast='infer')
+                if x[1] == 'IntegerField':
+                    df[x[0]] = df[x[0]].apply(pd.to_numeric,errors='coerce')
+                    df.fillna(0,downcast='infer')
+                if x[1] == 'CharField' or x[1] == 'TextField':
+                    df = df.astype({ x[0] : 'object'})
+                if x[1] == 'DateField':
+                    df = df.astype({ x[0] : 'datetime64'})
+                    df.fillna(arrow.get('01-01-1990').datetime)
+        return Response({'data' : df.to_dict(orient='records'), 'length': count},status=status.HTTP_200_OK)
+        
 
     @action(methods=['POST'],detail=True)
     def add_data(self,request,pk=None):

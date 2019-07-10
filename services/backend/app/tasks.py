@@ -59,16 +59,10 @@ def datasetRefresh(organization_id,dataset_id,channel_name=None):
     s3_resource= boto3.resource('s3')
     if dataset.mode == 'SQL':
         
-        r.config_set('dbfilename', '{}.rdb'.format(dataset.dataset_id))
-        r.config_rewrite()
-        try:
-            load_data(os.path.join(BASE_DIR, '{}.rdb'.format(dataset.dataset_id)),'127.0.0.1',6379,0)
-        except:
-            pass
         if organization_id not in connections.databases:
-            connections.databases[profile.organization_id] = {
+            connections.databases[organization_id] = {
                 'ENGINE' : 'django.db.backends.mysql',
-                'NAME' : database_name,
+                'NAME' : database_name[0],
                 'OPTIONS' : {
                     'read_default_file' : os.path.join(BASE_DIR, 'cred_dynamic.cnf'),
                 }
@@ -76,10 +70,9 @@ def datasetRefresh(organization_id,dataset_id,channel_name=None):
         with connections[organization_id].cursor() as cur:
             cur.execute(dataset.sql)
             dataset_data = dictfetchall(cur)
-            serializer = GeneralSerializer(data = dataset_data, many = True)
-        table_data = serializer.data
+            
         p = r.pipeline()
-        for a in table_data:
+        for a in dataset_data:
             id_count +=1
             p.hmset('{}.{}.{}'.format(organization_id, dataset_id ,str(id_count)), {**dict(a)})
    
@@ -88,6 +81,7 @@ def datasetRefresh(organization_id,dataset_id,channel_name=None):
         joins = Join.objects.filter(dataset =  dataset) 
         model = dataset.get_django_model()
         model_fields = [(f.name,f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
+        print(model_fields)
         model_data = []
         data = []  
         # r.config_set('dbfilename', '{}.rdb'.format(dataset.dataset_id))
@@ -98,6 +92,7 @@ def datasetRefresh(organization_id,dataset_id,channel_name=None):
         # except Exception as e:
         #     logger.info(e)
         #     pass
+        test=0
         
         for t in tables:
             if organization_id not in connections.databases:
@@ -111,18 +106,15 @@ def datasetRefresh(organization_id,dataset_id,channel_name=None):
             with connections[organization_id].cursor() as cursor:
                 cursor.execute('select SQL_NO_CACHE * from `%s`'%(t.key))
                 table_data = dictfetchall(cursor)
-
                 table_model = get_model(t.key,model._meta.app_label,cursor, 'READ')
                 DynamicFieldsModelSerializer.Meta.model = table_model                
                 dynamic_serializer = DynamicFieldsModelSerializer(table_data,many = True,fields = set([x[0] for x in model_fields]))
                 model_data.append({ 'name' : t.key,'data' : dynamic_serializer.data})
             del connections[organization_id]
-            call_command('makemigrations',model._meta.app_label,'--merge','--empty',interactive=False)
-            call_command('migrate', database = 'default',fake = True,interactive=False)
+            del table_model
              
         join_model_data=[]
         p = r.pipeline()
-
         if joins.count() == 0:
             for x in model_data:
                 for a in x['data']:

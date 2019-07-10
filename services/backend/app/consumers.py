@@ -140,6 +140,38 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
             return df == value
         if condition == 'By Date Range':
             return (df >= value[0]) & (df <= value[1])
+    
+    def convert(self,col):
+        if col in [15,249,250,251,252,253.254]: 
+            return 'CharField'
+        elif col in [10,13,14] : 
+            return 'DateField'
+        elif col in [7,11,12] : 
+            return 'DateTimeField'    
+        elif col in [0,4,5,246]: 
+            return 'FloatField'
+        elif col in [249,250,251]: 
+            return 'TextField'
+        elif col in [1,2,3,8, 9,16]: 
+            return 'IntegerField'
+        else:
+            return 'CharField'
+    
+    def sql_mode_fields(self,organization_id, sql):
+        with connections['rds'].cursor() as cursor:
+            cursor.execute('select database_name from organizations where organization_id="{}";'.format(organization_id))
+            database_name = cursor.fetchone()[0]
+        if organization_id not in connections.databases:
+            connections.databases[organization_id] = {
+                'ENGINE' : 'django.db.backends.mysql',
+                'NAME' : database_name,
+                'OPTIONS' : {
+                    'read_default_file' : os.path.join(BASE_DIR, 'cred_dynamic.cnf'),
+                }
+            }
+        with connections[organization_id].cursor() as cur:
+            cur.execute(sql)
+            return [(col[0], self.convert(col[1])) for col in cur.description]
 
     async def dataFrameGenerate(self, request_data, user):
         data = []
@@ -155,8 +187,11 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
             r = redis.Redis(host='127.0.0.1', port=6379, db=0)
             if request_data['op_table'] == 'dataset':
                 dataset = await database_sync_to_async(self.get_object)(dataset_id,user)
-                model = dataset.get_django_model()
-                model_fields = [(f.name, f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
+                if dataset.mode == 'VIZ':
+                    model = dataset.get_django_model()
+                    model_fields = [(f.name, f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
+                else:
+                    model_fields = await sync_to_async(self.sql_mode_fields)(user.organization_id,dataset.sql)
                 r = redis.Redis(host='127.0.0.1', port=6379, db=0)
                 s3_resource= boto3.resource('s3',aws_access_key_id=os.environ.get('AWS_ACCESS_KEY'),aws_secret_access_key=os.environ.get('AWS_SECRET_KEY'))
                 try:
@@ -1236,7 +1271,6 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
         field = data['field']
         value = data['value']
         group_by = data['groupBy']
-
         try:
             await self.graphDataGenerate(df,report_type, field, value, group_by)
         except Exception as e:
