@@ -13,7 +13,8 @@ from app.serializers import (DatasetSerializer,
                                 SharedReportSerializer, 
                                 FilterSerializer, 
                                 DashboardReportOptionsSerializer,
-                                SharedDashboardSerializer)
+                                SharedDashboardSerializer,
+                                PeriodicTaskSerializer)
 from app.utils import get_model,dictfetchall, getColumnList
 from app.tasks import datasetRefresh, load_data
 from app.Authentication import (GridBackendAuthentication,  
@@ -144,7 +145,10 @@ class DatasetViewSet(viewsets.GenericViewSet):
                 with connections[request.user.organization_id].cursor() as cur:
                     cur.execute(x['sql'])
                     x['fields'] = [{'name' : col[0], 'type' : self.convert(col[1]) } for col in cur.description]
-
+            if x['scheduler'] != None:
+                periodic_task = PeriodicTask.objects.get(id = x['scheduler'])
+                periodic_task_serializer = PeriodicTaskSerializer(periodic_task)
+                x['scheduler'] = periodic_task_serializer.data
         return Response(serializer.data,status = status.HTTP_200_OK)
 
     def create(self,request):
@@ -391,36 +395,24 @@ class DatasetViewSet(viewsets.GenericViewSet):
         dataset = self.get_object()
         user = request.user
         data = request.data
-        # # queue = Queue(user.organization_id, connection=redis.StrictRedis(host='127.0.0.1', port=6379, db=3))
-        # # start_worker(user.organization_id)
-        # scheduler = get_scheduler('default')
-        # # scheduler = Scheduler(queue=queue, connection=redis.Redis(host='127.0.0.1', port=6379, db=3))
-        # job = scheduler.cron(
-        #     data['cron'],
-        #     func = datasetRefresh,
-        #     args = [user.organization_id,dataset.dataset_id],
-        #     repeat=None,
-        #     queue_name='default'
-        # )
-        # # job = scheduler.enqueue_in(timedelta(minutes=1), datasetRefreshCron,user.organization_id,dataset.dataset_id)
-        # data['job_id'] = job.id
 
         schedule,_ = CrontabSchedule.objects.get_or_create(
             minute=data['minute'],
             hour=data['hour'],
             day_of_week=data['day_of_week'],
+            day_of_month=data['day_of_month'],
             month_of_year=data['month_of_year']
         )
         periodic_task = PeriodicTask.objects.create(
             crontab=schedule,
             name='{}.{}'.format(user.organization_id, dataset.dataset_id),
             task='app.tasks.datasetRefresh',
-            args=json.dumps([user.organization_id, dataset.dataset_id])
+            args=json.dumps([user.organization_id, str(dataset.dataset_id)])
         )
-        data['scheduler'] = periodic_task
+
         serializer = DatasetSerializer(dataset,data = data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(scheduler = periodic_task)
             return Response(serializer.data, status = status.HTTP_202_ACCEPTED)
         
         return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)        
@@ -435,6 +427,7 @@ class DatasetViewSet(viewsets.GenericViewSet):
             minute=data['minute'],
             hour=data['hour'],
             day_of_week=data['day_of_week'],
+            day_of_month=data['day_of_month'],
             month_of_year=data['month_of_year']
         )
         scheduler.update(crontab = schedule)

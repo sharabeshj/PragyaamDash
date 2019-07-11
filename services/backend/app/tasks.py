@@ -81,7 +81,6 @@ def datasetRefresh(organization_id,dataset_id,channel_name=None):
         joins = Join.objects.filter(dataset =  dataset) 
         model = dataset.get_django_model()
         model_fields = [(f.name,f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
-        print(model_fields)
         model_data = []
         data = []  
         # r.config_set('dbfilename', '{}.rdb'.format(dataset.dataset_id))
