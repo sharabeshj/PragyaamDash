@@ -78,7 +78,7 @@ class DatasetViewSet(viewsets.GenericViewSet):
     filter_backends = (DatasetFilterBackend,)
 
     queryset = Dataset.objects.all()
-    lookup_field = 'dataset_id'
+    # lookup_field = 'dataset_id'
     serializer_class = DatasetSerializer
 
     field_type = {
@@ -313,11 +313,11 @@ class DatasetViewSet(viewsets.GenericViewSet):
         model_fields = [(f.name, f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
         r = redis.Redis(host='127.0.0.1', port=6379, db=0)
         try:
-            s3_resource.Object('pragyaam-dash-dev','{}/{}.rdb'.format(user.organization_id,str(dataset_id))).download_file(f'/tmp/{dataset.dataset_id}.rdb')
+            s3_resource.Object('pragyaam-dash-dev','{}/{}.rdb'.format(user.organization_id,str(dataset_id))).download_file(f'/tmp/{dataset_id}.rdb')
         except Exception as e:
             print(e,flush=True)
         try:
-            load_data('/tmp/{}.rdb'.format(dataset.dataset_id),'127.0.0.1',6379,0) 
+            load_data('/tmp/{}.rdb'.format(dataset_id),'127.0.0.1',6379,0) 
         except Exception as e:
             print(e,flush=True)
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -326,14 +326,14 @@ class DatasetViewSet(viewsets.GenericViewSet):
             data = pickle.loads(zlib.decompress(r.get('data')))
         else:
             for x in range(int(request.GET['start']),int(request.GET['end'])+1):
-                if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
+                if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset_id, str(x))) != None:
                     data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
                 else:
                     data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
                 
         count = r.dbsize()
         r.flushdb()  
-        os.remove('/tmp/{}.rdb'.format(dataset.dataset_id))
+        os.remove('/tmp/{}.rdb'.format(dataset_id))
         del(model)  
         df = pd.DataFrame(data)
         for x in model_fields:
@@ -451,7 +451,7 @@ class DatasetViewSet(viewsets.GenericViewSet):
         scheduler.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
         
-    def destroy(self,request,dataset_id=None):
+    def destroy(self,request,pk=None):
 
         # data = request.data
         # print("data :",data)
