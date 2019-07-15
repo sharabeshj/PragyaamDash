@@ -187,11 +187,6 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
             r = redis.Redis(host='127.0.0.1', port=6379, db=0)
             if request_data['op_table'] == 'dataset':
                 dataset = await database_sync_to_async(self.get_object)(dataset_id,user)
-                if dataset.mode == 'VIZ':
-                    model = dataset.get_django_model()
-                    model_fields = [(f.name, f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
-                else:
-                    model_fields = await sync_to_async(self.sql_mode_fields)(user.organization_id,dataset.sql)
                 r = redis.Redis(host='127.0.0.1', port=6379, db=0)
                 s3_resource= boto3.resource('s3',aws_access_key_id=os.environ.get('AWS_ACCESS_KEY'),aws_secret_access_key=os.environ.get('AWS_SECRET_KEY'))
                 try:
@@ -206,12 +201,17 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                     load_data('/tmp/{}.rdb'.format(dataset.dataset_id),'127.0.0.1',6379,0) 
                 except Exception as e:
                     print(e,flush=True)
-        
-                for x in range(1,r.dbsize()+1):
-                    if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
-                        data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
-                    else:
-                        data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
+                if dataset.mode == 'VIZ':
+                    model = dataset.get_django_model()
+                    model_fields = [(f.name, f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
+                    for x in range(1,r.dbsize()+1):
+                        if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
+                            data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
+                        else:
+                            data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
+                else:
+                    model_fields = await sync_to_async(self.sql_mode_fields)(user.organization_id,dataset.sql)
+                    data = pickle.loads(zlib.decompress(r.get('data')))
                     
                 r.flushdb(True) 
             else:

@@ -321,11 +321,14 @@ class DatasetViewSet(viewsets.GenericViewSet):
             print(e,flush=True)
             return Response(status=status.HTTP_204_NO_CONTENT)
         data = []
-        for x in range(int(request.GET['start']),int(request.GET['end'])+1):
-            if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
-                data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
-            else:
-                data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
+        if dataset.mode == 'SQL':
+            data = pickle.loads(zlib.decompress(r.get('data')))
+        else:
+            for x in range(int(request.GET['start']),int(request.GET['end'])+1):
+                if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
+                    data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
+                else:
+                    data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
                 
         count = r.dbsize()
         r.flushdb()  
@@ -565,23 +568,21 @@ class DashboardViewSet(viewsets.GenericViewSet):
         serializer = self.get_serializer(data=data)
         if serializer.is_valid():
             serializer.save(reports = reports)
+            dashboard = Dashboard.objects.get(dashboard_id = serializer.data['dashboard_id'])
             for x in data['reports']:
                 report = self.get_report_object(x['report_id'],request.user)
                 dashboard_report_serializer = DashboardReportOptionsSerializer(data = x['dashReportOptions'])
                 if dashboard_report_serializer.is_valid():
-                    dashboard = Dashboard.objects.get(dashboard_id = serializer.data['dashboard_id'])
                     dashboard_report_serializer.save(report = report, dashboard = dashboard)
-
-                    for f in x['dashReportFilters']:
-                        dashboard_report_options = self.get_dashboard_report_options_objects(dashboard_report_serializer.data['dashboard'])
-                        filter_serializer = FilterSerializer(data = f)
-                        if filter_serializer.is_valid():
-                            filter_serializer.save(dashboard_reports = dashboard_report_options)
-                        else:
-                            return Response(filter_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
-                    return Response(serializer.data, status=status.HTTP_201_CREATED)
                 else:
                     return Response(dashboard_report_serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+            for f in data['dashReportFilters']:
+                filter_serializer = FilterSerializer(data = f)
+                if filter_serializer.is_valid():
+                    filter_serializer.save(dashboard = dashboard)
+                else:
+                    return Response(filter_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     def update(self, request, pk=None):

@@ -124,7 +124,7 @@ class Filter(models.Model):
 
     filter_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable = False)
     report = models.ForeignKey(Report, null = True,related_name='filters',on_delete = models.CASCADE)
-    dashboard_reports = models.ManyToManyField(DashboardReportOptions, blank = True, related_name = 'filters')
+    dashboard = models.ForeignKey(Dashboard, null = True, related_name = 'filters', on_delete=models.CASCADE)
     user = models.CharField(max_length=30)
     organization_id = models.CharField(max_length = 30)
     field_name = models.CharField(max_length = 50)

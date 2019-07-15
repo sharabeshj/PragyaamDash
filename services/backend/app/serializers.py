@@ -103,7 +103,7 @@ class FilterSerializer(serializers.ModelSerializer):
 
 class ReportSerializer(serializers.ModelSerializer):
 
-    dataset = serializers.ReadOnlyField(source='dataset.dataset_id')
+    dataset = DatasetSerializer(read_only=True)
     report_id = serializers.UUIDField(default = uuid.uuid4)
     filters = FilterSerializer(many=True, read_only=True)
 

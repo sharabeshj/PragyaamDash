@@ -17,6 +17,8 @@ import subprocess
 import datetime
 import timestring
 import boto3
+import pickle
+import zlib
 
 logger = get_task_logger(__name__)
 
@@ -70,11 +72,12 @@ def datasetRefresh(organization_id,dataset_id,channel_name=None):
         with connections[organization_id].cursor() as cur:
             cur.execute(dataset.sql)
             dataset_data = dictfetchall(cur)
-            
+        data = []    
         p = r.pipeline()
         for a in dataset_data:
-            id_count +=1
-            p.hmset('{}.{}.{}'.format(organization_id, dataset_id ,str(id_count)), {**dict(a)})
+            data.append({**dict(a)})
+        
+        r.set("data", zlib.compress( pickle.dumps(data)))
    
     else:
         tables = Table.objects.filter(dataset = dataset)
@@ -234,14 +237,14 @@ def datasetRefresh(organization_id,dataset_id,channel_name=None):
 
                     continue
 
-    try:
-        p.execute()
-    except Exception as e:   
-        logger.info('redis')     
-        logger.info(e)
-    # for x in range(1,id_count+1):
-    #     for c in model_fields:
-    #         r.hsetnx('{}.{}.{}'.format(organization_id, dataset_id ,str(x)),c[0],"")
+        try:
+            p.execute()
+        except Exception as e:   
+            logger.info('redis')     
+            logger.info(e)
+        # for x in range(1,id_count+1):
+        #     for c in model_fields:
+        #         r.hsetnx('{}.{}.{}'.format(organization_id, dataset_id ,str(x)),c[0],"")
     r.save()
     try:
          s3_resource.Object('pragyaam-dash-dev','{}/{}.rdb'.format(organization_id,str(dataset.dataset_id))).delete()
