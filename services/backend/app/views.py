@@ -78,6 +78,7 @@ class DatasetViewSet(viewsets.GenericViewSet):
     filter_backends = (DatasetFilterBackend,)
 
     queryset = Dataset.objects.all()
+    lookup_field = 'dataset_id'
     serializer_class = DatasetSerializer
 
     field_type = {
@@ -449,6 +450,15 @@ class DatasetViewSet(viewsets.GenericViewSet):
         scheduler = PeriodicTask.objects.get(name = dataset.scheduler.name)
         scheduler.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+        
+    def destroy(self,request,dataset_id=None):
+
+        # data = request.data
+        # print("data :",data)
+        dataset = self.get_object()
+        dataset.delete()
+        return Response({'messge':'success'},status=status.HTTP_204_NO_CONTENT)
+
 
 class ReportViewSet(viewsets.GenericViewSet):
 
