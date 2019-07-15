@@ -5,7 +5,7 @@ class DatasetFilterBackend(BaseFilterBackend):
     def filter_queryset(self,request,queryset,view):
         if request.user.is_superuser:
             return queryset.filter(organization_id = request.user.organization_id)
-        elif request.user['role'] == 'Developer':
+        elif request.user.role == 'Developer':
             return queryset.filter(organization_id = request.user.organization_id).filter(userId = request.user.username)
         else:
             return None

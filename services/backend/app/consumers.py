@@ -8,6 +8,8 @@ from channels.layers import get_channel_layer
 from django_celery_beat.models import PeriodicTask
 from django.core.management import call_command
 from django.db import connections
+from django.core.serializers.json import DjangoJSONEncoder
+
 
 from app.utils import get_model,dictfetchall, getColumnList
 from app.tasks import datasetRefresh, load_data
@@ -1455,7 +1457,7 @@ class FilterConsumer(AsyncJsonWebsocketConsumer):
                         await self.send(json.dumps({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].apply(lambda x: x.strftime('%-d %b %Y %H %M %S')).unique()},cls=NumpyEncoder))
 
             else:
-                await self.send_json({ 'type' : 'fieldRange', 'data' : { 'min' : df[request_data['field']].min(), 'max' : df[request_data['field']].max() }})
+                await self.send(json.dumps({ 'type' : 'fieldRange', 'data' : { 'min' : df[request_data['field']].min(), 'max' : df[request_data['field']].max() }}, cls=DjangoJSONEncoder))
 
     async def receive_json(self,data):
         await self.filter_options_generate(data)
