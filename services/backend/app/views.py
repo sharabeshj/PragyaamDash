@@ -466,7 +466,6 @@ class ReportViewSet(viewsets.GenericViewSet):
     permission_classes = (permissions.IsAuthenticated&GridBackendReportPermissions,)
     authentication_classes = (GridBackendAuthentication,)
     filter_backends = (ReportFilterBackend,)
-    lookup_field = 'report_id'
 
     queryset = Report.objects.all()
     serializer_class = ReportSerializer
@@ -531,7 +530,7 @@ class ReportViewSet(viewsets.GenericViewSet):
     #         return Response(status=status.HTTP_204_NO_CONTENT)
     
     ###This is a delete request which takes the report_id and delete's report
-    def destroy(self,request,report_id=None):
+    def destroy(self,request,pk=None):
 
         # data = request.data
         # print("data :",data)
