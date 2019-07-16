@@ -13,7 +13,8 @@ from app.serializers import (DatasetSerializer,
                                 SharedReportSerializer, 
                                 FilterSerializer, 
                                 DashboardReportOptionsSerializer,
-                                SharedDashboardSerializer)
+                                SharedDashboardSerializer,
+                                PeriodicTaskSerializer)
 from app.utils import get_model,dictfetchall, getColumnList
 from app.tasks import datasetRefresh, load_data
 from app.Authentication import (GridBackendAuthentication,  
@@ -77,6 +78,7 @@ class DatasetViewSet(viewsets.GenericViewSet):
     filter_backends = (DatasetFilterBackend,)
 
     queryset = Dataset.objects.all()
+    # lookup_field = 'dataset_id'
     serializer_class = DatasetSerializer
 
     field_type = {
@@ -144,7 +146,10 @@ class DatasetViewSet(viewsets.GenericViewSet):
                 with connections[request.user.organization_id].cursor() as cur:
                     cur.execute(x['sql'])
                     x['fields'] = [{'name' : col[0], 'type' : self.convert(col[1]) } for col in cur.description]
-
+            if x['scheduler'] != None:
+                periodic_task = PeriodicTask.objects.get(id = x['scheduler'])
+                periodic_task_serializer = PeriodicTaskSerializer(periodic_task)
+                x['scheduler'] = periodic_task_serializer.data
         return Response(serializer.data,status = status.HTTP_200_OK)
 
     def create(self,request):
@@ -308,24 +313,27 @@ class DatasetViewSet(viewsets.GenericViewSet):
         model_fields = [(f.name, f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
         r = redis.Redis(host='127.0.0.1', port=6379, db=0)
         try:
-            s3_resource.Object('pragyaam-dash-dev','{}/{}.rdb'.format(user.organization_id,str(dataset_id))).download_file(f'/tmp/{dataset.dataset_id}.rdb')
+            s3_resource.Object('pragyaam-dash-dev','{}/{}.rdb'.format(user.organization_id,str(dataset_id))).download_file(f'/tmp/{dataset_id}.rdb')
         except Exception as e:
             print(e,flush=True)
         try:
-            load_data('/tmp/{}.rdb'.format(dataset.dataset_id),'127.0.0.1',6379,0) 
+            load_data('/tmp/{}.rdb'.format(dataset_id),'127.0.0.1',6379,0) 
         except Exception as e:
             print(e,flush=True)
             return Response(status=status.HTTP_204_NO_CONTENT)
         data = []
-        for x in range(int(request.GET['start']),int(request.GET['end'])+1):
-            if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset.dataset_id, str(x))) != None:
-                data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
-            else:
-                data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
+        if dataset.mode == 'SQL':
+            data = pickle.loads(zlib.decompress(r.get('data')))
+        else:
+            for x in range(int(request.GET['start']),int(request.GET['end'])+1):
+                if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset_id, str(x))) != None:
+                    data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
+                else:
+                    data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
                 
         count = r.dbsize()
         r.flushdb()  
-        os.remove('/tmp/{}.rdb'.format(dataset.dataset_id))
+        os.remove('/tmp/{}.rdb'.format(dataset_id))
         del(model)  
         df = pd.DataFrame(data)
         for x in model_fields:
@@ -391,36 +399,24 @@ class DatasetViewSet(viewsets.GenericViewSet):
         dataset = self.get_object()
         user = request.user
         data = request.data
-        # # queue = Queue(user.organization_id, connection=redis.StrictRedis(host='127.0.0.1', port=6379, db=3))
-        # # start_worker(user.organization_id)
-        # scheduler = get_scheduler('default')
-        # # scheduler = Scheduler(queue=queue, connection=redis.Redis(host='127.0.0.1', port=6379, db=3))
-        # job = scheduler.cron(
-        #     data['cron'],
-        #     func = datasetRefresh,
-        #     args = [user.organization_id,dataset.dataset_id],
-        #     repeat=None,
-        #     queue_name='default'
-        # )
-        # # job = scheduler.enqueue_in(timedelta(minutes=1), datasetRefreshCron,user.organization_id,dataset.dataset_id)
-        # data['job_id'] = job.id
 
         schedule,_ = CrontabSchedule.objects.get_or_create(
             minute=data['minute'],
             hour=data['hour'],
             day_of_week=data['day_of_week'],
+            day_of_month=data['day_of_month'],
             month_of_year=data['month_of_year']
         )
         periodic_task = PeriodicTask.objects.create(
             crontab=schedule,
             name='{}.{}'.format(user.organization_id, dataset.dataset_id),
             task='app.tasks.datasetRefresh',
-            args=json.dumps([user.organization_id, dataset.dataset_id])
+            args=json.dumps([user.organization_id, str(dataset.dataset_id)])
         )
-        data['scheduler'] = periodic_task
+
         serializer = DatasetSerializer(dataset,data = data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(scheduler = periodic_task)
             return Response(serializer.data, status = status.HTTP_202_ACCEPTED)
         
         return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)        
@@ -435,6 +431,7 @@ class DatasetViewSet(viewsets.GenericViewSet):
             minute=data['minute'],
             hour=data['hour'],
             day_of_week=data['day_of_week'],
+            day_of_month=data['day_of_month'],
             month_of_year=data['month_of_year']
         )
         scheduler.update(crontab = schedule)
@@ -453,12 +450,23 @@ class DatasetViewSet(viewsets.GenericViewSet):
         scheduler = PeriodicTask.objects.get(name = dataset.scheduler.name)
         scheduler.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+        
+    def destroy(self,request,pk=None):
+
+        dataset = self.get_object()
+        dataset.delete()
+        s3_resource= boto3.resource('s3')
+        dataset_s3= s3_resource.Object('pragyaam-dash-dev','{}/{}.rdb'.format(request.user.organization_id,str(pk)))
+        val = dataset_s3.delete()
+        return Response({'messge':'success'},status=status.HTTP_204_NO_CONTENT)
+
 
 class ReportViewSet(viewsets.GenericViewSet):
 
     permission_classes = (permissions.IsAuthenticated&GridBackendReportPermissions,)
     authentication_classes = (GridBackendAuthentication,)
     filter_backends = (ReportFilterBackend,)
+    lookup_field = 'report_id'
 
     queryset = Report.objects.all()
     serializer_class = ReportSerializer
@@ -512,15 +520,24 @@ class ReportViewSet(viewsets.GenericViewSet):
         
         return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
 
-    def destroy(self,request,pk=None):
+    # def destroy(self,request,pk=None):
 
-        data = request.data
+    #     data = request.data
+    #     report = self.get_object()
+    #     serializer = self.get_serializer(report, data = data)
+
+    #     if serializer.is_valid():
+    #         serializer.delete()
+    #         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    ###This is a delete request which takes the report_id and delete's report
+    def destroy(self,request,report_id=None):
+
+        # data = request.data
+        # print("data :",data)
         report = self.get_object()
-        serializer = self.get_serializer(report, data = data)
-
-        if serializer.is_valid():
-            serializer.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        report.delete()
+        return Response({'messge':'success'},status=status.HTTP_204_NO_CONTENT)
 
 class DashboardViewSet(viewsets.GenericViewSet): 
 
@@ -572,23 +589,21 @@ class DashboardViewSet(viewsets.GenericViewSet):
         serializer = self.get_serializer(data=data)
         if serializer.is_valid():
             serializer.save(reports = reports)
+            dashboard = Dashboard.objects.get(dashboard_id = serializer.data['dashboard_id'])
             for x in data['reports']:
                 report = self.get_report_object(x['report_id'],request.user)
                 dashboard_report_serializer = DashboardReportOptionsSerializer(data = x['dashReportOptions'])
                 if dashboard_report_serializer.is_valid():
-                    dashboard = Dashboard.objects.get(dashboard_id = serializer.data['dashboard_id'])
                     dashboard_report_serializer.save(report = report, dashboard = dashboard)
-
-                    for f in x['dashReportFilters']:
-                        dashboard_report_options = self.get_dashboard_report_options_objects(dashboard_report_serializer.data['dashboard'])
-                        filter_serializer = FilterSerializer(data = f)
-                        if filter_serializer.is_valid():
-                            filter_serializer.save(dashboard_reports = dashboard_report_options)
-                        else:
-                            return Response(filter_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
-                    return Response(serializer.data, status=status.HTTP_201_CREATED)
                 else:
                     return Response(dashboard_report_serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+            for f in data['dashReportFilters']:
+                filter_serializer = FilterSerializer(data = f)
+                if filter_serializer.is_valid():
+                    filter_serializer.save(dashboard = dashboard)
+                else:
+                    return Response(filter_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     def update(self, request, pk=None):

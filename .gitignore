@@ -13,3 +13,8 @@ env/
 node_modules/
 
 *.rdb
+
+*.pid
+
+
+grid_frontend_new/

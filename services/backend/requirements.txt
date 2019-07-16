@@ -8,6 +8,8 @@ attrs==19.1.0
 autobahn==19.6.2
 Automat==0.7.0
 billiard==3.6.0.0
+boto3==1.9.181
+botocore==1.12.181
 celery==4.3.0
 certifi==2019.3.9
 cffi==1.12.3
@@ -27,10 +29,13 @@ django-pandas==0.6.1
 django-rq==2.0
 django-timezone-field==3.0
 djangorestframework==3.9.4
+docutils==0.14
+gunicorn==19.9.0
 hiredis==1.0.0
 hyperlink==19.0.0
 idna==2.8
 incremental==17.5.0
+jmespath==0.9.4
 kombu==4.6.0
 msgpack==0.6.1
 mysqlclient==1.4.2.post1
@@ -47,6 +52,7 @@ redis==3.2.1
 requests==2.22.0
 rq==1.0
 rq-scheduler==0.9
+s3transfer==0.2.1
 simplejson==3.16.0
 six==1.12.0
 sqlparse==0.3.0

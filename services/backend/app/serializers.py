@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from app.models import Dataset,Field,Setting,Table,Join,Report, SharedReport, Dashboard, Filter, DashboardReportOptions, SharedDashboard
-from django_celery_beat.models import PeriodicTask
+from django_celery_beat.models import PeriodicTask,CrontabSchedule
 import uuid
 
 class SettingSerializer(serializers.ModelSerializer):
@@ -36,9 +36,21 @@ class FieldSerializer(serializers.ModelSerializer):
         model = Field
         fields = ('dataset','name','worksheet','type','settings')
 
+class CrontabSeriaizer(serializers.ModelSerializer):
+    class Meta:
+        model = CrontabSchedule
+        fields = ('minute','hour','day_of_week', 'day_of_month','month_of_year')
+
+class PeriodicTaskSerializer(serializers.ModelSerializer):
+    
+    crontab = CrontabSeriaizer(read_only = True)
+    class Meta:
+        model = PeriodicTask
+        fields = '__all__'
+
 class DatasetSerializer(serializers.ModelSerializer):
 
-    scheduler = serializers.ReadOnlyField(source='periodicTask.id')
+    scheduler = serializers.ReadOnlyField(source = 'scheduler.id', allow_null=True)
     fields = FieldSerializer(many = True,read_only = True)
     joins = JoinSerializer(many=True, read_only = True)
     tables = TableSerializer(many=True,read_only=True)
@@ -91,7 +103,7 @@ class FilterSerializer(serializers.ModelSerializer):
 
 class ReportSerializer(serializers.ModelSerializer):
 
-    dataset = serializers.ReadOnlyField(source='dataset.dataset_id')
+    dataset = DatasetSerializer(read_only=True)
     report_id = serializers.UUIDField(default = uuid.uuid4)
     filters = FilterSerializer(many=True, read_only=True)
 

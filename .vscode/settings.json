@@ -1,5 +1,10 @@
 {
     "git.ignoreLimitWarning": true,
     "python.pythonPath": "/home/sharabesh/Documents/pragyaam/PragyaamDash/services/backend/env/bin/python3.6",
-    "python.linting.pylintArgs": ["--load-plugins", "pylint_django"]
+    "python.linting.pylintArgs": [
+        "--load-plugins",
+        "pylint_django"
+    ],
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": true
 }
