@@ -453,10 +453,11 @@ class DatasetViewSet(viewsets.GenericViewSet):
         
     def destroy(self,request,pk=None):
 
-        # data = request.data
-        # print("data :",data)
         dataset = self.get_object()
         dataset.delete()
+        s3_resource= boto3.resource('s3')
+        dataset_s3= s3_resource.Object('pragyaam-dash-dev','{}/{}.rdb'.format(request.user.organization_id,str(pk)))
+        val = dataset_s3.delete()
         return Response({'messge':'success'},status=status.HTTP_204_NO_CONTENT)
 
 
