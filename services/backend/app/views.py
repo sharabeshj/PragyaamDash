@@ -453,10 +453,11 @@ class DatasetViewSet(viewsets.GenericViewSet):
         
     def destroy(self,request,pk=None):
 
-        # data = request.data
-        # print("data :",data)
         dataset = self.get_object()
         dataset.delete()
+        s3_resource= boto3.resource('s3')
+        dataset_s3= s3_resource.Object('pragyaam-dash-dev','{}/{}.rdb'.format(request.user.organization_id,str(pk)))
+        val = dataset_s3.delete()
         return Response({'messge':'success'},status=status.HTTP_204_NO_CONTENT)
 
 
@@ -465,6 +466,7 @@ class ReportViewSet(viewsets.GenericViewSet):
     permission_classes = (permissions.IsAuthenticated&GridBackendReportPermissions,)
     authentication_classes = (GridBackendAuthentication,)
     filter_backends = (ReportFilterBackend,)
+    lookup_field = 'report_id'
 
     queryset = Report.objects.all()
     serializer_class = ReportSerializer
@@ -518,15 +520,24 @@ class ReportViewSet(viewsets.GenericViewSet):
         
         return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
 
-    def destroy(self,request,pk=None):
+    # def destroy(self,request,pk=None):
 
-        data = request.data
+    #     data = request.data
+    #     report = self.get_object()
+    #     serializer = self.get_serializer(report, data = data)
+
+    #     if serializer.is_valid():
+    #         serializer.delete()
+    #         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    ###This is a delete request which takes the report_id and delete's report
+    def destroy(self,request,report_id=None):
+
+        # data = request.data
+        # print("data :",data)
         report = self.get_object()
-        serializer = self.get_serializer(report, data = data)
-
-        if serializer.is_valid():
-            serializer.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        report.delete()
+        return Response({'messge':'success'},status=status.HTTP_204_NO_CONTENT)
 
 class DashboardViewSet(viewsets.GenericViewSet): 
 
