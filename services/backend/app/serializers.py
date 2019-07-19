@@ -94,11 +94,11 @@ class FilterSerializer(serializers.ModelSerializer):
     activate = serializers.BooleanField(default = True)
     options = serializers.JSONField()
     report = serializers.ReadOnlyField(source='report.report_id',allow_null = True)
-    dashboard_reports = serializers.ReadOnlyField(source='dashboard_report_options.dashboard.dashboard_id',allow_null = True)
+    dashboard = serializers.ReadOnlyField(source='dashboard.dashboard_id',allow_null = True)
 
     class Meta:
         model = Filter
-        fields = ('filter_id', 'field_name', 'options','activate','report','dashboard_reports')
+        fields = '__all__'
 
 
 class ReportSerializer(serializers.ModelSerializer):
@@ -126,7 +126,6 @@ class SharedReportSerializer(serializers.ModelSerializer):
 
 class DashboardReportOptionsSerializer(serializers.ModelSerializer):
 
-    filters = FilterSerializer(many=True, read_only=True)
     dashboard = serializers.ReadOnlyField(source = 'dashboard.dashboard_id')
     report = serializers.ReadOnlyField(source = 'report.report_id')
     reportOptions = serializers.JSONField()
@@ -151,6 +150,7 @@ class DashboardSerializer(serializers.ModelSerializer):
     dashboard_report_options = DashboardReportOptionsSerializer(many=True, read_only = True)
     shared_users = SharedDashboardSerializer(many=True,read_only = True)
     description = serializers.JSONField()
+    filters = FilterSerializer(many=True, read_only=True)
 
     class Meta:
         model = Dashboard

@@ -116,7 +116,7 @@ class GridBackendReportPermissions(permissions.BasePermission):
         elif request.method == 'PUT':
             
             if request.user.is_superuser:
-                True
+                return True
             elif request.user.role == 'Developer':
                 if obj.user == request.user.username:
                     return True
@@ -153,7 +153,7 @@ class GridBackendShareReportPermissions(permissions.BasePermission):
 
         if request.method == 'POST':
             
-            if request.user.is_superuser: 
+            if request.user.is_superuser:
                 return True
             if request.user.role == 'Developer':
                 if obj.user == request.user.username:
@@ -184,9 +184,8 @@ class GridBackendDashboardPermissions(permissions.BasePermission):
             return False
         
         elif request.method == 'PUT':
-            
             if request.user.is_superuser:
-                True
+                return True
             elif request.user.role == 'Developer':
                 if obj.filter(user = request.user.username).exists():
                     return True
