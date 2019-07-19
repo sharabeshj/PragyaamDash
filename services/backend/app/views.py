@@ -466,7 +466,6 @@ class ReportViewSet(viewsets.GenericViewSet):
     permission_classes = (permissions.IsAuthenticated&GridBackendReportPermissions,)
     authentication_classes = (GridBackendAuthentication,)
     filter_backends = (ReportFilterBackend,)
-    lookup_field = 'report_id'
 
     queryset = Report.objects.all()
     serializer_class = ReportSerializer
@@ -531,7 +530,7 @@ class ReportViewSet(viewsets.GenericViewSet):
     #         return Response(status=status.HTTP_204_NO_CONTENT)
     
     ###This is a delete request which takes the report_id and delete's report
-    def destroy(self,request,report_id=None):
+    def destroy(self,request,pk=None):
 
         # data = request.data
         # print("data :",data)
@@ -620,15 +619,13 @@ class DashboardViewSet(viewsets.GenericViewSet):
             return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def destroy(self, request,pk=None):
+    def destroy(self,request,pk=None):
 
-        data = request.data
+        # data = request.data
+        # print("data :",data)
         dashboard = self.get_object()
-        serializer = self.get_serializer(dashboard, data= data)
-        if serializer.is_valid():
-            serializer.delete()
-            return Response(status= status.HTTP_204_NO_CONTENT)
-        return Response(serializer.errors, status= status.HTTP_400_BAD_REQUEST)
+        dashboard.delete()
+        return Response({'messge':'success'},status=status.HTTP_204_NO_CONTENT)
 
 class SharingReports(viewsets.ViewSet):
 
