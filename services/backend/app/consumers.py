@@ -127,17 +127,19 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
             raise Http404
     
     def check_filter_value_condition(self, df, condition,value):
-        if condition == 'equals':
+        if condition == 'Equals':
             return df == value
-        if condition == 'greater_than':
+        if condition == 'Does not equal':
+            return df != value
+        if condition == 'Greater than':
             return df > value
-        if condition == 'less than':
+        if condition == 'Less than':
             return df < value
-        if condition == 'greater_than_or_equals':
+        if condition == '"Greater than or equal to"':
             return df >= value
-        if condition == 'less_than_or_equals':
+        if condition == 'Less than or equal to':
             return df <= value
-        if condition == 'between':
+        if condition == 'Between':
             return (df >= value[0]) & (df <= value[1])
         if condition in ["By Date","By Month","By Week"]:
             return df == value
@@ -1617,7 +1619,7 @@ class FilterConsumer(AsyncJsonWebsocketConsumer):
                         await self.send(json.dumps({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].apply(lambda x: x.strftime('%-d %b %Y %H %M %S')).unique()},cls=NumpyEncoder))
 
             else:
-                await self.send(json.dumps({ 'type' : 'fieldRange', 'data' : { 'min' : df[request_data['field']].min(), 'max' : df[request_data['field']].max() }}, cls=DjangoJSONEncoder))
+                await self.send(json.dumps({ 'type' : 'fieldRange', 'data' : { 'min' : df[request_data['field']].min(), 'max' : df[request_data['field']].max() }}, sort_keys=True, indent=1, cls=DjangoJSONEncoder))
 
     async def receive_json(self,data):
         await self.filter_options_generate(data)
