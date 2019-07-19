@@ -619,15 +619,13 @@ class DashboardViewSet(viewsets.GenericViewSet):
             return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def destroy(self, request,pk=None):
+    def destroy(self,request,pk=None):
 
-        data = request.data
+        # data = request.data
+        # print("data :",data)
         dashboard = self.get_object()
-        serializer = self.get_serializer(dashboard, data= data)
-        if serializer.is_valid():
-            serializer.delete()
-            return Response(status= status.HTTP_204_NO_CONTENT)
-        return Response(serializer.errors, status= status.HTTP_400_BAD_REQUEST)
+        dashboard.delete()
+        return Response({'messge':'success'},status=status.HTTP_204_NO_CONTENT)
 
 class SharingReports(viewsets.ViewSet):
 
