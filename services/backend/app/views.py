@@ -1,6 +1,6 @@
 from django.shortcuts import render
 
-from app.models import Dataset,Field,Setting,Table,Join,Report, Dashboard, SharedDashboard, SharedReport
+from app.models import Dataset,Field,Setting,Table,Join,Report, Dashboard, SharedDashboard, SharedReport, Filter
 from app.serializers import (DatasetSerializer,
                                 FieldSerializer,
                                 SettingSerializer,
@@ -460,13 +460,11 @@ class DatasetViewSet(viewsets.GenericViewSet):
         val = dataset_s3.delete()
         return Response({'messge':'success'},status=status.HTTP_204_NO_CONTENT)
 
-
 class ReportViewSet(viewsets.GenericViewSet):
 
     permission_classes = (permissions.IsAuthenticated&GridBackendReportPermissions,)
     authentication_classes = (GridBackendAuthentication,)
     filter_backends = (ReportFilterBackend,)
-    lookup_field = 'report_id'
 
     queryset = Report.objects.all()
     serializer_class = ReportSerializer
@@ -498,6 +496,8 @@ class ReportViewSet(viewsets.GenericViewSet):
             else:
                 serializer.save()
             for x in data['filters']:
+                x['user'] = request.user.user_alias
+                x['organization_id'] = request.user.organization_id
                 report = Report.objects.get(report_id=serializer.data['report_id'])
                 filter_serializer = FilterSerializer(data = x)
                 if filter_serializer.is_valid():
@@ -511,30 +511,30 @@ class ReportViewSet(viewsets.GenericViewSet):
     def update(self,request,pk=None):
 
         data = request.data
+        data['organization_id'] = request.user.organization_id
+        data['user'] = request.user.user_alias
+        data['userId'] = request.user.username
         report = self.get_object()
         serializer = ReportSerializer(report, data = data)
 
         if serializer.is_valid():
             serializer.save()
+            for x in data['filters']:
+                if x['filter_id'] == None and not Filter.objects.filter(organization_id=x['organization_id']).filter(filter_id = x['filter_id']).exists():
+                    x['user'] = request.user.user_alias
+                    x['organization_id'] = request.user.organization_id
+                    filter_serializer = FilterSerializer(data = x)
+                    if filter_serializer.is_valid():
+                        filter_serializer.save(report = report)
+                    else:
+                        return Response(filter_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+
             return Response(serializer.data, status = status.HTTP_202_ACCEPTED)
         
         return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
 
-    # def destroy(self,request,pk=None):
+    def destroy(self,request,pk=None):
 
-    #     data = request.data
-    #     report = self.get_object()
-    #     serializer = self.get_serializer(report, data = data)
-
-    #     if serializer.is_valid():
-    #         serializer.delete()
-    #         return Response(status=status.HTTP_204_NO_CONTENT)
-    
-    ###This is a delete request which takes the report_id and delete's report
-    def destroy(self,request,report_id=None):
-
-        # data = request.data
-        # print("data :",data)
         report = self.get_object()
         report.delete()
         return Response({'messge':'success'},status=status.HTTP_204_NO_CONTENT)
@@ -598,6 +598,8 @@ class DashboardViewSet(viewsets.GenericViewSet):
                 else:
                     return Response(dashboard_report_serializer.errors,status=status.HTTP_400_BAD_REQUEST)
             for f in data['dashReportFilters']:
+                f['user'] = request.user.user_alias
+                f['organization_id'] = request.user.organization_id
                 filter_serializer = FilterSerializer(data = f)
                 if filter_serializer.is_valid():
                     filter_serializer.save(dashboard = dashboard)
@@ -609,6 +611,9 @@ class DashboardViewSet(viewsets.GenericViewSet):
     def update(self, request, pk=None):
 
         data = request.data
+        data['organization_id'] = request.user.organization_id
+        data['user'] = request.user.user_alias
+        data['userId'] = request.user.username
         dashboard = self.get_object()
         serializer = self.get_serializer(dashboard,data=data)
 
@@ -617,18 +622,26 @@ class DashboardViewSet(viewsets.GenericViewSet):
                 dashboard_report_serializer = DashboardReportOptionsSerializer(x, data = data['reports'])
                 if dashboard_report_serializer.is_valid():
                     dashboard_report_serializer.save()
+            for f in data['dashReportFilters']:
+                f['user'] = request.user.user_alias
+                f['organization_id'] = request.user.organization_id
+                if f['filter_id'] == None and not Filter.objects.filter(organization_id=f['organization_id']).filter(filter_id = f['filter_id']).exists():
+                    filter_serializer = FilterSerializer(data = f)
+                    if filter_serializer.is_valid():
+                        filter_serializer.save(dashboard = dashboard)
+                    else:
+                        return Response(filter_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+ 
             return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def destroy(self, request,pk=None):
+    def destroy(self,request,pk=None):
 
-        data = request.data
+        # data = request.data
+        # print("data :",data)
         dashboard = self.get_object()
-        serializer = self.get_serializer(dashboard, data= data)
-        if serializer.is_valid():
-            serializer.delete()
-            return Response(status= status.HTTP_204_NO_CONTENT)
-        return Response(serializer.errors, status= status.HTTP_400_BAD_REQUEST)
+        dashboard.delete()
+        return Response({'messge':'success'},status=status.HTTP_204_NO_CONTENT)
 
 class SharingReports(viewsets.ViewSet):
 
