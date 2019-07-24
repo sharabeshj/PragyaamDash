@@ -33,6 +33,7 @@ import os
 import boto3
 import asyncio
 from  django.core.exceptions import ObjectDoesNotExist
+from django.http import HttpResponse, Http404
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -123,7 +124,7 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
         try:
             return Dataset.objects.filter(userId = user.username).get(dataset_id = dataset_id)
 
-        except ObjectDoesNotExist:
+        except Dataset.DoesNotExist:
             raise Http404
     
     def check_filter_value_condition(self, df, condition,value):
@@ -182,6 +183,7 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
         data = []
         r1 = redis.StrictRedis(host='127.0.0.1', port=6379, db=1)
         dataset_id = request_data['dataset_id'] or request_data['worksheet']
+        
         model_fields = []
         if r1.exists('{}.{}'.format(user.organization_id,dataset_id)) != 0:
             df = await sync_to_async(pickle.loads)(zlib.decompress(r1.get("{}.{}".format(user.organization_id,dataset_id))))
@@ -223,6 +225,7 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                 with connections['rds'].cursor() as cursor:
                     cursor.execute('SELECT database_name from organizations where organization_id="{}"'.format(user.organization_id))
                     database_name = cursor.fetchone()[0]
+                    print('databasename:',database_name)
                 if user.organization_id not in connections.databases:
                     connections.databases[user.organization_id] = {
                         'ENGINE' : 'django.db.backends.mysql',
@@ -260,8 +263,10 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
             df = await sync_to_async(pd.DataFrame)(data)
             r1.setex("{}.{}".format(user.organization_id,dataset_id), EXPIRATION_SECONDS, zlib.compress( pickle.dumps(df)))
             r1.hmset('{}.fields'.format(dataset_id), { x[0] : x[1] for x in model_fields })
+        print("test model fields:",model_fields)
         for x in model_fields:
             if x[0] not in df.columns:
+                # print(x[1])
         
                 if x[1] == 'FloatField':
                     df[x[0]] = 0
@@ -285,6 +290,7 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                     df = df.astype({ x[0] : 'datetime64'})
                     df.fillna(arrow.get('01-01-1990').datetime)
         return df,model_fields
+       
     async def tableGenerate(self,df,field,value=None,group_by=None):
         data = {
             'column':[],
@@ -350,8 +356,11 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                     df.loc[:,group_by['name']] = df[group_by['name']].map(pd.Timestamp.isoformat)
                 data['column'] = [{'title':group_by['name'],'dataIndex':group_by['name']},{'title':field['name'],'dataIndex':field['name']},{'title':value['name'],'dataIndex': value['name']}]
                 if value['aggregate']['value'] == 'none':
-                    data_frame = df[[group_by['name'],field['name'],value['name']]]
-                    data['tableData']= [{group_by['name']:i[0],field['name']:i[1],value['name']:i[2]} for i,r in data_frame]
+                    # data_frame = df[[group_by['name'],field['name'],value['name']]]
+                    # data['tableData']= [{group_by['name']:i[0],field['name']:i[1],value['name']:i[2]} for i,r in data_frame]
+                    data_frame = df.sort_values(group_by['name'])[[group_by['name'],field['name'],value['name']]]
+                    data['tableData'] = [{group_by['name']:r[0],field['name']:r[1],value['name']:r[2]} for i,r in data_frame.iterrows()]
+
                 if value['aggregate']['value'] == 'sum':
                     data_frame = df.groupby([group_by['name'],field['name']])[value['name']].sum()
                     data_dict = data_frame.to_dict()
@@ -380,6 +389,7 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                     data_frame = df.groupby([group_by['name'],field['name']])[value['name']].mean()
                     data_dict = data_frame.to_dict()
                     data['tableData'] = [{group_by['name']:key[0],field['name']:key[1] , value['name']:val } for key,val in data_dict.items()]
+                
                 serdata = json.dumps(data , cls=NumpyEncoder )
                 
         await self.send(serdata)
@@ -873,18 +883,20 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
 
                             if options['field_aggregate'] == 'Count':
                                 if options['value_aggregate'] == 'Select Values':
-                                    agg = df.groupby(fil['field_name'],sort=False).count()
-                                    condition = agg.isin(options['values'])
-                                    df = df[agg[condition].index]
+                                    # agg = df.groupby(fil['field_name'],sort=False).count()
+                                    # condition = agg.isin(options['values'])
+                                    # df = df[agg[condition].index]
+                                    df = df.groupby(fil['field_name']).filter(lambda x: x[fil['field_name']].count() in options['values'])
+                    
 
-                                if options['value_aggregation'] == 'Ranges':
+                                if options['value_aggregate'] == 'Ranges':
                                     df_ranges = []
                                     agg = df.groupby(fil['field_name'],sort=False).count()
                                     for x in options['values']:
                                         df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
                                     df = pd.concat(df_ranges, ignore_index=True)
 
-                                if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top/Bottom':
                                     if options['value_aggregate'] == 'Top 5':
                                         df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
                                     if options['value_aggregate'] == 'Top 10':
@@ -907,18 +919,19 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                             
                             if options['field_aggregate'] == 'Count Distinct':
                                 if options['value_aggregate'] == 'Select Values':
-                                    agg = df.groupby(fil['field_name'],sort=False).nunique()
-                                    condition = agg.isin(options['values'])
-                                    df = df[agg[condition].index]
-
-                                if options['value_aggregation'] == 'Ranges':
+                                    # agg = df.groupby(fil['field_name'],sort=False).nunique()
+                                    # condition = agg.isin(options['values'])
+                                    # df = df[agg[condition].index]
+                                    df = df.groupby(fil['field_name']).filter(lambda x: x[fil['field_name']].nunique() in options['values'])
+                                    print('df',df)
+                                if options['value_aggregate'] == 'Ranges':
                                     df_ranges = []
                                     agg = df.groupby(fil['field_name'],sort=False).nunique()
                                     for x in options['values']:
                                         df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
                                     df = pd.concat(df_ranges, ignore_index=True)
 
-                                if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top/Bottom':
                                     if options['value_aggregate'] == 'Top 5':
                                         df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
                                     if options['value_aggregate'] == 'Top 10':
@@ -955,13 +968,13 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                                     condition = df[fil['field_name']].isin(options['values'])
                                     df = df[condition]
 
-                                if options['value_aggregation'] == 'Ranges':
+                                if options['value_aggregate'] == 'Ranges':
                                     df_ranges = []
                                     for x in options['values']:
                                         df_ranges.append(df[self.check_fil_value_condition(df[fil['field_name']],'between', x)])
                                     df = pd.concat(df_ranges, ignore_index=True)
 
-                                if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top/Bottom':
                                     if options['value_aggregate'] == 'Top 5':
                                         df = df.sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
                                     if options['value_aggregate'] == 'Top 10':
@@ -988,14 +1001,14 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                                     condition = agg.isin(options['values'])
                                     df = df[agg[condition].index]
 
-                                if options['value_aggregation'] == 'Ranges':
+                                if options['value_aggregate'] == 'Ranges':
                                     df_ranges = []
                                     agg = df.groupby(fil['field_name'],sort=False).sum()
                                     for x in options['values']:
                                         df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
                                     df = pd.concat(df_ranges, ignore_index=True)
 
-                                if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top/Bottom':
                                     if options['value_aggregate'] == 'Top 5':
                                         df = df.groupby(fil['field_name'],sort=False).sum().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
                                     if options['value_aggregate'] == 'Top 10':
@@ -1022,14 +1035,14 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                                     condition = agg.isin(options['values'])
                                     df = df[agg[condition].index]
 
-                                if options['value_aggregation'] == 'Ranges':
+                                if options['value_aggregate'] == 'Ranges':
                                     df_ranges = []
                                     agg = df.groupby(fil['field_name'],sort=False).min()
                                     for x in options['values']:
                                         df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
                                     df = pd.concat(df_ranges, ignore_index=True)
 
-                                if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top/Bottom':
                                     if options['value_aggregate'] == 'Top 5':
                                         df = df.groupby(fil['field_name'],sort=False).min().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
                                     if options['value_aggregate'] == 'Top 10':
@@ -1056,14 +1069,14 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                                     condition = agg.isin(options['values'])
                                     df = df[agg[condition].index]
 
-                                if options['value_aggregation'] == 'Ranges':
+                                if options['value_aggregate'] == 'Ranges':
                                     df_ranges = []
                                     agg = df.groupby(fil['field_name'],sort=False).max()
                                     for x in options['values']:
                                         df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
                                     df = pd.concat(df_ranges, ignore_index=True)
 
-                                if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top/Bottom':
                                     if options['value_aggregate'] == 'Top 5':
                                         df = df.groupby(fil['field_name'],sort=False).max().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
                                     if options['value_aggregate'] == 'Top 10':
@@ -1090,14 +1103,14 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                                     condition = agg.isin(options['values'])
                                     df = df[agg[condition].index]
 
-                                if options['value_aggregation'] == 'Ranges':
+                                if options['value_aggregate'] == 'Ranges':
                                     df_ranges = []
                                     agg = df.groupby(fil['field_name'],sort=False).mean()
                                     for x in options['values']:
                                         df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
                                     df = pd.concat(df_ranges, ignore_index=True)
 
-                                if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top/Bottom':
                                     if options['value_aggregate'] == 'Top 5':
                                         df = df.groupby(fil['field_name'],sort=False).mean().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
                                     if options['value_aggregate'] == 'Top 10':
@@ -1124,14 +1137,14 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                                     condition = agg.isin(options['values'])
                                     df = df[agg[condition].index]
 
-                                if options['value_aggregation'] == 'Ranges':
+                                if options['value_aggregate'] == 'Ranges':
                                     df_ranges = []
                                     agg = df.groupby(fil['field_name'],sort=False).std()
                                     for x in options['values']:
                                         df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
                                     df = pd.concat(df_ranges, ignore_index=True)
 
-                                if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top/Bottom':
                                     if options['value_aggregate'] == 'Top 5':
                                         df = df.groupby(fil['field_name'],sort=False).std().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
                                     if options['value_aggregate'] == 'Top 10':
@@ -1158,14 +1171,14 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                                     condition = agg.isin(options['values'])
                                     df = df[agg[condition].index]
 
-                                if options['value_aggregation'] == 'Ranges':
+                                if options['value_aggregate'] == 'Ranges':
                                     df_ranges = []
                                     agg = df.groupby(fil['field_name'],sort=False).median()
                                     for x in options['values']:
                                         df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
                                     df = pd.concat(df_ranges, ignore_index=True)
 
-                                if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top/Bottom':
                                     if options['value_aggregate'] == 'Top 5':
                                         df = df.groupby(fil['field_name'],sort=False).median().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
                                     if options['value_aggregate'] == 'Top 10':
@@ -1192,14 +1205,14 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                                     condition = agg.isin(options['values'])
                                     df = df[agg[condition].index]
 
-                                if options['value_aggregation'] == 'Ranges':
+                                if options['value_aggregate'] == 'Ranges':
                                     df_ranges = []
                                     agg = df.groupby(fil['field_name'],sort=False).mode()
                                     for x in options['values']:
                                         df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
                                     df = pd.concat(df_ranges, ignore_index=True)
 
-                                if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top/Bottom':
                                     if options['value_aggregate'] == 'Top 5':
                                         df = df.groupby(fil['field_name'],sort=False).mode().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
                                     if options['value_aggregate'] == 'Top 10':
@@ -1226,14 +1239,14 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                                     condition = agg.isin(options['values'])
                                     df = df[agg[condition].index]
 
-                                if options['value_aggregation'] == 'Ranges':
+                                if options['value_aggregate'] == 'Ranges':
                                     df_ranges = []
                                     agg = df.groupby(fil['field_name'],sort=False).var()
                                     for x in options['values']:
                                         df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
                                     df = pd.concat(df_ranges, ignore_index=True)
 
-                                if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top/Bottom':
                                     if options['value_aggregate'] == 'Top 5':
                                         df = df.groupby(fil['field_name'],sort=False).var().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
                                     if options['value_aggregate'] == 'Top 10':
@@ -1260,14 +1273,14 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                                     condition = agg.isin(options['values'])
                                     df = df[agg[condition].index]
 
-                                if options['value_aggregation'] == 'Ranges':
+                                if options['value_aggregate'] == 'Ranges':
                                     df_ranges = []
                                     agg = df.groupby(fil['field_name'],sort=False).count()
                                     for x in options['values']:
                                         df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
                                     df = pd.concat(df_ranges, ignore_index=True)
 
-                                if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top/Bottom':
                                     if options['value_aggregate'] == 'Top 5':
                                         df = df.groupby(fil['field_name'],sort=False).count().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
                                     if options['value_aggregate'] == 'Top 10':
@@ -1294,14 +1307,14 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                                     condition = agg.isin(options['values'])
                                     df = df[agg[condition].index]
 
-                                if options['value_aggregation'] == 'Ranges':
+                                if options['value_aggregate'] == 'Ranges':
                                     df_ranges = []
                                     agg = df.groupby(fil['field_name'],sort=False).nunique()
                                     for x in options['values']:
                                         df_ranges.append(df[agg[self.check_fil_value_condition(agg,'between', x)].index])
                                     df = pd.concat(df_ranges, ignore_index=True)
 
-                                if options['value_aggregation'] == 'Top/Bottom':
+                                if options['value_aggregate'] == 'Top/Bottom':
                                     if options['value_aggregate'] == 'Top 5':
                                         df = df.groupby(fil['field_name'],sort=False).nunique().sort_values(by=[options['value_aggregate_field']],ascending=False).head(5)
                                     if options['value_aggregate'] == 'Top 10':
@@ -1377,7 +1390,10 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                                     df = df[condition]
                                 
                                 if options['value_aggregate'] == 'Quarter':
-                                    condition = df[fil['field_name']].map(lambda x: 'Q{} {}'.format(pd.DatetimeIndex(x).quarter,x.strftime('%Y'))).isin(options['values'])
+                                    df['temp'] = pd.to_datetime(df[fil['field_name']])
+                                    # condition = df[fil['field_name']].map(lambda x: 'Q{} {}'.format(pd.DatetimeIndex(x).quarter,x.strftime('%Y'))).isin(options['values'])
+                                    condition = df['temp'].map(lambda x: 'Q{} {}'.format(x.quarter,x.year)).isin(options['values'])
+                                    df = df.drop(['temp'],axis=1)
                                     df = df[condition]
                                 
                                 if options['value_aggregate'] == 'Month':
@@ -1395,7 +1411,10 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                             if options['field_aggregate'] == 'Seasonal':
                                 
                                 if options['value_aggregate'] == 'Quarter':
-                                    condition = df[fil['field_name']].map(lambda x: 'Q{}'.format(pd.DatetimeIndex(x))).isin(options['values'])
+                                    df['temp'] = pd.to_datetime(df[fil['field_name']])
+                                    # condition = df[fil['field_name']].map(lambda x: 'Q{}'.format(pd.DatetimeIndex(x))).isin(options['values'])
+                                    condition = df['temp'].map(lambda x: 'Q{} {}'.format(x.quarter,x.year)).isin(options['values'])
+                                    df = df.drop(['temp'],axis=1)
                                     df = df[condition]
                                 
                                 if options['value_aggregate'] == 'Month':
@@ -1428,7 +1447,9 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
             field = data['field']
             value = data['value']
             group_by = data['groupBy']
+            print("down")
             try:
+                print("hi")
                 await self.graphDataGenerate(df,report_type, field, value, group_by)
             except Exception as e:
                 print(e)
@@ -1570,48 +1591,53 @@ class FilterConsumer(AsyncJsonWebsocketConsumer):
                 if df[request_data['field']].dtypes == 'object':
                     if request_data['field_aggregate'] == 'No Aggregate':
                         await self.send(json.dumps({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].unique()},cls=NumpyEncoder))
-                    if request_data['field_aggregate'] == 'count':
-                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].count().toList()})
-                    if request_data['field_aggregate'] == 'count distinct':
-                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].nunique().toList()})
+                    if request_data['field_aggregate'] == 'Count':
+                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].count().tolist()})
+                    if request_data['field_aggregate'] == 'Count Distinct':
+                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].nunique().tolist()})
 
                 elif df[request_data['field']].dtypes == 'float64' or df[request_data['field']].dtypes == 'int64':
                     if request_data['field_aggregate'] == 'No Aggregate':
                         await self.send(json.dumps({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].unique()},cls=NumpyEncoder))
-                    if request_data['field_aggregate'] == 'sum':
+                    if request_data['field_aggregate'] == 'Sum':
                         await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].sum().tolist() })
-                    if request_data['field_aggregate'] == 'max':
-                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].max().toList() })
-                    if request_data['field_aggregate'] == 'min':
-                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].min().toList() })
-                    if request_data['field_aggregate'] == 'avg':
-                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].mean().toList() })
-                    if request_data['field_aggregate'] == 'std_dev':
-                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].std().toList() })
-                    if request_data['field_aggregate'] == 'median':
-                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].median().toList() })
-                    if request_data['field_aggregate'] == 'mode':
-                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].mode().toList() })
-                    if request_data['field_aggregate'] == 'var':
-                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].var().toList() })
-                    if request_data['field_aggregate'] == 'count':
-                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].count().toList() })
-                    if request_data['field_aggregate'] == 'count distinct':
-                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].nunique().toList() })
+                    if request_data['field_aggregate'] == 'Max':
+                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].max().tolist() })
+                    if request_data['field_aggregate'] == 'Min':
+                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].min().tolist() })
+                    if request_data['field_aggregate'] == 'Avg':
+                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].mean().tolist() })
+                    if request_data['field_aggregate'] == 'Std_dev':
+                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].std().tolist() })
+                    if request_data['field_aggregate'] == 'Median':
+                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].median().tolist() })
+                    if request_data['field_aggregate'] == 'Mode':
+                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].mode().tolist() })
+                    if request_data['field_aggregate'] == 'Var':
+                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].var().tolist() })
+                    if request_data['field_aggregate'] == 'Count':
+                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].count().tolist() })
+                    if request_data['field_aggregate'] == 'Count distinct':
+                        await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].nunique().tolist() })
                 
                 elif df[request_data['field']].dtypes == 'datetime64[ns]':
-                    if request_data['value_aggregate'] == 'Year':
-                        await self.send(json.dumps({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].apply(lambda x: x.strftime('%Y')).unique()},cls=NumpyEncoder))
-                    if request_data['value_aggregate'] == 'Quarter':
-                        await self.send(json.dumps({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].apply(lambda x: 'Q{} {}'.format(pd.DatetimeIndex(x).quarter,x.strftime('%Y'))).unique()},cls=NumpyEncoder))                   
-                    if request_data['value_aggregate'] == 'Month':
-                        await self.send(json.dumps({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].apply(lambda x: x.strftime('%b %Y')).unique()},cls=NumpyEncoder))
-                    if request_data['value_aggregate'] == 'Weeks':
-                        await self.send(json.dumps({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].apply(lambda x: x.strftime('W%U %Y')).unique()},cls=NumpyEncoder))
-                    if request_data['value_aggregate'] == 'Date':
-                        await self.send(json.dumps({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].apply(lambda x: x.strftime('%-d %b %Y')).unique()},cls=NumpyEncoder))
-                    if request_data['field_aggregate'] == 'Date&Time':
-                        await self.send(json.dumps({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].apply(lambda x: x.strftime('%-d %b %Y %H %M %S')).unique()},cls=NumpyEncoder))
+                    if request_data['field_aggregate'] == 'Seasonal' or request_data['field_aggregate'] == 'Relative' or  request_data['field_aggregate'] == 'No Aggregate':
+                        if request_data['value_aggregate'] == 'Year':
+                            await self.send(json.dumps({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].apply(lambda x: x.strftime('%Y')).unique()},cls=NumpyEncoder))
+                        if request_data['value_aggregate'] == 'Quarter':
+                            df[request_data['field']] = pd.to_datetime(df[request_data['field']])
+                            await self.send_json({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].apply(lambda x: 'Q{} {}'.format(x.quarter,x.year)).unique().tolist()})
+                            # await self.send(json.dumps({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].apply(lambda x: 'Q{} {}'.format((quarter(x.strftime('%m'))),x.strftime('%Y'))).unique()},cls=NumpyEncoder))
+                            # await self.send(json.dumps({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].apply(lambda x: 'Q{} {}'.format(datetime.datetime.strptime(x, '%Y-%m-%d %H:%M:%S.%f').quarter,x.strftime('%Y'))).unique()},cls=NumpyEncoder))                   
+                        if request_data['value_aggregate'] == 'Month':
+                            await self.send(json.dumps({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].apply(lambda x: x.strftime('%b %Y')).unique()},cls=NumpyEncoder))
+                        if request_data['value_aggregate'] == 'Weeks':
+                            await self.send(json.dumps({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].apply(lambda x: x.strftime('W%U %Y')).unique()},cls=NumpyEncoder))
+                        if request_data['value_aggregate'] == 'Date':
+                            await self.send(json.dumps({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].apply(lambda x: x.strftime('%-d %b %Y')).unique()},cls=NumpyEncoder))
+                        if request_data['field_aggregate'] == 'Date&Time':
+                            await self.send(json.dumps({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].apply(lambda x: x.strftime('%-d %b %Y %H %M %S')).unique()},cls=NumpyEncoder))
+                
 
             else:
                 await self.send(json.dumps({ 'type' : 'fieldRange', 'data' : { 'min' : df[request_data['field']].min(), 'max' : df[request_data['field']].max() }}, sort_keys=True, indent=1, cls=DjangoJSONEncoder))
