@@ -425,7 +425,6 @@ class DatasetViewSet(viewsets.GenericViewSet):
     def edit_refresh(self,request,pk=None):
         dataset = self.get_object()
         data = request.data
-        job_id = dataset.job_id
         scheduler = PeriodicTask.objects.get(name = dataset.scheduler.name)
         schedule,_ = CrontabSchedule.objects.get_or_create(
             minute=data['minute'],
@@ -434,7 +433,8 @@ class DatasetViewSet(viewsets.GenericViewSet):
             day_of_month=data['day_of_month'],
             month_of_year=data['month_of_year']
         )
-        scheduler.update(crontab = schedule)
+        scheduler.crontab = schedule
+        scheduler.save()
 
         serializer = self.get_serializer(dataset,data = data)
         if serializer.is_valid():
@@ -446,7 +446,6 @@ class DatasetViewSet(viewsets.GenericViewSet):
     @action(methods=["DELETE"],detail=True)
     def delete_refresh(self,request,pk=None):
         dataset = self.get_object(id,request.user)
-        job_id = dataset.job_id
         scheduler = PeriodicTask.objects.get(name = dataset.scheduler.name)
         scheduler.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
