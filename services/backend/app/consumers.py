@@ -247,10 +247,10 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                 id_count = 0
                 for a in serializer_data:
                     id_count +=1
-                    p.hmset('{}.{}.{}'.format(user.organization_id, dataset_id ,str(id_count)), {**dict(a)})
+                    p.hmset('{}.{}.{}'.format(user.organization_id, dataset_id ,str(id_count)), {k:v for k,v in dict(a).items() if v is not None})
                 try:
                     await sync_to_async(p.execute)()
-                except Exception as e:        
+                except Exception as e:
                     print(e)
                 data = []
                 for x in range(1,id_count+1):
@@ -270,21 +270,20 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                 if x[1] == 'CharField' or x[1] == 'TextField':
                     df[x[0]] = ''
                 if x[1] == 'DateField' or x[1] == 'DateTimeField':
-                    print('yess')
                     df[x[0]] = arrow.get('01-01-1990').datetime
             else:
                 if x[1] == 'FloatField':
                     df[x[0]] = df[x[0]].apply(pd.to_numeric,errors='coerce')
-                    df.fillna(0,downcast='infer')
+                    df[x[0]] = df[x[0]].fillna(0,downcast='infer')
                 if x[1] == 'IntegerField':
                     df[x[0]] = df[x[0]].apply(pd.to_numeric,errors='coerce')
-                    df.fillna(0,downcast='infer')
+                    df[x[0]] = df[x[0]].fillna(0,downcast='infer')
                 if x[1] == 'CharField' or x[1] == 'TextField':
                     df = df.astype({ x[0] : 'object'})
+                    df[x[0]] = df[x[0]].fillna(value='')
                 if x[1] == 'DateField':
                     df = df.astype({ x[0] : 'datetime64'})
                     df.fillna(arrow.get('01-01-1990').datetime)
-         
         return df,model_fields
     async def tableGenerate(self,df,field,value=None,group_by=None):
         data = {
@@ -314,7 +313,6 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
         else:
 
             if group_by == None:
-                print("ho")
                 data['column'] = [{'title':field['name'],'dataIndex':field['name']},{'title':value['name'],'dataIndex': value['name']}]
                 if value['aggregate']['value'] == 'none':
                     data_frame = df[[field['name'],value['name']]]
@@ -346,7 +344,6 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                     data_frame = df.groupby(field['name'])[value['name']].mean()   
                     data_dict = data_frame.to_dict()
                     data['tableData'] = [{field['name']:key , value['name']:val } for key,val in data_dict.items()]
-                print(data)
                 serdata = json.dumps(data , cls=NumpyEncoder )
             else:
                 if group_by['type'] in ["DateTimeField","DateField"]:
@@ -386,9 +383,6 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                 serdata = json.dumps(data , cls=NumpyEncoder )
                 
         await self.send(serdata)
-        
-
-
             
     async def graphDataGenerate(self,df,report_type,field,value=None,group_by=None):
         all_fields = []
@@ -1438,7 +1432,8 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                 await self.graphDataGenerate(df,report_type, field, value, group_by)
             except Exception as e:
                 print(e)
-        except:
+        except Exception as e:
+            print(e)
             pass
 
 class FilterConsumer(AsyncJsonWebsocketConsumer):
@@ -1512,8 +1507,7 @@ class FilterConsumer(AsyncJsonWebsocketConsumer):
                     GeneralSerializer.Meta.model = table_model
 
                     dynamic_serializer = GeneralSerializer(table_data,many = True)
-                    await sync_to_async(call_command)('makemigrations',Dataset._meta.app_label,'--merge','--empty',interactive=False)
-                    await sync_to_async(call_command)('migrate', database = 'default',fake = True,interactive=False)
+                    del(table_model)
                 
                 del connections[user.organization_id]
         
@@ -1522,7 +1516,7 @@ class FilterConsumer(AsyncJsonWebsocketConsumer):
                 id_count = 0
                 for a in serializer_data:
                     id_count +=1
-                    p.hmset('{}.{}.{}'.format(user.organization_id, dataset_id ,str(id_count)), {**dict(a)})
+                    p.hmset('{}.{}.{}'.format(user.organization_id, dataset_id ,str(id_count)), {k:v for k,v in dict(a).items() if v is not None})
                 try:
                     await sync_to_async(p.execute)()
                 except Exception as e:        
@@ -1546,20 +1540,20 @@ class FilterConsumer(AsyncJsonWebsocketConsumer):
                 if x[1] == 'CharField' or x[1] == 'TextField':
                     df[x[0]] = ''
                 if x[1] == 'DateField' or x[1] == 'DateTimeField':
-                    print('yess')
                     df[x[0]] = arrow.get('01-01-1990').datetime
             else:
                 if x[1] == 'FloatField':
                     df[x[0]] = df[x[0]].apply(pd.to_numeric,errors='coerce')
-                    df.fillna(0,downcast='infer')
+                    df[x[0]] = df[x[0]].fillna(0,downcast='infer')
                 if x[1] == 'IntegerField':
                     df[x[0]] = df[x[0]].apply(pd.to_numeric,errors='coerce')
-                    df.fillna(0,downcast='infer')
+                    df[x[0]] = df[x[0]].fillna(0,downcast='infer')
                 if x[1] == 'CharField' or x[1] == 'TextField':
                     df = df.astype({ x[0] : 'object'})
+                    df[x[0]] = df[x[0]].fillna('')
                 if x[1] == 'DateField':
                     df = df.astype({ x[0] : 'datetime64'})
-                    df.fillna(arrow.get('01-01-1990').datetime)
+                    df[x[0]] = df[x[0]].fillna(arrow.get('01-01-1990').datetime)
            
         return df,model_fields
 

@@ -121,7 +121,7 @@ def datasetRefresh(organization_id,dataset_id,channel_name=None):
             for x in model_data:
                 for a in x['data']:
                     id_count +=1
-                    p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)),{**dict(a)})
+                    p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)),{k:v for k,v in dict(a).items() if v is not None})
 
         else:
             for join in joins:

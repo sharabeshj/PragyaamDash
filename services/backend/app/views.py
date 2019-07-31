@@ -220,7 +220,6 @@ class DatasetViewSet(viewsets.GenericViewSet):
                     # sql = data['sql'][:-1]
                     # createSql = 'CREATE TABLE "{}" AS select * from dblink({}dbname={}{}, {}{}{});'.format(data['name'], "'",os.environ['RDS_DB_NAME'], "'","'",sql.replace('`','"'),"'")
                     # cursor.execute(data['sql'][:-1])
-                    # print(resolve(request.path).app_name)
                 #     dataset_model = get_model(data['name'],Dataset._meta.app_label,cursor, 'CREATE', data['sql'][:-1])
                 #     admin.site.register(dataset_model)
                 # del connections[user.organization_id]
@@ -248,7 +247,7 @@ class DatasetViewSet(viewsets.GenericViewSet):
     def update(self, request,pk=None):
         data = request.data
         dataset = self.get_object()
-        user = request.user
+        user = request.userv
         data['organization_id'] = request.user.organization_id
         data['user'] = request.user.username
         serializer = self.get_serializer(dataset, data = data)
@@ -286,7 +285,6 @@ class DatasetViewSet(viewsets.GenericViewSet):
                 worksheet_2 = [t['worksheet_2'] for t in data['joins']]
                 Join.objects.filter(dataset__dataset_id = dataset.dataset_id).filter(~Q(type__in = data['joins']) | ~Q(field_1__in = fields_1) | ~Q(field_2__in = fields_2) | ~Q(worksheet_1__in = worksheet_1) | ~Q(worksheet_2__in = worksheet_2 )).delete()
                 for t in data['joins']:
-                    print(t)
                     if not Join.objects.filter(dataset__dataset_id = dataset.dataset_id).filter(Q(type = t['type']) & Q(field_1 = t['field_1']) & Q(field_2 = t['field_2']) & Q(worksheet_1 = t['worksheet_1']) & Q(worksheet_2 = t['worksheet_2'])).exists():
                         join_serializer = JoinSerializer(data = t)
                         if join_serializer.is_valid():
@@ -356,10 +354,11 @@ class DatasetViewSet(viewsets.GenericViewSet):
                     df.fillna(0,downcast='infer')
                 if x[1] == 'CharField' or x[1] == 'TextField':
                     df = df.astype({ x[0] : 'object'})
+                    df.fillna('')
                 if x[1] == 'DateField':
                     df = df.astype({ x[0] : 'datetime64'})
                     df.fillna(arrow.get('01-01-1990').datetime)
-        return Response({'data' : df.to_dict(orient='records'), 'length': count},status=status.HTTP_200_OK)
+        return Response({'data' : df.dropna().to_dict(orient='records'), 'length': count},status=status.HTTP_200_OK)
         
 
     @action(methods=['POST'],detail=True)
@@ -637,7 +636,6 @@ class DashboardViewSet(viewsets.GenericViewSet):
     def destroy(self,request,pk=None):
 
         # data = request.data
-        # print("data :",data)
         dashboard = self.get_object()
         dashboard.delete()
         return Response({'messge':'success'},status=status.HTTP_204_NO_CONTENT)
@@ -672,7 +670,6 @@ class SharingReports(viewsets.ViewSet):
 
         data = request.data
         report = self.get_report_object(data['report_id'])
-        print(report)
         for x in data['user_id_list']:
             data['view'] = True
             if data['delete']:
