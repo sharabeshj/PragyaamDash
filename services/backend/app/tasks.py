@@ -74,8 +74,10 @@ def datasetRefresh(organization_id,dataset_id,channel_name=None):
             dataset_data = dictfetchall(cur)
         data = []    
         p = r.pipeline()
+        id_count=0
         for a in dataset_data:
-            data.append({**dict(a)})
+            id_count += 1
+            data.append({**dict(a), 'id' : id_count })
         
         r.set("data", zlib.compress( pickle.dumps(data)))
    
@@ -150,7 +152,7 @@ def datasetRefresh(organization_id,dataset_id,channel_name=None):
                                         if check != []:
                                             for z in check:
                                                 id_count += 1
-                                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)),{**X,**z}) 
+                                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)),{k:v for k,v in dict({**X,**z}).items() if v is not None}) 
                                         break
                     
                     continue
@@ -169,11 +171,11 @@ def datasetRefresh(organization_id,dataset_id,channel_name=None):
                                                 check.append(C)
                                         if check == []:
                                             id_count += 1
-                                            p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), {**X})
+                                            p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)),{k:v for k,v in dict({**X}).items() if v is not None})
                                         else:
                                             for z in check:
                                                 id_count += 1
-                                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)),{**X,**z})
+                                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)),{k:v for k,v in dict({**X,**z}).items() if v is not None})
                                         break       
                     continue
                 if join.type == 'Right-Join':
@@ -191,11 +193,11 @@ def datasetRefresh(organization_id,dataset_id,channel_name=None):
                                                 check.append(C)
                                         if check == []:
                                             id_count += 1
-                                            p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), {**X})
+                                            p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), {k:v for k,v in dict({**X}).items() if v is not None})
                                         else:
                                             for z in check:
                                                 id_count += 1
-                                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), {**X,**z})
+                                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), {k:v for k,v in dict({**X,**z}).items() if v is not None})
                                         break
                     continue
                 if join.type == 'Outer-Join':
@@ -214,7 +216,7 @@ def datasetRefresh(organization_id,dataset_id,channel_name=None):
                                         
                                         for z in check:
                                             id_count += 1
-                                            p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), {**X,**z})
+                                            p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), {k:v for k,v in dict({**X,**z}).items() if v is not None})
                                             join_model_data.append({**X,**z, 'id' : id_count})
                                         break
                         break
@@ -233,7 +235,7 @@ def datasetRefresh(organization_id,dataset_id,channel_name=None):
                                     break
                             if f == 0:
                                 id_count+=1
-                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), {**X})
+                                p.hmset('{}.{}.{}'.format(organization_id, dataset.dataset_id ,str(id_count)), {k:v for k,v in dict({**X,**z}).items() if v is not None})
 
                     continue
 

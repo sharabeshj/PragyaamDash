@@ -303,37 +303,49 @@ class DatasetViewSet(viewsets.GenericViewSet):
         dataset = self.get_object()
         dataset_id = dataset.dataset_id
         user = request.user
-        s3_resource= boto3.resource('s3')
-        with connections['rds'].cursor() as cursor:
-            cursor.execute('select database_name from organizations where organization_id="{}";'.format(request.user.organization_id))
-            database_name = cursor.fetchone()
-        model = dataset.get_django_model()
-        model_fields = [(f.name, f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
-        r = redis.Redis(host='127.0.0.1', port=6379, db=0)
-        try:
-            s3_resource.Object('pragyaam-dash-dev','{}/{}.rdb'.format(user.organization_id,str(dataset_id))).download_file(f'/tmp/{dataset_id}.rdb')
-        except Exception as e:
-            print(e,flush=True)
-        try:
-            load_data('/tmp/{}.rdb'.format(dataset_id),'127.0.0.1',6379,0) 
-        except Exception as e:
-            print(e,flush=True)
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        data = []
-        if dataset.mode == 'SQL':
-            data = pickle.loads(zlib.decompress(r.get('data')))
+        r1 = redis.StrictRedis(host='127.0.0.1', port=6379, db=1)
+        if r1.exists('{}.{}'.format(user.organization_id,dataset_id)) != 0:
+            df = pickle.loads(zlib.decompress(r1.get("{}.{}".format(user.organization_id,dataset_id))))
+            try:
+                model_fields = [(k.decode('utf8').replace("'", '"'),v.decode('utf8').replace("'", '"')) for k,v in r1.hgetall('{}.fields'.format(dataset_id)).items()]
+            except:
+                pass
+            count,_ = df.shape
         else:
-            for x in range(int(request.GET['start']),int(request.GET['end'])+1):
-                if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset_id, str(x))) != None:
-                    data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
-                else:
-                    data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
-                
-        count = r.dbsize()
-        r.flushdb()  
-        os.remove('/tmp/{}.rdb'.format(dataset_id))
-        del(model)  
-        df = pd.DataFrame(data)
+            s3_resource= boto3.resource('s3')
+            with connections['rds'].cursor() as cursor:
+                cursor.execute('select database_name from organizations where organization_id="{}";'.format(request.user.organization_id))
+                database_name = cursor.fetchone()
+            model = dataset.get_django_model()
+            model_fields = [(f.name, f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
+            r = redis.Redis(host='127.0.0.1', port=6379, db=0)
+            try:
+                s3_resource.Object('pragyaam-dash-dev','{}/{}.rdb'.format(user.organization_id,str(dataset_id))).download_file(f'/tmp/{dataset_id}.rdb')
+            except Exception as e:
+                print(e,flush=True)
+            try:
+                load_data('/tmp/{}.rdb'.format(dataset_id),'127.0.0.1',6379,0) 
+            except Exception as e:
+                print(e,flush=True)
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            data = []
+            if dataset.mode == 'SQL':
+                data = pickle.loads(zlib.decompress(r.get('data')))
+            else:
+                for x in range(int(request.GET['start']),int(request.GET['end'])+1):
+                    if r.get('edit.{}.{}.{}'.format(user.organization_id, dataset_id, str(x))) != None:
+                        data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('edit.{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
+                    else:
+                        data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
+                    
+            count = r.dbsize()
+            r.flushdb()  
+            os.remove('/tmp/{}.rdb'.format(dataset_id))
+            del(model)  
+            df = pd.DataFrame(data)
+            r1.setex("{}.{}".format(user.organization_id,dataset_id), 600, zlib.compress( pickle.dumps(df)))
+            if dataset.mode != 'SQL':
+                r1.hmset('{}.fields'.format(dataset_id), { x[0] : x[1] for x in model_fields })
         for x in model_fields:
             if x[0] not in df.columns:
         
