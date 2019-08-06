@@ -305,7 +305,9 @@ class DatasetViewSet(viewsets.GenericViewSet):
         user = request.user
         r1 = redis.StrictRedis(host='127.0.0.1', port=6379, db=1)
         if r1.exists('{}.{}'.format(user.organization_id,dataset_id)) != 0:
+            print("from redis")
             df = pickle.loads(zlib.decompress(r1.get("{}.{}".format(user.organization_id,dataset_id))))
+            print("data",df)
             try:
                 model_fields = [(k.decode('utf8').replace("'", '"'),v.decode('utf8').replace("'", '"')) for k,v in r1.hgetall('{}.fields'.format(dataset_id)).items()]
             except:
@@ -338,11 +340,13 @@ class DatasetViewSet(viewsets.GenericViewSet):
                     else:
                         data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
                     
+            # print("dictdata",data)
             count = r.dbsize()
             r.flushdb()  
             os.remove('/tmp/{}.rdb'.format(dataset_id))
             del(model)  
             df = pd.DataFrame(data)
+            # print("dataframe",df)
             r1.setex("{}.{}".format(user.organization_id,dataset_id), 600, zlib.compress( pickle.dumps(df)))
             if dataset.mode != 'SQL':
                 r1.hmset('{}.fields'.format(dataset_id), { x[0] : x[1] for x in model_fields })
@@ -370,7 +374,11 @@ class DatasetViewSet(viewsets.GenericViewSet):
                 if x[1] == 'DateField':
                     df = df.astype({ x[0] : 'datetime64'})
                     df.fillna(arrow.get('01-01-1990').datetime)
-        return Response({'data' : df.dropna().to_dict(orient='records'), 'length': count},status=status.HTTP_200_OK)
+        # count = df.size
+        # df = df[int(request.GET['start']):int(request.GET['end'])+1]
+        
+        return Response({'data' : df.to_dict(orient='records'), 'length': count},status=status.HTTP_200_OK)
+        # return Response({'data' : df.dropna().to_json(), 'length': count},status=status.HTTP_200_OK)
         
 
     @action(methods=['POST'],detail=True)
@@ -659,7 +667,7 @@ class SharingReports(viewsets.ViewSet):
 
     def get_report_object(self,report_id):
         obj = Report.objects.filter(organization_id=self.request.user.organization_id).get(report_id = report_id)
-        self.check_object_permissions(self.request, obj)
+        # self.check_object_permissions(self.request, obj)
         return obj
     
     def get_shared_users(self,request):
@@ -670,6 +678,7 @@ class SharingReports(viewsets.ViewSet):
         return Response(data=serializer.data,status= status.HTTP_200_OK)
     
     def users_list(self,request):
+        
         try:
             data = json.dumps({ 'organization_id' : request.user.organization_id })
             status = requests.post('{}/user/view'.format(os.environ['GRID_API']),headers={ 'Content-Type' : 'application/json' , 'Authorization':'Bearer {}'.format(request.user.token)},  data = data)
@@ -677,22 +686,46 @@ class SharingReports(viewsets.ViewSet):
             return Response(res_data)
         except:
             return Response('error', status=status.HTTP_400_BAD_REQUEST)
+            
+    def list_users(self,request):
+        
+        try:
+            data = json.dumps({ 'organization_id' : request.user.organization_id })
+            status = requests.post('{}/user/view'.format(os.environ['GRID_API']),headers={ 'Content-Type' : 'application/json' , 'Authorization':'Bearer {}'.format(request.user.token)},  data = data)
+            # res_data = json.loads(status.text)['data']
+            return status.json()['data']
+        except:
+            return False
+
+    def get_report_object_permissions(self,user,userlist,data):
+        print("user",user,"userlist",userlist)
+        for users in userlist:
+            if user == users['userid']:
+                if users['role'] == 'User':
+                    return data['view'] and not data['edit'] and not data['delete']
+                else:
+                    return True
 
     def report_share(self, request):
 
         data = request.data
         report = self.get_report_object(data['report_id'])
+        userlist = self.list_users(request)
         for x in data['user_id_list']:
-            data['view'] = True
-            if data['delete']:
-                data['edit'] = True
-            data['shared_user_id'] = request.user.username
-            data['user_id'] = x
-            serializer = SharedReportSerializer(data=data)
-            if serializer.is_valid():
-                serializer.save(report = report)
+            if self.get_report_object_permissions(x,userlist,data):
+                data['view'] = True
+                if data['delete']:
+                    data['edit'] = True
+                data['shared_user_id'] = request.user.username
+                data['user_id'] = x
+                serializer = SharedReportSerializer(data=data)
+                if serializer.is_valid():
+                    serializer.save(report = report)
+                else:
+                    return Response('error', status=status.HTTP_400_BAD_REQUEST)
             else:
-                return Response('error', status=status.HTTP_400_BAD_REQUEST)
+                return Response('error', status=status.HTTP_401_UNAUTHORIZED)
+
         return Response('success', status = status.HTTP_201_CREATED)
     
     def edit_share(self, request):
@@ -701,19 +734,25 @@ class SharingReports(viewsets.ViewSet):
         data['view'] = True
         if data['delete']:
             data['edit'] = True
-        report = self.get_report_object(request, data['report_id'], request.user)
-        shared_report_object = SharedReport.objects.filter(report = report).get(user_id = data['user_id'])
-        serializer = SharedReportSerializer(shared_report_object, data = data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
-        return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+        userlist = self.list_users(request)
+        report = self.get_report_object(data['report_id'])
+        if self.get_report_object_permissions(data['user_id'],userlist,data):
+            
+            shared_report_object = SharedReport.objects.filter(report = report).get(user_id = data['user_id'])
+            serializer = SharedReportSerializer(shared_report_object, data = data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
+            else:
+                return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response('error', status=status.HTTP_401_UNAUTHORIZED)
+
     
     def remove_share(self, request):
 
         data = request.data
-        report = self.get_report_object(request, data['report_id'], request.user)
-        shared_report_object = SharedReport.objects.filter(report = report).get(user_id = data['user_id'])
+        shared_report_object = SharedReport.objects.filter(report = data['report_id']).filter(user_id = data['user_id'])
         shared_report_object.delete()
         return Response(status = status.HTTP_204_NO_CONTENT)
 
@@ -721,63 +760,157 @@ class SharedDashboards(viewsets.ViewSet):
 
     permission_classes = (permissions.IsAuthenticated&GridBackendShareDashboardPermissions,)
     authentication_classes = (GridBackendAuthentication,)
-    
-    def users_list(self,request):
-        try:
-            status = requests.post('{}/user/allUsers'.format(os.environ['GRID_API']), headers={'Authorization':'Bearer {}'.format(request.user.token)})
-            res_data = json.loads(status.text)['data']
-            out_data = []
-            if request.user.role == 'Developer':
-                out_data = [i for i in res_data if (i['role'] == 'Developer')]
-            if request.user.role == 'admin':
-                out_data = res_data
-            return Response(out_data, status=status.HTTP_200_OK)
-        except:
-            return Response('error', status=status.HTTP_400_BAD_REQUEST)
 
 
-    def get_report_object(self,request,report_id,user):
-        try:
-            return Report.objects.filter(organization_id=user.organization_id).filter(user=user.username).get(report_id=report_id)
-        except Report.DoesNotExist:
-            raise Http404
-    def get_object(self, request, dashboard_id, user):
-        try:
-            obj = Dashboard.objects.filter(organization_id = user.organization_id)
-            if self.check_object_permissions(self, request, obj):
-                return obj.filter(userId = user.username).get(dashboard_id = dashboard_id)
-            else:
-                return Response('Unauthorized', status = status.HTTP_401_UNAUTHORIZED)
-        except Dashboard.DoesNotExist:
-            raise Http404
+    def get_dashboard_object(self,dashboard_id):
+        obj = Dashboard.objects.filter(organization_id=self.request.user.organization_id).get(dashboard_id = dashboard_id)
+        # self.check_object_permissions(self.request, obj)
+        return obj
     
-    def dashboard_share(self, request):
-        
+    def get_shared_users(self,request):
         data = request.data
-        dashbaord = self.get_object(request,data['dashboard_id'], request.user)
+        dashboard = self.get_report_object(data['dashboard_id'])
+        shared_users = SharedDashboard.objects.select_related().filter(dashboard = dashboard)
+        serializer = SharedDashboardSerializer(shared_users, many=True)
+        return Response(data=serializer.data,status= status.HTTP_200_OK)
+    
+    # def users_list(self,request):
         
-        for c in data['user_id_list']:
-            data['view'] = True
-            if c['edit']:
-                data['edit'] = True
-            if c['delete']:
-                data['delete'] = True
-            share_serializer = SharedDashboardSerializer(data = data)
-            if share_serializer.is_valid():
-                share_serializer.save(dashbaord = dashbaord,shared_user_id = request.user.username, user_id = c['id'])
-                if share_serializer.data['edit'] or share_serializer.data['delete']: 
+    #     try:
+    #         data = json.dumps({ 'organization_id' : request.user.organization_id })
+    #         status = requests.post('{}/user/view'.format(os.environ['GRID_API']),headers={ 'Content-Type' : 'application/json' , 'Authorization':'Bearer {}'.format(request.user.token)},  data = data)
+    #         res_data = json.loads(status.text)['data']
+    #         return Response(res_data)
+    #     except:
+    #         return Response('error', status=status.HTTP_400_BAD_REQUEST)
 
-                    for x in dashbaord.report_set.all():
-                        report = self.get_report_object(request.user.organization_id, x.report_id, request.user)
-                        serializer = SharedReportSerializer(data=data)
-                        if serializer.is_valid():
-                            serializer.save(report = report, shared_user_id=request.user.username, user_id = c['id'])
-                        else:
-                            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            data['edit'] = False
-            data['delete'] = False
+    def list_users(self,request):
+        
+        try:
+            data = json.dumps({ 'organization_id' : request.user.organization_id })
+            status = requests.post('{}/user/view'.format(os.environ['GRID_API']),headers={ 'Content-Type' : 'application/json' , 'Authorization':'Bearer {}'.format(request.user.token)},  data = data)
+            # res_data = json.loads(status.text)['data']
+            return status.json()['data']
+        except:
+            return False
+
+    def get_dashboard_object_permissions(self,user,userlist,data):
+        print("user",user,"userlist",userlist)
+        for users in userlist:
+            if user == users['userid']:
+                if users['role'] == 'User':
+                    return data['view'] and not data['edit'] and not data['delete']
+                else:
+                    return True
+
+    def dashboard_share(self, request):
+
+        data = request.data
+        dashboard = self.get_dashboard_object(data['report_id'])
+        userlist = self.list_users(request)
+        for x in data['user_id_list']:
+            if self.get_dashboard_object_permissions(x,userlist,data):
+                data['view'] = True
+                if data['delete']:
+                    data['edit'] = True
+                data['shared_user_id'] = request.user.username
+                data['user_id'] = x
+                serializer = SharedDashboardSerializer(data=data)
+                if serializer.is_valid():
+                    serializer.save(report = report)
+                else:
+                    return Response('error', status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response('error', status=status.HTTP_401_UNAUTHORIZED)
+
         return Response('success', status = status.HTTP_201_CREATED)
-        return Response(share_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def edit_share(self, request):
+
+        data = request.data
+        data['view'] = True
+        if data['delete']:
+            data['edit'] = True
+        userlist = self.list_users(request)
+        dashboard = self.get_dashboard_object(data['report_id'])
+        if self.get_report_object_permissions(data['user_id'],userlist,data):
+            
+            shared_report_object = SharedDashboard.objects.filter(dashboard = dashboard).get(user_id = data['user_id'])
+            serializer = SharedDashboardSerializer(shared_report_object, data = data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
+            else:
+                return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response('error', status=status.HTTP_401_UNAUTHORIZED)
+
+
+        
+    
+    def remove_share(self, request):
+
+        data = request.data
+        shared_dashboard_object = SharedDashboard.objects.filter(dashboard = data['dashboard_id']).filter(user_id = data['user_id'])
+        shared_dashboard_object.delete()
+        return Response(status = status.HTTP_204_NO_CONTENT)
+    
+    # def users_list(self,request):
+    #     try:
+    #         status = requests.post('{}/user/allUsers'.format(os.environ['GRID_API']), headers={'Authorization':'Bearer {}'.format(request.user.token)})
+    #         res_data = json.loads(status.text)['data']
+    #         out_data = []
+    #         if request.user.role == 'Developer':
+    #             out_data = [i for i in res_data if (i['role'] == 'Developer')]
+    #         if request.user.role == 'admin':
+    #             out_data = res_data
+    #         return Response(out_data, status=status.HTTP_200_OK)
+    #     except:
+    #         return Response('error', status=status.HTTP_400_BAD_REQUEST)
+
+
+    # def get_report_object(self,request,report_id,user):
+    #     try:
+    #         return Report.objects.filter(organization_id=user.organization_id).filter(user=user.username).get(report_id=report_id)
+    #     except Report.DoesNotExist:
+    #         raise Http404
+    # def get_object(self, request, dashboard_id, user):
+    #     try:
+    #         obj = Dashboard.objects.filter(organization_id = user.organization_id)
+    #         if self.check_object_permissions(self, request, obj):
+    #             return obj.filter(userId = user.username).get(dashboard_id = dashboard_id)
+    #         else:
+    #             return Response('Unauthorized', status = status.HTTP_401_UNAUTHORIZED)
+    #     except Dashboard.DoesNotExist:
+    #         raise Http404
+    
+    # def dashboard_share(self, request):
+        
+    #     data = request.data
+    #     dashbaord = self.get_object(request,data['dashboard_id'], request.user)
+        
+    #     for c in data['user_id_list']:
+    #         data['view'] = True
+    #         if c['edit']:
+    #             data['edit'] = True
+    #         if c['delete']:
+    #             data['delete'] = True
+    #         share_serializer = SharedDashboardSerializer(data = data)
+    #         if share_serializer.is_valid():
+    #             share_serializer.save(dashbaord = dashbaord,shared_user_id = request.user.username, user_id = c['id'])
+    #             if share_serializer.data['edit'] or share_serializer.data['delete']: 
+
+    #                 for x in dashbaord.report_set.all():
+    #                     report = self.get_report_object(request.user.organization_id, x.report_id, request.user)
+    #                     serializer = SharedReportSerializer(data=data)
+    #                     if serializer.is_valid():
+    #                         serializer.save(report = report, shared_user_id=request.user.username, user_id = c['id'])
+    #                     else:
+    #                         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    #         data['edit'] = False
+    #         data['delete'] = False
+    #     return Response('success', status = status.HTTP_201_CREATED)
+    #     return Response(share_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class FilterList(viewsets.ViewSet):
 

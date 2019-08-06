@@ -15,7 +15,8 @@ urlpatterns = [
     url(r'^users_list/$',views.SharingReports.as_view({ 'get' : 'users_list' })),
     url(r'^report_shared_users/$', views.SharingReports.as_view({ 'post' : 'get_shared_users' })),
     url(r'^report_share_to/$', views.SharingReports.as_view({ 'post' : 'report_share', 'put' :  'edit_share', 'delete' : 'remove_share' })),
-    url(r'^dashboard_share_to/$', views.SharingReports.as_view({ 'post' : 'dashboard_share'})),
+    url(r'^dashboard_share_to/$', views.SharedDashboards.as_view({ 'post' : 'dashboard_share', 'put' :  'edit_share', 'delete' : 'remove_share' })),
+    url(r'^dashboard_shared_users/$', views.SharedDashboards.as_view({ 'post' : 'get_shared_users' })),
 ]
 
 urlpatterns += routers.urls

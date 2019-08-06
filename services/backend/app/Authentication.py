@@ -167,7 +167,7 @@ class GridBackendDashboardPermissions(permissions.BasePermission):
             if request.user.is_superuser or request.user.role == 'Developer':
                 return True
             else:
-                shared = Dashbaord.objects.filter(organization_id = request.user.organization_id).filter(shared__user_id__contains = request.user.username).exists()
+                shared = Dashboard.objects.filter(organization_id = request.user.organization_id).filter(shared__user_id__contains = request.user.username).exists()
                 return shared
         else:
             if request.user.is_superuser or request.user.role == 'Developer':
