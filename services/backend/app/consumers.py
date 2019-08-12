@@ -186,6 +186,7 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
         
         model_fields = []
         if r1.exists('{}.{}'.format(user.organization_id,dataset_id)) != 0:
+            print("data from redis")
             df = await sync_to_async(pickle.loads)(zlib.decompress(r1.get("{}.{}".format(user.organization_id,dataset_id))))
             model_fields = [(k.decode('utf8').replace("'", '"'),v.decode('utf8').replace("'", '"')) for k,v in r1.hgetall('{}.fields'.format(dataset_id)).items()]
 
@@ -236,6 +237,7 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                     }
                 with connections[user.organization_id].cursor() as cursor:
                     await database_sync_to_async(cursor.execute)('select SQL_NO_CACHE * from `{}`'.format(dataset_id))
+                    # print("cursor",cursor.description)
                     table_data = await sync_to_async(dictfetchall)(cursor)
                     table_model = get_model(dataset_id,Dataset._meta.app_label,cursor, 'READ')
                     model_fields = [(f.name, f.get_internal_type()) for f in table_model._meta.get_fields() if f.name is not 'id']
@@ -246,6 +248,7 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                 del connections[user.organization_id]
         
                 serializer_data = dynamic_serializer.data
+                # print("serialized data for dynamic model",serializer_data)
                 p = r.pipeline()
                 id_count = 0
                 for a in serializer_data:
@@ -260,10 +263,11 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                     data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
     
                 r.flushdb(True)
+            # print("data to dataframe",data)
             df = await sync_to_async(pd.DataFrame)(data)
             r1.setex("{}.{}".format(user.organization_id,dataset_id), EXPIRATION_SECONDS, zlib.compress( pickle.dumps(df)))
             r1.hmset('{}.fields'.format(dataset_id), { x[0] : x[1] for x in model_fields })
-        print("test model fields:",model_fields)
+        # print("test model fields:",model_fields)
         for x in model_fields:
             if x[0] not in df.columns:
                 # print(x[1])
@@ -308,6 +312,7 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                 tab_data = [{field['name']:value } for index,value in np.ndenumerate(data_frame)]
                 data['tableData'] = tab_data
                 serdata = json.dumps(data , cls=NumpyEncoder )
+                # serdata = data.tojson()
             
             else:
                 if group_by['type'] in ["DateTimeField","DateField"]:
@@ -871,6 +876,7 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
         try:
             report_type = data['type']
             df, model_fields= await self.dataFrameGenerate(data, self.scope['user'])
+            # df.to_csv("hell.csv")
             dict_fields = dict(model_fields)
             for fil in data['filters']:
                 if fil['activate']:
@@ -1447,9 +1453,9 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
             field = data['field']
             value = data['value']
             group_by = data['groupBy']
-            print("down")
+            # print("down")
             try:
-                print("hi")
+                # print("hi")
                 await self.graphDataGenerate(df,report_type, field, value, group_by)
             except Exception as e:
                 print(e)

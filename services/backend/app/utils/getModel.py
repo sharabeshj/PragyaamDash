@@ -70,7 +70,7 @@ def getColumns(name,cursor):
      #for local 
     cursor.execute("select column_name, data_type, character_maximum_length from information_schema.columns where table_schema = 'public' and table_name = '%s';" %(name))
     info = cursor.fetchall()
-    print(info)
+    print("inside getmodel info",info)
     fields = {}
     for item in info:
         fields[item[0]] = {'type' : item[1],'length' : item[2]}
@@ -84,7 +84,7 @@ def getColumnsRead(name,cursor):
     # cursor.execute("select column_name, data_type, character_maximum_length from information_schema.columns where table_schema = 'public' and table_name = '%s';" %(name))
     cursor.execute('DESCRIBE `{}`'.format(name))
     info = cursor.fetchall()
-    print(info)
+    print("inside getmodel,getcolumnsread info",info)
     fields = {}
     pattern = re.compile(r"\((\d+)\)")
     for item in info:
@@ -99,6 +99,7 @@ def getColumnsRead(name,cursor):
         else:
             item_type = item[1].split('(')[0]
             fields[item[0]] = { 'type' : item_type, 'length' : 0}
+    print("fields returned",fields)
     return fields
 
 def getColumnsCreate(name, cursor, sql):
