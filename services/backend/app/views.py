@@ -111,7 +111,7 @@ class DatasetViewSet(viewsets.GenericViewSet):
         255: 'GEOMETRY' }
 
     def convert(self,col):
-        if col in [15,249,250,251,252,253.254]: 
+        if col in [15,249,250,251,252,253,254]: 
             return 'CharField'
         elif col in [10,13,14] : 
             return 'DateField'
@@ -247,7 +247,7 @@ class DatasetViewSet(viewsets.GenericViewSet):
     def update(self, request,pk=None):
         data = request.data
         dataset = self.get_object()
-        user = request.userv
+        user = request.user
         data['organization_id'] = request.user.organization_id
         data['user'] = request.user.username
         serializer = self.get_serializer(dataset, data = data)
@@ -374,10 +374,11 @@ class DatasetViewSet(viewsets.GenericViewSet):
                 if x[1] == 'DateField':
                     df = df.astype({ x[0] : 'datetime64'})
                     df.fillna(arrow.get('01-01-1990').datetime)
-        # count = df.size
-        # df = df[int(request.GET['start']):int(request.GET['end'])+1]
+        if dataset.mode == 'SQL':
+            count = df.size
+            df = df[int(request.GET['start']):int(request.GET['end'])+1]
         
-        return Response({'data' : df.to_dict(orient='records'), 'length': count},status=status.HTTP_200_OK)
+        return Response({'data' : df.fillna('').to_dict(orient='records'), 'length': count},status=status.HTTP_200_OK)
         # return Response({'data' : df.dropna().to_json(), 'length': count},status=status.HTTP_200_OK)
         
 
@@ -527,12 +528,14 @@ class ReportViewSet(viewsets.GenericViewSet):
         return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
     
     def update(self,request,pk=None):
-
+        print("dataaa",request.data)
         data = request.data
         data['organization_id'] = request.user.organization_id
         data['user'] = request.user.user_alias
         data['userId'] = request.user.username
+        print("data",data)
         report = self.get_object()
+       
         serializer = ReportSerializer(report, data = data)
 
         if serializer.is_valid():
