@@ -133,7 +133,8 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
 
         await self.accept()
 
-    color_choices = ["#3e95cd", "#8e5ea2","#3cba9f","#e8c3b9","#c45850","#66FF66","#FB4D46", "#00755E", "#FFEB00", "#FF9933"]
+    # color_choices = ["#3e95cd", "#8e5ea2","#3cba9f","#e8c3b9","#c45850","#66FF66","#FB4D46", "#00755E", "#FFEB00", "#FF9933"]
+    color_choices = ["#4B9FD4","#FFD739","#00A86B","#EC6767","#F88747"]
 
     def get_object(self,dataset_id,user):
         try:
@@ -163,7 +164,7 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
             return (df >= value[0]) & (df <= value[1])
     
     def convert(self,col):
-        if col in [15,249,250,251,252,253.254]: 
+        if col in [15,249,250,251,252,253,254]: 
             return 'CharField'
         elif col in [10,13,14] : 
             return 'DateField'
@@ -1628,7 +1629,7 @@ class FilterConsumer(AsyncJsonWebsocketConsumer):
                         await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].max().tolist() })
                     if request_data['field_aggregate'] == 'Min':
                         await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].min().tolist() })
-                    if request_data['field_aggregate'] == 'Avg':
+                    if request_data['field_aggregate'] == 'Average':
                         await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].mean().tolist() })
                     if request_data['field_aggregate'] == 'Std_dev':
                         await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].std().tolist() })
