@@ -14,7 +14,8 @@ from app.serializers import (DatasetSerializer,
                                 FilterSerializer, 
                                 DashboardReportOptionsSerializer,
                                 SharedDashboardSerializer,
-                                PeriodicTaskSerializer)
+                                PeriodicTaskSerializer,
+                                DatasetUpdateSerializer)
 from app.utils import get_model,dictfetchall, getColumnList
 from app.tasks import datasetRefresh, load_data
 from app.Authentication import (GridBackendAuthentication,  
@@ -247,10 +248,18 @@ class DatasetViewSet(viewsets.GenericViewSet):
     def update(self, request,pk=None):
         data = request.data
         dataset = self.get_object()
+        print("id",dataset.dataset_id)
         user = request.user
         data['organization_id'] = request.user.organization_id
         data['user'] = request.user.username
-        serializer = self.get_serializer(dataset, data = data)
+        data['userId'] = request.user.username
+        required_fields = ['organization_id','user','userId','name','dataset_id','sql','mode','model','scheduler','last_refreshed_at']
+        dataupdate = {key:value for key,value in data.items() if key in required_fields}
+        serializer = DatasetUpdateSerializer(dataset, data = dataupdate)
+        # if serializer.is_valid():
+        #     serializer.save()
+        #     print(serializer.data)
+        #     return Response(serializer.data, status = status.HTTP_202_ACCEPTED) 
         if dataset.mode == 'VIZ':
             if serializer.is_valid():
                 serializer.save()
@@ -319,6 +328,7 @@ class DatasetViewSet(viewsets.GenericViewSet):
                 cursor.execute('select database_name from organizations where organization_id="{}";'.format(request.user.organization_id))
                 database_name = cursor.fetchone()
             model = dataset.get_django_model()
+            print("Model",model)
             model_fields = [(f.name, f.get_internal_type()) for f in model._meta.get_fields() if f.name is not 'id']
             r = redis.Redis(host='127.0.0.1', port=6379, db=0)
             try:
@@ -340,13 +350,15 @@ class DatasetViewSet(viewsets.GenericViewSet):
                     else:
                         data.append({k.decode('utf8').replace("'", '"'): v.decode('utf8').replace("'", '"') for k,v in r.hgetall('{}.{}.{}'.format(user.organization_id, dataset_id, str(x))).items()})
                     
-            # print("dictdata",data)
+            print("dictdata",data)
             count = r.dbsize()
             r.flushdb()  
             os.remove('/tmp/{}.rdb'.format(dataset_id))
             del(model)  
             df = pd.DataFrame(data)
-            # print("dataframe",df)
+            # if join columns in not having equal data the join returns null so here it is catched and sent as 204_NO_CONTENT
+            if df.empty:
+                return Response({"error":"empty datafarame"},status=status.HTTP_204_NO_CONTENT)
             r1.setex("{}.{}".format(user.organization_id,dataset_id), 600, zlib.compress( pickle.dumps(df)))
             if dataset.mode != 'SQL':
                 r1.hmset('{}.fields'.format(dataset_id), { x[0] : x[1] for x in model_fields })
@@ -377,6 +389,7 @@ class DatasetViewSet(viewsets.GenericViewSet):
         if dataset.mode == 'SQL':
             count = df.size
             df = df[int(request.GET['start']):int(request.GET['end'])+1]
+        print("size",df)
         
         return Response({'data' : df.fillna('').to_dict(orient='records'), 'length': count},status=status.HTTP_200_OK)
         # return Response({'data' : df.dropna().to_json(), 'length': count},status=status.HTTP_200_OK)

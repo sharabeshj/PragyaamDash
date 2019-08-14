@@ -47,6 +47,11 @@ class PeriodicTaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = PeriodicTask
         fields = '__all__'
+class DatasetUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Dataset
+        fields = '__all__'
+
 
 class DatasetSerializer(serializers.ModelSerializer):
 
@@ -55,7 +60,7 @@ class DatasetSerializer(serializers.ModelSerializer):
     joins = JoinSerializer(many=True, read_only = True)
     tables = TableSerializer(many=True,read_only=True)
     dataset_id = serializers.UUIDField(default = uuid.uuid4)
-    model = serializers.JSONField()
+    # model = serializers.JSONField()
 
     class Meta:
         model = Dataset
