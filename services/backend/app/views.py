@@ -15,7 +15,9 @@ from app.serializers import (DatasetSerializer,
                                 DashboardReportOptionsSerializer,
                                 SharedDashboardSerializer,
                                 PeriodicTaskSerializer,
-                                DatasetUpdateSerializer)
+                                DatasetUpdateSerializer,
+                                ReportUpdateSerializer,
+                                FilterUpdateSerializer)
 from app.utils import get_model,dictfetchall, getColumnList
 from app.tasks import datasetRefresh, load_data
 from app.Authentication import (GridBackendAuthentication,  
@@ -548,20 +550,38 @@ class ReportViewSet(viewsets.GenericViewSet):
         data['userId'] = request.user.username
         print("data",data)
         report = self.get_object()
+        required_fields = ['organization_id','dataset','worksheet','user','userId','report_id','data','last_updated_at']
+        dataupdate = {key:value for key,value in data.items() if key in required_fields}
+        serializer = ReportUpdateSerializer(report, data = dataupdate)
        
-        serializer = ReportSerializer(report, data = data)
+        # serializer = ReportSerializer(report, data = data)
 
         if serializer.is_valid():
             serializer.save()
             for x in data['filters']:
-                if x['filter_id'] == None and not Filter.objects.filter(organization_id=x['organization_id']).filter(filter_id = x['filter_id']).exists():
+                if 'filter_id' in x:
                     x['user'] = request.user.user_alias
                     x['organization_id'] = request.user.organization_id
+                    if x['filter_id'] != None and Filter.objects.filter(organization_id=x['organization_id']).filter(filter_id = x['filter_id']).exists():
+                        fil = Filter.objects.filter(organization_id=x['organization_id']).get(filter_id = x['filter_id'])
+                        print("x",x)
+                        filter_serializer = FilterUpdateSerializer(fil,data = x)
+                        if filter_serializer.is_valid():
+                            filter_serializer.save()
+                        else:
+                            return Response(filter_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+                else:                    
+                    x['user'] = request.user.user_alias
+                    x['organization_id'] = request.user.organization_id
+                    report = Report.objects.get(report_id=serializer.data['report_id'])
                     filter_serializer = FilterSerializer(data = x)
                     if filter_serializer.is_valid():
                         filter_serializer.save(report = report)
                     else:
                         return Response(filter_serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+                    return Response(serializer.data,status =  status.HTTP_202_ACCEPTED)
+                    
+
 
             return Response(serializer.data, status = status.HTTP_202_ACCEPTED)
         
