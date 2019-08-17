@@ -1661,6 +1661,18 @@ class FilterConsumer(AsyncJsonWebsocketConsumer):
                             await self.send(json.dumps({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].apply(lambda x: x.strftime('%-d %b %Y')).unique()},cls=NumpyEncoder))
                         if request_data['field_aggregate'] == 'Date&Time':
                             await self.send(json.dumps({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].apply(lambda x: x.strftime('%-d %b %Y %H %M %S')).unique()},cls=NumpyEncoder))
+                        if request_data['value_aggregate'] == 'Week Day':
+                            df['temp'] = pd.to_datetime(df[request_data['field']])
+                            data = df['temp'].map(lambda x: x.strftime('%a')).unique()
+                            await self.send(json.dumps({ 'type' : 'fieldOptions', 'data': data.tolist()}))
+                        if request_data['value_aggregate'] == 'Day of Month':
+                            df['temp'] = pd.to_datetime(df[request_data['field']])
+                            data = df['temp'].map(lambda x: x.strftime('%-d')).unique()
+                            await self.send(json.dumps({ 'type' : 'fieldOptions', 'data': data.tolist()}))
+                    if request_data['value_aggregate'] == 'Hour':
+                            df['temp'] = pd.to_datetime(df[request_data['field']])
+                            data = df['temp'].map(lambda x: x.strftime('%-H')).unique()
+                            await self.send(json.dumps({ 'type' : 'fieldOptions', 'data': data.tolist()}))
                 
 
             else:

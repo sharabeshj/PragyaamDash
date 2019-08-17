@@ -60,7 +60,7 @@ class DatasetSerializer(serializers.ModelSerializer):
     joins = JoinSerializer(many=True, read_only = True)
     tables = TableSerializer(many=True,read_only=True)
     dataset_id = serializers.UUIDField(default = uuid.uuid4)
-    # model = serializers.JSONField()
+    model = serializers.JSONField()
 
     class Meta:
         model = Dataset
@@ -92,6 +92,12 @@ class DynamicFieldsModelSerializer(serializers.ModelSerializer):
     class Meta:
         model = None
         fields = '__all__'
+class FilterUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Filter
+        fields = '__all__'
+
+
 
 class FilterSerializer(serializers.ModelSerializer):
 
@@ -105,6 +111,10 @@ class FilterSerializer(serializers.ModelSerializer):
         model = Filter
         fields = '__all__'
 
+class ReportUpdateSerializer(serializers.ModelSerializer):
+     class Meta:
+        model = Report
+        fields = ('organization_id','dataset','worksheet','user','userId','report_id','data','last_updated_at')
 
 class ReportSerializer(serializers.ModelSerializer):
 
