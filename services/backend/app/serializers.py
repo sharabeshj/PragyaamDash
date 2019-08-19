@@ -47,6 +47,11 @@ class PeriodicTaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = PeriodicTask
         fields = '__all__'
+class DatasetUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Dataset
+        fields = '__all__'
+
 
 class DatasetSerializer(serializers.ModelSerializer):
 
@@ -87,6 +92,12 @@ class DynamicFieldsModelSerializer(serializers.ModelSerializer):
     class Meta:
         model = None
         fields = '__all__'
+class FilterUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Filter
+        fields = '__all__'
+
+
 
 class FilterSerializer(serializers.ModelSerializer):
 
@@ -100,6 +111,10 @@ class FilterSerializer(serializers.ModelSerializer):
         model = Filter
         fields = '__all__'
 
+class ReportUpdateSerializer(serializers.ModelSerializer):
+     class Meta:
+        model = Report
+        fields = ('organization_id','dataset','worksheet','user','userId','report_id','data','last_updated_at')
 
 class ReportSerializer(serializers.ModelSerializer):
 

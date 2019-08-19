@@ -41,11 +41,26 @@ async def async_load_data(location,host,port,db):
     process = await asyncio.create_subprocess_shell(cmd='/home/ubuntu/grid_dashboarding/services/backend/env/bin/rdb --c protocol {} | redis-cli -h {} -p {} -n {} --pipe'.format(location,host,port,db))
     await process.wait()
 
+# class NumpyEncoder(json.JSONEncoder):
+#     def default(self, obj):
+#         if isinstance(obj, np.ndarray):
+#             return obj.tolist()
+#         return json.JSONEncoder.default(self, obj)
 class NumpyEncoder(json.JSONEncoder):
+    """ Special json encoder for numpy types """
+    #Changed the json encoder so that table generate will work properly
     def default(self, obj):
-        if isinstance(obj, np.ndarray):
+        if isinstance(obj, (np.int_, np.intc, np.intp, np.int8,
+            np.int16, np.int32, np.int64, np.uint8,
+            np.uint16, np.uint32, np.uint64)):
+            return int(obj)
+        elif isinstance(obj, (np.float_, np.float16, np.float32, 
+            np.float64)):
+            return float(obj)
+        elif isinstance(obj,(np.ndarray,)):
             return obj.tolist()
         return json.JSONEncoder.default(self, obj)
+
 
 class DatasetConsumer(AsyncJsonWebsocketConsumer):
 
@@ -118,7 +133,8 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
 
         await self.accept()
 
-    color_choices = ["#3e95cd", "#8e5ea2","#3cba9f","#e8c3b9","#c45850","#66FF66","#FB4D46", "#00755E", "#FFEB00", "#FF9933"]
+    # color_choices = ["#3e95cd", "#8e5ea2","#3cba9f","#e8c3b9","#c45850","#66FF66","#FB4D46", "#00755E", "#FFEB00", "#FF9933"]
+    color_choices = ["#4B9FD4","#FFD739","#00A86B","#EC6767","#F88747"]
 
     def get_object(self,dataset_id,user):
         try:
@@ -148,7 +164,7 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
             return (df >= value[0]) & (df <= value[1])
     
     def convert(self,col):
-        if col in [15,249,250,251,252,253.254]: 
+        if col in [15,249,250,251,252,253,254]: 
             return 'CharField'
         elif col in [10,13,14] : 
             return 'DateField'
@@ -294,7 +310,9 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                     df = df.astype({ x[0] : 'datetime64'})
                     df.fillna(arrow.get('01-01-1990').datetime)
         return df,model_fields
-       
+
+
+        
     async def tableGenerate(self,df,field,value=None,group_by=None):
         data = {
             'column':[],
@@ -311,7 +329,7 @@ class ReportGenerateConsumer(AsyncJsonWebsocketConsumer):
                 data_frame = df[field['name']].unique()
                 tab_data = [{field['name']:value } for index,value in np.ndenumerate(data_frame)]
                 data['tableData'] = tab_data
-                serdata = json.dumps(data , cls=NumpyEncoder )
+                serdata = json.dumps(data , cls=NumpyEncoder)
                 # serdata = data.tojson()
             
             else:
@@ -1611,7 +1629,7 @@ class FilterConsumer(AsyncJsonWebsocketConsumer):
                         await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].max().tolist() })
                     if request_data['field_aggregate'] == 'Min':
                         await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].min().tolist() })
-                    if request_data['field_aggregate'] == 'Avg':
+                    if request_data['field_aggregate'] == 'Average':
                         await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].mean().tolist() })
                     if request_data['field_aggregate'] == 'Std_dev':
                         await self.send_json({ 'type' : 'fieldOptions', 'data' : df.groupby(request_data['field'])[request_data['field']].std().tolist() })
@@ -1643,6 +1661,18 @@ class FilterConsumer(AsyncJsonWebsocketConsumer):
                             await self.send(json.dumps({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].apply(lambda x: x.strftime('%-d %b %Y')).unique()},cls=NumpyEncoder))
                         if request_data['field_aggregate'] == 'Date&Time':
                             await self.send(json.dumps({ 'type' : 'fieldOptions', 'data' : df[request_data['field']].apply(lambda x: x.strftime('%-d %b %Y %H %M %S')).unique()},cls=NumpyEncoder))
+                        if request_data['value_aggregate'] == 'Week Day':
+                            df['temp'] = pd.to_datetime(df[request_data['field']])
+                            data = df['temp'].map(lambda x: x.strftime('%a')).unique()
+                            await self.send(json.dumps({ 'type' : 'fieldOptions', 'data': data.tolist()}))
+                        if request_data['value_aggregate'] == 'Day of Month':
+                            df['temp'] = pd.to_datetime(df[request_data['field']])
+                            data = df['temp'].map(lambda x: x.strftime('%-d')).unique()
+                            await self.send(json.dumps({ 'type' : 'fieldOptions', 'data': data.tolist()}))
+                    if request_data['value_aggregate'] == 'Hour':
+                            df['temp'] = pd.to_datetime(df[request_data['field']])
+                            data = df['temp'].map(lambda x: x.strftime('%-H')).unique()
+                            await self.send(json.dumps({ 'type' : 'fieldOptions', 'data': data.tolist()}))
                 
 
             else:
