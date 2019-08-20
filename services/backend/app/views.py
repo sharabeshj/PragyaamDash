@@ -1,6 +1,9 @@
 from django.shortcuts import render
 
-from app.models import Dataset,Field,Setting,Table,Join,Report, Dashboard, SharedDashboard, SharedReport, Filter
+from app.models import (Dataset,Field,Setting,
+                                Table,Join,Report, Dashboard, 
+                                SharedDashboard, SharedReport,
+                                Filter,DashboardReportOptions)
 from app.serializers import (DatasetSerializer,
                                 FieldSerializer,
                                 SettingSerializer,
@@ -17,7 +20,8 @@ from app.serializers import (DatasetSerializer,
                                 PeriodicTaskSerializer,
                                 DatasetUpdateSerializer,
                                 ReportUpdateSerializer,
-                                FilterUpdateSerializer)
+                                FilterUpdateSerializer,
+                                DashboardUpdateSerializer)
 from app.utils import get_model,dictfetchall, getColumnList
 from app.tasks import datasetRefresh, load_data
 from app.Authentication import (GridBackendAuthentication,  
@@ -621,16 +625,26 @@ class DashboardViewSet(viewsets.GenericViewSet):
         except Report.DoesNotExist:
             raise Http404
 
-    def get_dashboard_report_options_objects(self, dashboard, user):
+    # def get_dashboard_report_options_objects(self, dashboard, reports):
+    #     try:
+    #         report_id_list =[ x['report_id'] for x in reports]
+    #         return DashboardReportOptions.objects.filter(dashboard = dashboard).filter(report__in = report_id_list)
+    #     except DashboardReportOptions.DoesNotExist:
+    #         raise Http404
+    def update_report_list(self,reports,dashboard_id):
         try:
-            return DashboardReportOption.objects.filter(organization_id = user.organization_id).filter(dashboard = dashboard)
-        except DashboardReportOption.DoesNotExist:
+            reports_dashboard = DashboardReportOptions.objects.filter(dashboard = dashboard_id)
+            report_ids_dashboard = [str(x.report_id) for x in reports_dashboard]
+            reports_for_update = [x for x in reports if x['report_id'] not in report_ids_dashboard]
+            return reports_for_update
+        except DashboardReportOptions.DoesNotExist:
             raise Http404
+
 
     def get_dashboard_report_options_object(self,dashboard_id, report_id):
         try:
-            return DashboardReportOption.objects.filter(dashboard = dashboard_id).get(report_id = report_id)
-        except DashboardreportOptions.DoesNotExist:
+            return DashboardReportOptions.objects.filter(dashboard = dashboard_id).get(report = report_id)
+        except DashboardReportOptions.DoesNotExist:
             raise Http404
 
 
@@ -669,13 +683,17 @@ class DashboardViewSet(viewsets.GenericViewSet):
         data['user'] = request.user.user_alias
         data['userId'] = request.user.username
         dashboard = self.get_object()
-        serializer = self.get_serializer(dashboard,data=data)
+        serializer = DashboardUpdateSerializer(dashboard,data=data)
+        reports_for_update = self.update_report_list(data['reports'],dashboard.dashboard_id)
+        reports = self.get_report_objects(request.user, data['reports'])
 
         if serializer.is_valid():
-            for x in self.get_dashboard_report_options_objects(dashboard, request.user):
-                dashboard_report_serializer = DashboardReportOptionsSerializer(x, data = data['reports'])
+            serializer.save(reports = reports)
+            for x in reports_for_update:
+                report = self.get_report_object(x['report_id'],request.user)
+                dashboard_report_serializer = DashboardReportOptionsSerializer(data = x['dashReportOptions'])
                 if dashboard_report_serializer.is_valid():
-                    dashboard_report_serializer.save()
+                    dashboard_report_serializer.save(report = report, dashboard=dashboard)
             for f in data['dashReportFilters']:
                 f['user'] = request.user.user_alias
                 f['organization_id'] = request.user.organization_id

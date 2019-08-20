@@ -158,6 +158,18 @@ class SharedDashboardSerializer(serializers.ModelSerializer):
         fields = ('dashboard', 'shared_user_id', 'user_id', 'view', 'edit', 'delete')
 
 
+
+class DashboardUpdateSerializer(serializers.ModelSerializer):
+    reports = ReportSerializer(many=True, read_only=True)
+    dashboard_report_options = DashboardReportOptionsSerializer(many=True, read_only = True)
+    shared_users = SharedDashboardSerializer(many=True,read_only = True)
+    description = serializers.JSONField()
+    filters = FilterSerializer(many=True, read_only=True)
+    class Meta:
+        model = Dashboard
+        fields = '__all__'
+
+
 class DashboardSerializer(serializers.ModelSerializer):
 
     dashboard_id = serializers.UUIDField(default = uuid.uuid4)
