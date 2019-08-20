@@ -197,7 +197,7 @@ class GridBackendDashboardPermissions(permissions.BasePermission):
         elif request.method == 'DELETE':
             
             if request.user.is_superuser:
-                True
+                return True
             elif request.user.role == 'Developer':
                 if obj.filter(user = request.user.username).exists():
                     return True
