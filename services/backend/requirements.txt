@@ -39,7 +39,7 @@ jmespath==0.9.4
 kombu==4.6.0
 msgpack==0.6.1
 mysqlclient==1.4.2.post1
-numpy==1.16.3
+numpy==1.22.0
 pandas==0.24.2
 pycparser==2.19
 PyHamcrest==1.9.0
